@@ -1,0 +1,70 @@
+
+import 'dart:io';
+import 'package:expense_tracker_app/models/expense_model.dart';
+import 'package:path/path.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:sqflite/sqflite.dart';
+
+class DatabaseConnection{
+  static Database? _db;
+
+  Future<Database> getDB()async{
+    if(_db!=null){
+      return _db!;
+    }
+    else{
+      _db = await initDB();
+      return _db!;
+    }
+  }
+
+  Future<Database> initDB()async{
+   Directory dir = await getApplicationDocumentsDirectory();
+   final path = join(dir.path,'ExpenseDB.db');
+   return openDatabase(
+     path,
+     version: 1,
+     onCreate: _createTable
+   );
+  }
+
+  Future<void> _createTable(Database db, int version)async{
+    await db.execute(
+      '''
+      CREATE TABLE expenses(
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       title TEXT,
+       amount REAL,
+       category TEXT,
+       date TEXT
+      )
+      '''
+    );
+  }
+
+  Future<int> insertExpense(ExpenseModel expense)async{
+    final db = await getDB();
+    return db.insert('expenses', expense.toMap(),conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<ExpenseModel>> getAllExpenses({int offset = 0, int limit = 10})async{
+    final db = await getDB();
+    List<Map<String,dynamic>> data = await db.query('expenses',orderBy: 'id DESC',offset: offset, limit: limit);
+    return data.map((i)=>ExpenseModel.fromMap(i)).toList();
+  }
+
+  Future<int> updateExpenses(ExpenseModel expense)async{
+    final db = await getDB();
+    return db.update('expenses', expense.toMap(), where: 'id = ?', whereArgs: [expense.id]);
+  }
+
+  Future<int> deleteExpenses(int id)async{
+    final db = await getDB();
+    return db.delete('expenses',where: 'id=?', whereArgs: [id]);
+  }
+
+  Future<void> closeDB()async{
+    final db = await getDB();
+    db.close();
+  }
+}
