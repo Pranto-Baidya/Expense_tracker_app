@@ -7,12 +7,14 @@ final expenseProvider = StateNotifierProvider<ExpenseNotifier,ExpenseState>((ref
 
 class ExpenseState{
   final List<ExpenseModel> expenses;
+  final List<ExpenseModel> filteredRecord;
   final bool isLoading;
   final bool hasMore;
   final int offset;
 
   ExpenseState({
     this.expenses = const [],
+    this.filteredRecord = const [],
     this.isLoading = false,
     this.hasMore = true,
     this.offset = 0
@@ -20,12 +22,14 @@ class ExpenseState{
 
   ExpenseState copyWith({
     List<ExpenseModel>? expenses,
+    List<ExpenseModel>? filteredRecord,
     bool? isLoading,
     bool? hasMore,
     int? offset
   }){
     return ExpenseState(
       expenses: expenses ?? this.expenses,
+      filteredRecord: filteredRecord ?? this.filteredRecord,
       isLoading: isLoading ?? this.isLoading,
       hasMore: hasMore ?? this.hasMore,
       offset: offset ?? this.offset
@@ -70,7 +74,20 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     );
 
     state = state.copyWith(expenses: [newExpense,...state.expenses]);
+    _autoFilter();
   }
+
+  void _autoFilter() {
+    final selectedMonth = DateTime.now();
+    final filtered = state.expenses.where((item) {
+      final expenseDate = DateTime.parse(item.date);
+      return expenseDate.year == selectedMonth.year &&
+          expenseDate.month == selectedMonth.month;
+    }).toList();
+
+    state = state.copyWith(filteredRecord: filtered);
+  }
+
 
   Future<void> updateExpense(ExpenseModel expense)async{
     await databaseConnection.updateExpenses(expense);
@@ -78,6 +95,7 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     state = state.copyWith(
       expenses: state.expenses.map((e)=>e.id==expense.id? expense : e).toList()
     );
+    _autoFilter();
   }
 
   Future<void> deleteExpense(int id)async{
@@ -85,10 +103,16 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     state = state.copyWith(
       expenses: state.expenses.where((e)=>e.id!=id).toList()
     );
+    _autoFilter();
   }
 
-  Future<void> refreshExpenseRecord()async{
-    state = ExpenseState();
-    await getExpenses();
+  void filterRecordsByMonth(DateTime selectedTime) {
+    final filtered = state.expenses.where((item) {
+      final expenseDate = DateTime.parse(item.date);
+      return expenseDate.year == selectedTime.year &&
+          expenseDate.month == selectedTime.month;
+    }).toList();
+
+    state = state.copyWith(filteredRecord: filtered);
   }
 }

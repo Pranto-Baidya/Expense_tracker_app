@@ -53,6 +53,7 @@ class DatabaseConnection{
     return data.map((i)=>ExpenseModel.fromMap(i)).toList();
   }
 
+
   Future<int> updateExpenses(ExpenseModel expense)async{
     final db = await getDB();
     return db.update('expenses', expense.toMap(), where: 'id = ?', whereArgs: [expense.id]);

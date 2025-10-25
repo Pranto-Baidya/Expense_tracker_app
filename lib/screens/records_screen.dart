@@ -8,6 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
+
+import '../widgets/balace_dashboard.dart';
 
 final categoryProvider = StateProvider<String>((ref)=>'Personal');
 final categorySelectionProvider = StateProvider<bool>((ref)=>false);
@@ -15,14 +18,16 @@ final checkTypingProvider = StateProvider<bool>((ref)=>false);
 final currencyProvider = StateProvider<String>((ref)=>'\$');
 final editingProvider = StateProvider<bool>((ref)=>false);
 
-class Home extends ConsumerStatefulWidget {
-  const Home({super.key});
+final selectedMonthProvider = StateProvider<DateTime>((ref)=>DateTime.now());
+
+class RecordsScreen extends ConsumerStatefulWidget {
+  const RecordsScreen({super.key});
 
   @override
   _HomeState createState() => _HomeState();
 }
 
-class _HomeState extends ConsumerState<Home> {
+class _HomeState extends ConsumerState<RecordsScreen> {
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
@@ -30,17 +35,17 @@ class _HomeState extends ConsumerState<Home> {
   final TextEditingController _editTitleController = TextEditingController();
   final TextEditingController _editAmountController = TextEditingController();
 
-
   @override
   void initState() {
-    WidgetsBinding.instance.addPostFrameCallback((_){
-      ref.read(expenseProvider.notifier).getExpenses();
-    });
-    _titleController.addListener(()=>checkTyping(ref));
-    _amountController.addListener(()=>checkTyping(ref));
-
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(expenseProvider.notifier).getExpenses();
+
+      final selectedDate = ref.read(selectedMonthProvider);
+      ref.read(expenseProvider.notifier).filterRecordsByMonth(selectedDate);
+    });
   }
+
 
   @override
   void dispose() {
@@ -140,6 +145,7 @@ class _HomeState extends ConsumerState<Home> {
                                     date: DateTime.now().toIso8601String()
                                 )
                             );
+                            ref.read(expenseProvider.notifier).filterRecordsByMonth(ref.read(selectedMonthProvider));
                             Navigator.pop(context);
                           },
                           title: 'Add Expense'
@@ -253,6 +259,8 @@ class _HomeState extends ConsumerState<Home> {
 
                       ref.read(editingProvider.notifier).state = false;
                       ref.read(checkTypingProvider.notifier).state = false;
+
+                      ref.read(expenseProvider.notifier).filterRecordsByMonth(ref.read(selectedMonthProvider));
                       Navigator.pop(context);
                     },
                     title: 'Edit expense',
@@ -287,6 +295,7 @@ class _HomeState extends ConsumerState<Home> {
               TextButton(
                   onPressed: (){
                     ref.read(expenseProvider.notifier).deleteExpense(id);
+                    ref.read(expenseProvider.notifier).filterRecordsByMonth(ref.read(selectedMonthProvider));
                     Navigator.pop(context);
                   },
                   child: Text('Delete',style: Theme.of(context).textTheme.titleMedium,)
@@ -333,88 +342,69 @@ class _HomeState extends ConsumerState<Home> {
 
     final selectedCurrency = ref.watch(currencyProvider);
 
+    final dateState = ref.watch(selectedMonthProvider);
+    final dateNotifier = ref.read(selectedMonthProvider.notifier);
+
+    final expenseList = expenseState.filteredRecord;
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: CustomAppbar(
-          title: 'ExpenseMate',
-          action: [
-            Padding(
-              padding: const EdgeInsets.only(right: 30),
-              child: Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      "Change currency:  ",
-                      style: theme.textTheme.titleSmall,
-                    ),
-                    DropdownButton<String>(
-                      dropdownColor: theme.dropdownMenuTheme.menuStyle?.backgroundColor?.resolve(({})),
-                      value: selectedCurrency,
-                      underline: const SizedBox(),
-                      items: currencies.map((cr) {
-                        return DropdownMenuItem(
-                          value: cr,
-                          child: Center(
-                            child: Text(
-                              cr, style: theme.textTheme.titleMedium,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        ref.read(currencyProvider.notifier).state = value!;
-                      },
-                    ),
-                  ],
-                ),
-              ),
-            )
-
+      body: Column(
+          children: [
+            BalanceDashboard(
+                theme: theme,
+                dateNotifier: dateNotifier,
+                dateState: dateState,
+                selectedCurrency: selectedCurrency
+            ),
+            SizedBox(height: 10.h,),
+            if(expenseList.isEmpty)
+              Center(child: Text('No records yet'),),
+            NotificationListener<ScrollNotification>(
+                onNotification: (scrollInfo){
+                  if(scrollInfo.metrics.pixels>=scrollInfo.metrics.maxScrollExtent-100 && !expenseState.isLoading && expenseState.hasMore){
+                    expenseNotifier.getExpenses();
+                  }
+                  return false;
+                },
+                child: Expanded(
+                  child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: expenseList.length + (expenseState.hasMore? 1 : 0),
+                      itemBuilder: (context,index){
+                        if(index<expenseList.length){
+                          final data = expenseList[index];
+                           return ExpenseTile(
+                               icon: icons(data.category),
+                               expenseModel: data,
+                               currency: selectedCurrency,
+                               onEdit: (){
+                                 editExpenseDialogue(data);
+                               },
+                               onDelete: (){
+                                 deleteAlert(data.id!);
+                               },
+                           );
+                        }
+                        else{
+                          return expenseState.hasMore? Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Center(child: CircularProgressIndicator(),),
+                          ):SizedBox.shrink();
+                        }
+                      }
+                  ),
+                )
+            ),
           ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: ()=> expenseNotifier.refreshExpenseRecord(),
-        child: NotificationListener<ScrollNotification>(
-            onNotification: (scrollInfo){
-              if(scrollInfo.metrics.pixels>=scrollInfo.metrics.maxScrollExtent-100 && !expenseState.isLoading && expenseState.hasMore){
-                expenseNotifier.getExpenses();
-              }
-              return false;
-            },
-            child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: expenseState.expenses.length + (expenseState.hasMore? 1 : 0),
-                itemBuilder: (context,index){
-                  if(index<expenseState.expenses.length){
-                    final data = expenseState.expenses[index];
-                     return ExpenseTile(
-                         icon: icons(data.category),
-                         expenseModel: data,
-                         currency: selectedCurrency,
-                         onEdit: (){
-                           editExpenseDialogue(data);
-                         },
-                         onDelete: (){
-                           deleteAlert(data.id!);
-                         },
-                     );
-                  }
-                  else{
-                    return expenseState.hasMore? Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Center(child: CircularProgressIndicator(),),
-                    ):SizedBox.shrink();
-                  }
-                }
-            )
         ),
-      ),
+      drawer: Drawer(),
       floatingActionButton: FloatingActionButton(
           onPressed: addExpenseDialogue,
           backgroundColor: theme.colorScheme.primary,
-          child: Icon(Icons.add,color: Colors.white),
+          child: Icon(Icons.add,color: Colors.white,size: 30,),
       ),
     );
   }
 }
+
+

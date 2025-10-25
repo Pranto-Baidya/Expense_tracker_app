@@ -7,7 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 class CustomAppbar extends ConsumerWidget implements PreferredSizeWidget {
   final String title;
   final List<Widget>? action;
-  const CustomAppbar({required this.title,this.action, super.key});
+  final double? toolbarHeight;
+  const CustomAppbar({required this.title,this.action, this.toolbarHeight=kToolbarHeight,super.key});
 
   @override
   Widget build(BuildContext context,WidgetRef ref) {
@@ -15,14 +16,15 @@ class CustomAppbar extends ConsumerWidget implements PreferredSizeWidget {
     return AppBar(
       title: Text(title,style: theme.textTheme.headlineSmall?.copyWith(color: theme.colorScheme.primary),),
       centerTitle: false,
-      toolbarHeight: 55,
+      titleSpacing: 0,
+      toolbarHeight: toolbarHeight ?? 55,
       elevation: 0,
       scrolledUnderElevation: 0,
       backgroundColor: theme.appBarTheme.backgroundColor,
       iconTheme: theme.iconTheme,
       actions: action,
       systemOverlayStyle: SystemUiOverlayStyle(
-        systemNavigationBarColor: Colors.transparent,
+        systemNavigationBarColor: theme.bottomNavigationBarTheme.backgroundColor,
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark
       ),
@@ -30,5 +32,10 @@ class CustomAppbar extends ConsumerWidget implements PreferredSizeWidget {
   }
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Size get preferredSize {
+    if(toolbarHeight!=null) {
+      return Size.fromHeight(toolbarHeight!);
+    }
+    return Size.fromHeight(kToolbarHeight);
+    }
 }

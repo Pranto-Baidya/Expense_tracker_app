@@ -1,4 +1,5 @@
-import 'package:expense_tracker_app/screens/home_screen.dart';
+import 'package:expense_tracker_app/screens/all_screens.dart';
+import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:expense_tracker_app/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -20,7 +21,7 @@ class MyApp extends ConsumerWidget {
       builder: (context,_){
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          home: Home(),
+          home: AllScreens(),
           theme: lightTheme,
           darkTheme: darkTheme,
         );
