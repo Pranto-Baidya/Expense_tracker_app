@@ -1,9 +1,15 @@
 
 import 'package:expense_tracker_app/database/db_connection.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
+import 'package:expense_tracker_app/screens/records_screen.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
-final expenseProvider = StateNotifierProvider<ExpenseNotifier,ExpenseState>((ref)=>ExpenseNotifier());
+final totalExpenseProvider = StateProvider<double>((ref)=>0);
+final totalIncomeProvider = StateProvider<double>((ref)=>0);
+
+final expenseProvider = StateNotifierProvider<ExpenseNotifier,ExpenseState>((ref)=>ExpenseNotifier(ref));
 
 class ExpenseState{
   final List<ExpenseModel> expenses;
@@ -11,28 +17,37 @@ class ExpenseState{
   final bool isLoading;
   final bool hasMore;
   final int offset;
+  final DateTime? selectedDate;
+  final TimeOfDay? selectedTime;
 
   ExpenseState({
     this.expenses = const [],
     this.filteredRecord = const [],
     this.isLoading = false,
     this.hasMore = true,
-    this.offset = 0
-  });
+    this.offset = 0,
+    DateTime? selectedDate,
+    TimeOfDay? selectedTime
+  }):selectedDate = selectedDate ?? DateTime.now(),
+     selectedTime = selectedTime ?? TimeOfDay.now();
 
   ExpenseState copyWith({
     List<ExpenseModel>? expenses,
     List<ExpenseModel>? filteredRecord,
     bool? isLoading,
     bool? hasMore,
-    int? offset
+    int? offset,
+    DateTime? selectedDate,
+    TimeOfDay? selectedTime
   }){
     return ExpenseState(
       expenses: expenses ?? this.expenses,
       filteredRecord: filteredRecord ?? this.filteredRecord,
       isLoading: isLoading ?? this.isLoading,
       hasMore: hasMore ?? this.hasMore,
-      offset: offset ?? this.offset
+      offset: offset ?? this.offset,
+      selectedDate: selectedDate ?? this.selectedDate,
+      selectedTime: selectedTime ?? this.selectedTime
     );
   }
 }
@@ -41,7 +56,9 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
 
   final DatabaseConnection databaseConnection = DatabaseConnection();
 
-  ExpenseNotifier() : super(ExpenseState());
+  final Ref _ref;
+
+  ExpenseNotifier(this._ref) : super(ExpenseState());
 
   final _limit = 10;
 
@@ -59,6 +76,9 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
       hasMore: newExpenses.length == _limit,
       isLoading: false
     );
+
+    filterRecordsByMonth(state.selectedDate!, state.selectedTime!);
+
   }
 
   Future<void> insertExpense(ExpenseModel expense)async{
@@ -70,22 +90,14 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
         title: expense.title,
         amount: expense.amount,
         category: expense.category,
-        date: expense.date
+        date: expense.date,
+        time: expense.time
     );
 
     state = state.copyWith(expenses: [newExpense,...state.expenses]);
-    _autoFilter();
-  }
-
-  void _autoFilter() {
-    final selectedMonth = DateTime.now();
-    final filtered = state.expenses.where((item) {
-      final expenseDate = DateTime.parse(item.date);
-      return expenseDate.year == selectedMonth.year &&
-          expenseDate.month == selectedMonth.month;
-    }).toList();
-
-    state = state.copyWith(filteredRecord: filtered);
+    if (state.selectedDate != null && state.selectedTime!=null) {
+      filterRecordsByMonth(expense.date,expense.time);
+    }
   }
 
 
@@ -95,7 +107,9 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     state = state.copyWith(
       expenses: state.expenses.map((e)=>e.id==expense.id? expense : e).toList()
     );
-    _autoFilter();
+    if (state.selectedDate != null && state.selectedTime!=null) {
+      filterRecordsByMonth(expense.date,expense.time);
+    }
   }
 
   Future<void> deleteExpense(int id)async{
@@ -103,16 +117,51 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     state = state.copyWith(
       expenses: state.expenses.where((e)=>e.id!=id).toList()
     );
-    _autoFilter();
+    if (state.selectedDate != null && state.selectedTime!=null) {
+      filterRecordsByMonth(state.selectedDate!,state.selectedTime!);
+    }
   }
 
-  void filterRecordsByMonth(DateTime selectedTime) {
+  void filterRecordsByMonth(DateTime selectedDate, TimeOfDay selectedTime) {
     final filtered = state.expenses.where((item) {
-      final expenseDate = DateTime.parse(item.date);
-      return expenseDate.year == selectedTime.year &&
-          expenseDate.month == selectedTime.month;
+      final expenseDate = item.date;
+      return expenseDate.year == selectedDate.year && expenseDate.month == selectedDate.month;
     }).toList();
 
-    state = state.copyWith(filteredRecord: filtered);
+    state = state.copyWith(
+      selectedDate: selectedDate,
+      filteredRecord: filtered,
+    );
+
+    _calculateTotals();
   }
+
+  void _calculateTotals(){
+    double totalExpense = 0;
+    double totalIncome = 0;
+
+    for(var exp in state.filteredRecord){
+      switch(exp.moneyType){
+        case MoneyType.expense:
+          totalExpense+=exp.amount;
+        case MoneyType.income:
+          totalIncome+=exp.amount;
+      }
+    }
+    _ref.read(totalExpenseProvider.notifier).state = totalExpense;
+    _ref.read(totalIncomeProvider.notifier).state = totalIncome;
+  }
+
+  Future<void> refreshExpenses() async {
+    state = state.copyWith(
+      expenses: [],
+      filteredRecord: [],
+      offset: 0,
+      hasMore: true,
+    );
+    await getExpenses();
+  }
+
+
+
 }

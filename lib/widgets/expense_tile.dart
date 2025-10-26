@@ -68,7 +68,7 @@ class ExpenseTile extends StatelessWidget {
               borderRadius: BorderRadius.circular(15.r),
             ),
             contentPadding: EdgeInsets.all(10),
-            leading: Icon(icon, color: theme.iconTheme.color),
+            leading: Icon(icon, color: theme.iconTheme.color,size: 30,),
             title: Text(
               expenseModel.title,
               style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w400),

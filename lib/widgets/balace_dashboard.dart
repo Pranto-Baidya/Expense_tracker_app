@@ -1,4 +1,5 @@
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
+import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,21 +8,27 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 class BalanceDashboard extends ConsumerWidget {
+  final ThemeData theme;
+  final StateController<DateTime> dateNotifier;
+  final StateController<TimeOfDay> timeNotifier;
+  final DateTime dateState;
+  final TimeOfDay timeState;
+  final String selectedCurrency;
+
   const BalanceDashboard({
     super.key,
     required this.theme,
     required this.dateNotifier,
+    required this.timeNotifier,
     required this.dateState,
+    required this.timeState,
     required this.selectedCurrency,
   });
 
-  final ThemeData theme;
-  final StateController<DateTime> dateNotifier;
-  final DateTime dateState;
-  final String selectedCurrency;
-
   @override
   Widget build(BuildContext context,WidgetRef ref) {
+    final totalExpenseState = ref.watch(totalExpenseProvider);
+    final totalIncomeState = ref.watch(totalIncomeProvider);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 15.w),
       child: Container(
@@ -48,7 +55,7 @@ class BalanceDashboard extends ConsumerWidget {
                     IconButton(
                         onPressed: (){
                           dateNotifier.state = DateTime(dateNotifier.state.year,dateNotifier.state.month-1);
-                          ref.read(expenseProvider.notifier).filterRecordsByMonth(dateNotifier.state);
+                          ref.read(expenseProvider.notifier).filterRecordsByMonth(dateNotifier.state,timeNotifier.state);
                         },
                         icon: Icon(Icons.keyboard_double_arrow_left,color: theme.iconTheme.color,size: 30,)
                     ),
@@ -56,7 +63,7 @@ class BalanceDashboard extends ConsumerWidget {
                     IconButton(
                         onPressed: (){
                           dateNotifier.state = DateTime(dateNotifier.state.year,dateNotifier.state.month+1);
-                          ref.read(expenseProvider.notifier).filterRecordsByMonth(dateNotifier.state);
+                          ref.read(expenseProvider.notifier).filterRecordsByMonth(dateNotifier.state,timeNotifier.state);
                         },
                         icon: Icon(Icons.keyboard_double_arrow_right,color: theme.iconTheme.color,size: 30,)
                     ),
@@ -81,8 +88,8 @@ class BalanceDashboard extends ConsumerWidget {
                           ),
                           SizedBox(height: 5.h),
                           Text(
-                            '- $selectedCurrency ${45}',
-                            style: theme.textTheme.titleLarge?.copyWith(
+                            '-$selectedCurrency$totalExpenseState',
+                            style: theme.textTheme.titleMedium?.copyWith(
                               color: Colors.red,
                               fontWeight: FontWeight.bold,
                             ),
@@ -99,8 +106,8 @@ class BalanceDashboard extends ConsumerWidget {
                           ),
                           SizedBox(height: 5.h),
                           Text(
-                            '+ $selectedCurrency ${45}',
-                            style: theme.textTheme.titleLarge?.copyWith(
+                            '+$selectedCurrency$totalIncomeState',
+                            style: theme.textTheme.titleMedium?.copyWith(
                               color: Colors.green,
                               fontWeight: FontWeight.bold,
                             ),
@@ -117,8 +124,8 @@ class BalanceDashboard extends ConsumerWidget {
                           ),
                           SizedBox(height: 5.h),
                           Text(
-                            '= $selectedCurrency ${45}',
-                            style: theme.textTheme.titleLarge?.copyWith(
+                            '$selectedCurrency${45}',
+                            style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
                             textAlign: TextAlign.center,

@@ -23,8 +23,16 @@ class DatabaseConnection{
    final path = join(dir.path,'ExpenseDB.db');
    return openDatabase(
      path,
-     version: 1,
-     onCreate: _createTable
+     version: 3,
+     onCreate: _createTable,
+     onUpgrade: (db,oldVersion, newVersion)async{
+       if(oldVersion<2){
+         await db.execute('ALTER TABLE expenses ADD COLUMN time TEXT');
+       }
+       if(oldVersion<3){
+         await db.execute('ALTER TABLE expenses ADD COLUMN moneyType TEXT DEFAULT "expense"');
+       }
+     }
    );
   }
 
@@ -36,7 +44,9 @@ class DatabaseConnection{
        title TEXT,
        amount REAL,
        category TEXT,
-       date TEXT
+       date TEXT,
+       time TEXT,
+       moneyType TEXT
       )
       '''
     );
@@ -52,7 +62,6 @@ class DatabaseConnection{
     List<Map<String,dynamic>> data = await db.query('expenses',orderBy: 'id DESC',offset: offset, limit: limit);
     return data.map((i)=>ExpenseModel.fromMap(i)).toList();
   }
-
 
   Future<int> updateExpenses(ExpenseModel expense)async{
     final db = await getDB();

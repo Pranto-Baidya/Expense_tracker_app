@@ -1,8 +1,9 @@
+import 'dart:math';
+
 import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
-import 'package:expense_tracker_app/widgets/custom_appbar.dart';
 import 'package:expense_tracker_app/widgets/expense_tile.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -12,13 +13,16 @@ import 'package:intl/intl.dart';
 
 import '../widgets/balace_dashboard.dart';
 
+enum MoneyType {expense, income}
+
 final categoryProvider = StateProvider<String>((ref)=>'Personal');
 final categorySelectionProvider = StateProvider<bool>((ref)=>false);
 final checkTypingProvider = StateProvider<bool>((ref)=>false);
 final currencyProvider = StateProvider<String>((ref)=>'\$');
 final editingProvider = StateProvider<bool>((ref)=>false);
-
-final selectedMonthProvider = StateProvider<DateTime>((ref)=>DateTime.now());
+final selectedDateProvider = StateProvider<DateTime>((ref)=>DateTime.now());
+final selectedTimeProvider = StateProvider<TimeOfDay>((ref)=>TimeOfDay.now());
+final moneyTypeProvider = StateProvider<MoneyType>((ref)=>MoneyType.expense);
 
 class RecordsScreen extends ConsumerStatefulWidget {
   const RecordsScreen({super.key});
@@ -41,8 +45,9 @@ class _HomeState extends ConsumerState<RecordsScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ref.read(expenseProvider.notifier).getExpenses();
 
-      final selectedDate = ref.read(selectedMonthProvider);
-      ref.read(expenseProvider.notifier).filterRecordsByMonth(selectedDate);
+      final selectedDate = ref.read(selectedDateProvider);
+      final selectedTime = ref.read(selectedTimeProvider);
+      ref.read(expenseProvider.notifier).filterRecordsByMonth(selectedDate,selectedTime);
     });
   }
 
@@ -56,6 +61,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
 
   void checkTyping(WidgetRef ref,{ExpenseModel? expense}){
     final isEditing = ref.read(editingProvider);
+    final moneyTypeState = ref.read(moneyTypeProvider);
 
     if(!isEditing) {
       bool hasContents = _titleController.text.isNotEmpty && _amountController.text.isNotEmpty && ref.read(categorySelectionProvider);
@@ -64,103 +70,254 @@ class _HomeState extends ConsumerState<RecordsScreen> {
       }
     }
     else{
-      bool hasChanged = _editTitleController.text!=expense?.title || _editAmountController.text!=expense?.amount.toString() || ref.read(categoryProvider)!=expense?.category;
+      bool hasChanged = _editTitleController.text!=expense?.title || _editAmountController.text!=expense?.amount.toString() || ref.read(categoryProvider)!=expense?.category
+      || ref.read(selectedDateProvider)!=expense?.date || ref.read(selectedTimeProvider)!=expense?.time || moneyTypeState!=expense?.moneyType;
+
       if(hasChanged!=ref.read(checkTypingProvider.notifier).state){
         ref.read(checkTypingProvider.notifier).state = hasChanged;
+        checkTyping(ref);
       }
     }
   }
 
-  void addExpenseDialogue(){
-
-    showDialog(
+  Future<void> pickDate()async{
+    final currentDate = ref.read(selectedDateProvider);
+    final pickedDate = await showDatePicker(
         context: context,
-        builder: (context){
-          var theme = Theme.of(context);
-          List<String> categories = ['Personal','Family','Food','Shopping','Transport','Phone','Bills','Rent','Other'];
+        firstDate: DateTime(2010),
+        lastDate: DateTime(2090),
+        initialDate: DateTime.now()
+    );
+    if(pickedDate!=null && pickedDate!=currentDate){
+      ref.read(selectedDateProvider.notifier).state = pickedDate;
+      checkTyping(ref);
+    }
+  }
 
-          return Consumer(
-              builder: (context,ref,_){
-                final category = ref.watch(categoryProvider);
-                final isTyping = ref.watch(checkTypingProvider);
+  Future<void> pickTime()async{
+    final currentTime = ref.read(selectedTimeProvider);
+    final pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+    );
 
-                return AlertDialog(
-                  backgroundColor: theme.dialogTheme.backgroundColor,
-                  title: Text("Add a new expense",style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextFormField(
-                        controller: _titleController,
-                        decoration: InputDecoration(
-                            hintText: 'Name of your expense',
-                            hintStyle: theme.textTheme.labelLarge?.copyWith(color: AppColors.hintTextColor)
+    if(pickedTime!=null && pickedTime!=currentTime){
+      ref.read(selectedTimeProvider.notifier).state = pickedTime;
+      checkTyping(ref);
+    }
+  }
+
+  void addExpenseDialogue(){
+    ref.read(selectedDateProvider.notifier).state = DateTime.now();
+    ref.read(selectedTimeProvider.notifier).state = TimeOfDay.now();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).dialogTheme.backgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        var theme = Theme.of(context);
+        List<String> categories = [
+          'Personal',
+          'Family',
+          'Food',
+          'Shopping',
+          'Transport',
+          'Phone',
+          'Bills',
+          'Rent',
+          'Other'
+        ];
+
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: Consumer(
+            builder: (context, ref, _) {
+              final category = ref.watch(categoryProvider);
+              final isTyping = ref.watch(checkTypingProvider);
+
+              final moneyTypeState = ref.watch(moneyTypeProvider);
+              final moneyTypeNotifier = ref.read(moneyTypeProvider.notifier);
+
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 5,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          borderRadius: BorderRadius.circular(10),
                         ),
                       ),
-                      SizedBox(height: 15.h,),
-                      TextFormField(
-                        keyboardType: TextInputType.number,
-                        controller: _amountController,
-                        decoration: InputDecoration(
-                            hintText: 'Amount spent today',
-                            hintStyle: theme.textTheme.labelLarge?.copyWith(color: AppColors.hintTextColor)
-                        ),
+                    ),
+                    Text(
+                      "Add a new expense",
+                      style:
+                      theme.textTheme.titleLarge?.copyWith(fontSize: 18),
+                    ),
+                    SizedBox(height: 15.h),
+                    TextFormField(
+                      controller: _titleController,
+                      decoration: InputDecoration(
+                        hintText: 'Name of your expense',
+                        hintStyle: theme.textTheme.labelLarge
+                            ?.copyWith(color: AppColors.hintTextColor),
                       ),
-                      SizedBox(height: 15.h,),
-                      DropdownButtonFormField(
-                        dropdownColor: theme.dropdownMenuTheme.menuStyle?.backgroundColor?.resolve(({})),
-                        borderRadius: BorderRadius.circular(10.r),
-                        hint: Text('Select category',style: theme.textTheme.labelLarge?.copyWith(color: AppColors.hintTextColor),),
-                        initialValue: category,
-                        items: [
-                          ...categories.map((item){
-                            return DropdownMenuItem(
-                                value: item,
-                                child: Text(item,style: theme.textTheme.titleSmall,)
-                            );
-                          })
-                        ],
-                        onChanged: (value){
-                          ref.read(categoryProvider.notifier).state = value!;
-                          ref.read(categorySelectionProvider.notifier).state = true;
-                          checkTyping(ref);
-                        },
+                    ),
+                    SizedBox(height: 15.h),
+                    TextFormField(
+                      keyboardType: TextInputType.number,
+                      controller: _amountController,
+                      decoration: InputDecoration(
+                        hintText: 'Amount spent today',
+                        hintStyle: theme.textTheme.labelLarge
+                            ?.copyWith(color: AppColors.hintTextColor),
                       ),
-                      SizedBox(height: 15.h,),
-                      !isTyping? ElevatedButton(
-                          onPressed: null,
-                          style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15.r)),
-                              elevation: 0,
-                              minimumSize: Size(double.infinity.w, 55.h)
+                    ),
+                    SizedBox(height: 15.h),
+                    DropdownButtonFormField(
+                      dropdownColor: theme.dropdownMenuTheme.menuStyle
+                          ?.backgroundColor
+                          ?.resolve({}),
+                      borderRadius: BorderRadius.circular(10.r),
+                      hint: Text(
+                        'Select category',
+                        style: theme.textTheme.labelLarge
+                            ?.copyWith(color: AppColors.hintTextColor),
+                      ),
+                      value: category,
+                      items: categories.map((item) {
+                        return DropdownMenuItem(
+                          value: item,
+                          child: Text(
+                            item,
+                            style: theme.textTheme.titleSmall,
                           ),
-                          child: Text('Add expense',style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey),)
-                      ) : CustomAppButton(
-                          onPressed: (){
-                            ref.read(expenseProvider.notifier).insertExpense(
-                                ExpenseModel(
-                                    title: _titleController.text,
-                                    amount: double.parse(_amountController.text),
-                                    category: category,
-                                    date: DateTime.now().toIso8601String()
-                                )
-                            );
-                            ref.read(expenseProvider.notifier).filterRecordsByMonth(ref.read(selectedMonthProvider));
-                            Navigator.pop(context);
-                          },
-                          title: 'Add Expense'
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        ref.read(categoryProvider.notifier).state = value!;
+                        ref.read(categorySelectionProvider.notifier).state = true;
+                        checkTyping(ref);
+                      },
+                    ),
+                    SizedBox(height: 15.h),
+                    Row(
+                      children: [
+                        Icon(Icons.date_range, color: theme.iconTheme.color),
+                        TextButton(
+                          onPressed: pickDate,
+                          child: Text(
+                            DateFormat('MMMM dd, yyyy')
+                                .format(ref.watch(selectedDateProvider)),
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Icon(Icons.more_time_outlined,
+                            color: theme.iconTheme.color),
+                        TextButton(
+                          onPressed: pickTime,
+                          child: Text(
+                            ref.watch(selectedTimeProvider).format(context),
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 15.h),
+                    Text('Select money type:',
+                        style: theme.textTheme.titleMedium),
+                    Row(
+                      children: MoneyType.values.map((type) {
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Radio<MoneyType>(
+                              fillColor: WidgetStatePropertyAll(
+                                  theme.colorScheme.primary),
+                              value: type,
+                              groupValue: moneyTypeState,
+                              onChanged: (value) {
+                                moneyTypeNotifier.state = value!;
+                              },
+                            ),
+                            Text(
+                              type == MoneyType.expense
+                                  ? 'Expense'
+                                  : 'Income',
+                              style: theme.textTheme.titleMedium,
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                    SizedBox(height: 15.h),
+                    SizedBox(
+                      width: double.infinity,
+                      child: !isTyping
+                          ? ElevatedButton(
+                        onPressed: null,
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15.r),
+                          ),
+                          elevation: 0,
+                          minimumSize: Size(double.infinity.w, 55.h),
+                        ),
+                        child: Text(
+                          'Add expense',
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(color: Colors.grey),
+                        ),
                       )
-
-                    ],
-                  ),
-                );
-              }
-          );
-        }
-    ).then((_){
+                          : CustomAppButton(
+                        onPressed: () {
+                          ref.read(expenseProvider.notifier).insertExpense(
+                            ExpenseModel(
+                              title: _titleController.text,
+                              amount: double.parse(_amountController.text),
+                              category: category,
+                              date: ref.read(selectedDateProvider.notifier).state,
+                              time: ref.read(selectedTimeProvider.notifier).state,
+                            ),
+                          );
+                          Navigator.pop(context);
+                        },
+                        title: 'Add Expense',
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      },
+    ).then((_) {
       _titleController.clear();
       _amountController.clear();
-      ref.read(categoryProvider.notifier).state ='Personal';
+      ref.read(categoryProvider.notifier).state = 'Personal';
+      ref.read(selectedDateProvider.notifier).state = DateTime.now();
+      ref.read(selectedTimeProvider.notifier).state = TimeOfDay.now();
     });
   }
 
@@ -169,115 +326,203 @@ class _HomeState extends ConsumerState<RecordsScreen> {
     _editTitleController.text = expense.title;
     _editAmountController.text = expense.amount.toString();
     ref.read(categoryProvider.notifier).state = expense.category;
+    ref.read(selectedDateProvider.notifier).state = expense.date;
+    ref.read(selectedTimeProvider.notifier).state = expense.time;
     ref.read(editingProvider.notifier).state = true;
 
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).dialogTheme.backgroundColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (BuildContext context) {
         var theme = Theme.of(context);
         List<String> categories = [
-          'Personal', 'Family', 'Food', 'Shopping', 'Transport',
-          'Phone', 'Bills', 'Rent', 'Other'
+          'Personal', 'Family', 'Food', 'Shopping', 'Transport', 'Phone', 'Bills', 'Rent', 'Other'
         ];
 
-        return Consumer(
-          builder: (context, ref, _) {
-            final category = ref.watch(categoryProvider);
-            final isTyping = ref.watch(checkTypingProvider);
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 20,
+            right: 20,
+            top: 20,
+          ),
+          child: Consumer(
+            builder: (context, ref, _) {
+              final category = ref.watch(categoryProvider);
+              final isTyping = ref.watch(checkTypingProvider);
 
-            return AlertDialog(
-              title: Text(
-                'Edit expense',
-                style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextFormField(
-                    controller: _editTitleController,
-                    onChanged: (_) => checkTyping(ref, expense: expense),
-                    decoration: InputDecoration(
-                      hintText: 'Name of your expense',
-                      hintStyle: theme.textTheme.labelLarge
-                          ?.copyWith(color: AppColors.hintTextColor),
-                    ),
-                  ),
-                  SizedBox(height: 10.h),
-                  TextFormField(
-                    controller: _editAmountController,
-                    keyboardType: TextInputType.number,
-                    onChanged: (_) => checkTyping(ref, expense: expense),
-                    decoration: InputDecoration(
-                      hintText: 'Amount spent today',
-                      hintStyle: theme.textTheme.labelLarge
-                          ?.copyWith(color: AppColors.hintTextColor),
-                    ),
-                  ),
-                  SizedBox(height: 10.h),
-                  DropdownButtonFormField(
-                    initialValue: category,
-                    items: categories
-                        .map((cat) => DropdownMenuItem(
-                      value: cat,
-                      child: Text(cat),
-                    ))
-                        .toList(),
-                    onChanged: (value) {
-                      ref.read(categoryProvider.notifier).state = value!;
-                      ref.read(categorySelectionProvider.notifier).state = true;
-                      checkTyping(ref, expense: expense);
-                    },
-                  ),
-                  SizedBox(height: 10.h),
-                  !isTyping
-                      ? ElevatedButton(
-                    onPressed: null,
-                    style: ElevatedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15.r)),
-                      elevation: 0,
-                      minimumSize: Size(double.infinity, 55.h),
-                    ),
-                    child: Text(
-                      'Edit expense',
-                      style: theme.textTheme.titleMedium
-                          ?.copyWith(color: Colors.grey),
-                    ),
-                  )
-                      : CustomAppButton(
-                    onPressed: () {
-                      ref.read(expenseProvider.notifier).updateExpense(
-                        ExpenseModel(
-                          id: id,
-                          title: _editTitleController.text,
-                          amount: double.parse(
-                              _editAmountController.text),
-                          category: category,
-                          date: DateTime.now().toIso8601String(),
+              final moneyTypeState = ref.watch(moneyTypeProvider);
+              final moneyTypeNotifier = ref.read(moneyTypeProvider.notifier);
+
+              return SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Center(
+                      child: Container(
+                        width: 40,
+                        height: 5,
+                        margin: const EdgeInsets.only(bottom: 20),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[400],
+                          borderRadius: BorderRadius.circular(10),
                         ),
-                      );
+                      ),
+                    ),
+                    Text(
+                      'Edit expense',
+                      style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
+                    ),
+                    SizedBox(height: 15.h),
+                    TextFormField(
+                      controller: _editTitleController,
+                      onChanged: (_) => checkTyping(ref, expense: expense),
+                      decoration: InputDecoration(
+                        hintText: 'Name of your expense',
+                        hintStyle: theme.textTheme.labelLarge
+                            ?.copyWith(color: AppColors.hintTextColor),
+                      ),
+                    ),
+                    SizedBox(height: 15.h),
+                    TextFormField(
+                      controller: _editAmountController,
+                      keyboardType: TextInputType.number,
+                      onChanged: (_) => checkTyping(ref, expense: expense),
+                      decoration: InputDecoration(
+                        hintText: 'Amount spent today',
+                        hintStyle: theme.textTheme.labelLarge
+                            ?.copyWith(color: AppColors.hintTextColor),
+                      ),
+                    ),
+                    SizedBox(height: 15.h),
+                    DropdownButtonFormField(
+                      value: category,
+                      items: categories.map((cat) {
+                        return DropdownMenuItem(
+                          value: cat,
+                          child: Text(cat),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        ref.read(categoryProvider.notifier).state = value!;
+                        ref.read(categorySelectionProvider.notifier).state = true;
+                        checkTyping(ref, expense: expense);
+                      },
+                    ),
+                    SizedBox(height: 15.h),
+                    Row(
+                      children: [
+                        Icon(Icons.date_range, color: theme.iconTheme.color),
+                        TextButton(
+                          onPressed: pickDate,
+                          child: Text(
+                            DateFormat('MMMM dd, yyyy')
+                                .format(ref.watch(selectedDateProvider)),
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Icon(Icons.more_time_outlined, color: theme.iconTheme.color),
+                        TextButton(
+                          onPressed: pickTime,
+                          child: Text(
+                            ref.watch(selectedTimeProvider).format(context),
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 15.h),
+                    Text('Select money type:',
+                        style: theme.textTheme.titleMedium),
+                    Row(
+                      children: MoneyType.values.map((type) {
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Radio<MoneyType>(
+                              fillColor: WidgetStatePropertyAll(
+                                  theme.colorScheme.primary),
+                              value: type,
+                              groupValue: moneyTypeState,
+                              onChanged: (value) {
+                                moneyTypeNotifier.state = value!;
+                                checkTyping(ref);
+                              },
+                            ),
+                            Text(
+                              type == MoneyType.expense
+                                  ? 'Expense'
+                                  : 'Income',
+                              style: theme.textTheme.titleMedium,
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                    SizedBox(height: 15.h),
+                    SizedBox(
+                      width: double.infinity,
+                      child: !isTyping
+                          ? ElevatedButton(
+                        onPressed: null,
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(15.r)),
+                          elevation: 0,
+                          minimumSize: Size(double.infinity, 55.h),
+                        ),
+                        child: Text(
+                          'Edit expense',
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(color: Colors.grey),
+                        ),
+                      )
+                          : CustomAppButton(
+                        onPressed: () {
+                          ref.read(expenseProvider.notifier).updateExpense(
+                            ExpenseModel(
+                              id: id,
+                              title: _editTitleController.text,
+                              amount: double.parse(_editAmountController.text),
+                              category: category,
+                              date: ref.read(selectedDateProvider.notifier).state,
+                              time: ref.read(selectedTimeProvider.notifier).state,
+                            ),
+                          );
 
-                      ref.read(editingProvider.notifier).state = false;
-                      ref.read(checkTypingProvider.notifier).state = false;
+                          ref.read(editingProvider.notifier).state = false;
+                          ref.read(checkTypingProvider.notifier).state = false;
 
-                      ref.read(expenseProvider.notifier).filterRecordsByMonth(ref.read(selectedMonthProvider));
-                      Navigator.pop(context);
-                    },
-                    title: 'Edit expense',
-                  ),
-                ],
-              ),
-            );
-          },
+                          Navigator.pop(context);
+                        },
+                        title: 'Edit expense',
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                  ],
+                ),
+              );
+            },
+          ),
         );
       },
-    ).then((_){
+    ).then((_) {
       ref.read(editingProvider.notifier).state = false;
       ref.read(checkTypingProvider.notifier).state = false;
     });
   }
 
-  void deleteAlert(int id){
+  void deleteAlert(ExpenseModel expense){
     showDialog(
         context: context,
         builder: (BuildContext context){
@@ -294,8 +539,9 @@ class _HomeState extends ConsumerState<RecordsScreen> {
               ),
               TextButton(
                   onPressed: (){
-                    ref.read(expenseProvider.notifier).deleteExpense(id);
-                    ref.read(expenseProvider.notifier).filterRecordsByMonth(ref.read(selectedMonthProvider));
+                    ref.read(expenseProvider.notifier).deleteExpense(expense.id!).then((_){
+                      ref.read(totalExpenseProvider.notifier).state -= expense.amount;
+                    });
                     Navigator.pop(context);
                   },
                   child: Text('Delete',style: Theme.of(context).textTheme.titleMedium,)
@@ -342,8 +588,11 @@ class _HomeState extends ConsumerState<RecordsScreen> {
 
     final selectedCurrency = ref.watch(currencyProvider);
 
-    final dateState = ref.watch(selectedMonthProvider);
-    final dateNotifier = ref.read(selectedMonthProvider.notifier);
+    final dateState = ref.watch(selectedDateProvider);
+    final dateNotifier = ref.read(selectedDateProvider.notifier);
+
+    final timeState = ref.watch(selectedTimeProvider);
+    final timeNotifier = ref.read(selectedTimeProvider.notifier);
 
     final expenseList = expenseState.filteredRecord;
     return Scaffold(
@@ -353,7 +602,9 @@ class _HomeState extends ConsumerState<RecordsScreen> {
             BalanceDashboard(
                 theme: theme,
                 dateNotifier: dateNotifier,
+                timeNotifier: timeNotifier,
                 dateState: dateState,
+                timeState: timeState,
                 selectedCurrency: selectedCurrency
             ),
             SizedBox(height: 10.h,),
@@ -381,7 +632,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                                  editExpenseDialogue(data);
                                },
                                onDelete: (){
-                                 deleteAlert(data.id!);
+                                 deleteAlert(data);
                                },
                            );
                         }
