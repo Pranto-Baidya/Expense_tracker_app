@@ -27,8 +27,11 @@ class BalanceDashboard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context,WidgetRef ref) {
+
     final totalExpenseState = ref.watch(totalExpenseProvider);
     final totalIncomeState = ref.watch(totalIncomeProvider);
+    final totalMoneyState = ref.watch(totalMoneyProvider);
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 15.w),
       child: Container(
@@ -38,11 +41,19 @@ class BalanceDashboard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(15.r),
           boxShadow: [
             BoxShadow(
-              color: theme.dividerColor.withOpacity(0.2),
-              offset: Offset(0, 1),
-              blurRadius: 1,
+              color: Colors.black.withOpacity(0.05),
+              offset: const Offset(0, 4),
+              blurRadius: 20,
+              spreadRadius: 2,
+            ),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.2),
+              offset: const Offset(0, -2),
+              blurRadius: 10,
+              spreadRadius: 0,
             ),
           ],
+
         ),
         child: Column(
           children: [
@@ -72,13 +83,14 @@ class BalanceDashboard extends ConsumerWidget {
               ],
             ),
             Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
+              padding: EdgeInsets.symmetric(horizontal: 10.w),
               child: Column(
                 children: [
                   SizedBox(height: 10.h,),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      SizedBox(width: 10.w,),
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -97,6 +109,7 @@ class BalanceDashboard extends ConsumerWidget {
                           ),
                         ],
                       ),
+                      SizedBox(width: 40.w,),
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -115,6 +128,7 @@ class BalanceDashboard extends ConsumerWidget {
                           ),
                         ],
                       ),
+                      SizedBox(width: 40.w,),
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -124,7 +138,7 @@ class BalanceDashboard extends ConsumerWidget {
                           ),
                           SizedBox(height: 5.h),
                           Text(
-                            '$selectedCurrency${45}',
+                            '$selectedCurrency$totalMoneyState',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -132,6 +146,7 @@ class BalanceDashboard extends ConsumerWidget {
                           ),
                         ],
                       ),
+                      SizedBox(width: 10.w,),
                     ],
                   ),
                 ],

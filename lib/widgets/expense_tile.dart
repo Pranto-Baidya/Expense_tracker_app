@@ -4,6 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 
+import '../screens/records_screen.dart';
+
 class ExpenseTile extends StatelessWidget {
   final ExpenseModel expenseModel;
   final String currency;
@@ -19,6 +21,7 @@ class ExpenseTile extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
   });
+  
 
   @override
   Widget build(BuildContext context) {
@@ -56,34 +59,80 @@ class ExpenseTile extends StatelessWidget {
             ),
           ],
         ),
-        child: Card(
-          color: theme.cardColor,
-          elevation: 1,
-          shadowColor: theme.dividerColor,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(15.r),
+        child: Container(
+      decoration: BoxDecoration(
+      color: theme.cardColor,
+        borderRadius: BorderRadius.circular(15.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            offset: const Offset(0, 4),
+            blurRadius: 20,
+            spreadRadius: 2,
           ),
-          child: ListTile(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(15.r),
-            ),
-            contentPadding: EdgeInsets.all(10),
-            leading: Icon(icon, color: theme.iconTheme.color,size: 30,),
-            title: Text(
-              expenseModel.title,
-              style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w400),
-            ),
-            subtitle: Text(
-              expenseModel.category,
-              style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w400),
-            ),
-            trailing: Text(
-              '- $currency ${expenseModel.amount.toStringAsFixed(2)}',
-              style: theme.textTheme.titleSmall,
-            ),
+          BoxShadow(
+            color: Colors.white.withOpacity(0.2),
+            offset: const Offset(0, -2),
+            blurRadius: 10,
+            spreadRadius: 0,
           ),
+        ],
+      ),
+      child: ListTile(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15.r),
         ),
+        contentPadding: const EdgeInsets.all(10),
+        leading: Padding(
+          padding: EdgeInsets.only(left: 8.0.w),
+          child: Icon(icon, color: theme.iconTheme.color, size: 30),
+        ),
+        title: Text(
+          expenseModel.title,
+          style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),
+        ),
+        subtitle: Row(
+          children: [
+            SizedBox(height: 10.h,),
+            Text(
+              expenseModel.category,
+              style: theme.textTheme.bodyMedium,
+            ),
+          ],
+        ),
+        trailing: expenseModel.moneyType.name == 'income'
+            ? Padding(
+              padding: EdgeInsets.only(right: 8.0.w),
+              child: Text(
+                        '+ $currency${expenseModel.amount.toStringAsFixed(2)}',
+                        style: theme.textTheme.titleSmall?.copyWith(
+              color: getColor(expenseModel.moneyType),
+              fontWeight: FontWeight.bold,
+                        ),
+                      ),
+            )
+            : Padding(
+              padding: EdgeInsets.only(right: 8.0.w),
+              child: Text(
+                        '- $currency${expenseModel.amount.toStringAsFixed(2)}',
+                        style: theme.textTheme.titleSmall?.copyWith(
+              color: getColor(expenseModel.moneyType),
+              fontWeight: FontWeight.bold,
+                        ),
+                      ),
+            ),
+      ),
+    ),
       ),
     );
+  }
+
+  Color getColor(MoneyType moneyType){
+    switch(moneyType){
+      case MoneyType.expense:
+        return Colors.red;
+      case MoneyType.income:
+        return Colors.green;
+    }
   }
 }

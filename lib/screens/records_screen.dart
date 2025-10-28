@@ -49,6 +49,9 @@ class _HomeState extends ConsumerState<RecordsScreen> {
       final selectedTime = ref.read(selectedTimeProvider);
       ref.read(expenseProvider.notifier).filterRecordsByMonth(selectedDate,selectedTime);
     });
+
+    _titleController.addListener(()=>checkTyping(ref));
+    _amountController.addListener(()=>checkTyping(ref));
   }
 
 
@@ -164,7 +167,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                       ),
                     ),
                     Text(
-                      "Add a new expense",
+                      "Add a new record",
                       style:
                       theme.textTheme.titleLarge?.copyWith(fontSize: 18),
                     ),
@@ -172,7 +175,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                     TextFormField(
                       controller: _titleController,
                       decoration: InputDecoration(
-                        hintText: 'Name of your expense',
+                        hintText: 'Name of your expense or income',
                         hintStyle: theme.textTheme.labelLarge
                             ?.copyWith(color: AppColors.hintTextColor),
                       ),
@@ -182,7 +185,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                       keyboardType: TextInputType.number,
                       controller: _amountController,
                       decoration: InputDecoration(
-                        hintText: 'Amount spent today',
+                        hintText: 'Amount spent or received today',
                         hintStyle: theme.textTheme.labelLarge
                             ?.copyWith(color: AppColors.hintTextColor),
                       ),
@@ -283,7 +286,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                           minimumSize: Size(double.infinity.w, 55.h),
                         ),
                         child: Text(
-                          'Add expense',
+                          'Add record',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(color: Colors.grey),
                         ),
@@ -297,11 +300,12 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                               category: category,
                               date: ref.read(selectedDateProvider.notifier).state,
                               time: ref.read(selectedTimeProvider.notifier).state,
+                              moneyType: ref.read(moneyTypeProvider.notifier).state
                             ),
                           );
                           Navigator.pop(context);
                         },
-                        title: 'Add Expense',
+                        title: 'Add record',
                       ),
                     ),
                     SizedBox(height: 20),
@@ -328,6 +332,8 @@ class _HomeState extends ConsumerState<RecordsScreen> {
     ref.read(categoryProvider.notifier).state = expense.category;
     ref.read(selectedDateProvider.notifier).state = expense.date;
     ref.read(selectedTimeProvider.notifier).state = expense.time;
+    ref.read(moneyTypeProvider.notifier).state = expense.moneyType;
+
     ref.read(editingProvider.notifier).state = true;
 
     showModalBottomSheet(
@@ -375,7 +381,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                       ),
                     ),
                     Text(
-                      'Edit expense',
+                      'Edit existing record',
                       style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
                     ),
                     SizedBox(height: 15.h),
@@ -383,7 +389,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                       controller: _editTitleController,
                       onChanged: (_) => checkTyping(ref, expense: expense),
                       decoration: InputDecoration(
-                        hintText: 'Name of your expense',
+                        hintText: 'Name of your expense or income',
                         hintStyle: theme.textTheme.labelLarge
                             ?.copyWith(color: AppColors.hintTextColor),
                       ),
@@ -394,7 +400,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                       keyboardType: TextInputType.number,
                       onChanged: (_) => checkTyping(ref, expense: expense),
                       decoration: InputDecoration(
-                        hintText: 'Amount spent today',
+                        hintText: 'Amount spent or received today',
                         hintStyle: theme.textTheme.labelLarge
                             ?.copyWith(color: AppColors.hintTextColor),
                       ),
@@ -482,7 +488,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                           minimumSize: Size(double.infinity, 55.h),
                         ),
                         child: Text(
-                          'Edit expense',
+                          'Edit record',
                           style: theme.textTheme.titleMedium
                               ?.copyWith(color: Colors.grey),
                         ),
@@ -497,6 +503,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                               category: category,
                               date: ref.read(selectedDateProvider.notifier).state,
                               time: ref.read(selectedTimeProvider.notifier).state,
+                              moneyType: ref.read(moneyTypeProvider.notifier).state
                             ),
                           );
 
@@ -505,7 +512,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
 
                           Navigator.pop(context);
                         },
-                        title: 'Edit expense',
+                        title: 'Edit record',
                       ),
                     ),
                     SizedBox(height: 20),
@@ -558,27 +565,28 @@ class _HomeState extends ConsumerState<RecordsScreen> {
   IconData icons(String category){
     switch(category){
       case 'Personal':
-        return Icons.person;
+        return Icons.person_outline;
       case 'Family':
-        return Icons.groups;
+        return Icons.groups_outlined;
       case 'Food':
-        return Icons.fastfood;
+        return Icons.fastfood_outlined;
       case 'Shopping':
-        return Icons.shopping_bag;
+        return Icons.shopping_bag_outlined;
       case 'Transport':
-        return Icons.directions_car;
+        return Icons.directions_car_outlined;
       case 'Phone':
-        return Icons.phone_android;
+        return Icons.phone_android_outlined;
       case 'Bills':
-        return Icons.receipt_long;
+        return Icons.receipt_long_outlined;
       case 'Rent':
-        return Icons.home;
+        return Icons.maps_home_work_outlined;
       case 'Other':
         return Icons.control_point_duplicate;
       default: return Icons.control_point_duplicate;
 
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -597,62 +605,72 @@ class _HomeState extends ConsumerState<RecordsScreen> {
     final expenseList = expenseState.filteredRecord;
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      body: Column(
-          children: [
-            BalanceDashboard(
-                theme: theme,
-                dateNotifier: dateNotifier,
-                timeNotifier: timeNotifier,
-                dateState: dateState,
-                timeState: timeState,
-                selectedCurrency: selectedCurrency
-            ),
-            SizedBox(height: 10.h,),
-            if(expenseList.isEmpty)
-              Center(child: Text('No records yet'),),
-            NotificationListener<ScrollNotification>(
-                onNotification: (scrollInfo){
-                  if(scrollInfo.metrics.pixels>=scrollInfo.metrics.maxScrollExtent-100 && !expenseState.isLoading && expenseState.hasMore){
-                    expenseNotifier.getExpenses();
-                  }
-                  return false;
-                },
-                child: Expanded(
-                  child: ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: expenseList.length + (expenseState.hasMore? 1 : 0),
-                      itemBuilder: (context,index){
-                        if(index<expenseList.length){
-                          final data = expenseList[index];
-                           return ExpenseTile(
-                               icon: icons(data.category),
-                               expenseModel: data,
-                               currency: selectedCurrency,
-                               onEdit: (){
-                                 editExpenseDialogue(data);
-                               },
-                               onDelete: (){
-                                 deleteAlert(data);
-                               },
-                           );
+      body: Center(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(height: 20.h,),
+              BalanceDashboard(
+                  theme: theme,
+                  dateNotifier: dateNotifier,
+                  timeNotifier: timeNotifier,
+                  dateState: dateState,
+                  timeState: timeState,
+                  selectedCurrency: selectedCurrency
+              ),
+              SizedBox(height: 10.h,),
+              if(expenseList.isEmpty)
+                Center(child: Text('No records yet',style: theme.textTheme.titleMedium,),),
+              NotificationListener<ScrollNotification>(
+                  onNotification: (scrollInfo){
+                    if(scrollInfo.metrics.pixels>=scrollInfo.metrics.maxScrollExtent-100 && !expenseState.isLoading && expenseState.hasMore){
+                      expenseNotifier.getExpenses();
+                    }
+                    return false;
+                  },
+                  child: Expanded(
+                    child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: expenseList.length + (expenseState.hasMore? 1 : 0),
+                        itemBuilder: (context,index){
+                          if(index<expenseList.length){
+                            final data = expenseList[index];
+                             return ExpenseTile(
+                                 icon: icons(data.category),
+                                 expenseModel: data,
+                                 currency: selectedCurrency,
+                                 onEdit: (){
+                                   editExpenseDialogue(data);
+                                 },
+                                 onDelete: (){
+                                   deleteAlert(data);
+                                 },
+                             );
+                          }
+                          else{
+                            return expenseState.hasMore? Padding(
+                              padding: const EdgeInsets.all(8.0),
+                              child: Center(child: CircularProgressIndicator(),),
+                            ):SizedBox.shrink();
+                          }
                         }
-                        else{
-                          return expenseState.hasMore? Padding(
-                            padding: const EdgeInsets.all(8.0),
-                            child: Center(child: CircularProgressIndicator(),),
-                          ):SizedBox.shrink();
-                        }
-                      }
-                  ),
-                )
-            ),
-          ],
-        ),
+                    ),
+                  )
+              ),
+            ],
+          ),
+      ),
       drawer: Drawer(),
-      floatingActionButton: FloatingActionButton(
-          onPressed: addExpenseDialogue,
-          backgroundColor: theme.colorScheme.primary,
-          child: Icon(Icons.add,color: Colors.white,size: 30,),
+      floatingActionButton: SizedBox(
+        height: 60.h,
+        width: 60.w,
+        child: FloatingActionButton(
+            onPressed: addExpenseDialogue,
+            backgroundColor: theme.colorScheme.primary,
+            elevation: 3,
+            child: Icon(Icons.add,color: Colors.white,size: 30,),
+        ),
       ),
     );
   }

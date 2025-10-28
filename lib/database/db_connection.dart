@@ -1,5 +1,6 @@
 
 import 'dart:io';
+import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -23,7 +24,7 @@ class DatabaseConnection{
    final path = join(dir.path,'ExpenseDB.db');
    return openDatabase(
      path,
-     version: 3,
+     version: 5,
      onCreate: _createTable,
      onUpgrade: (db,oldVersion, newVersion)async{
        if(oldVersion<2){
@@ -31,6 +32,20 @@ class DatabaseConnection{
        }
        if(oldVersion<3){
          await db.execute('ALTER TABLE expenses ADD COLUMN moneyType TEXT DEFAULT "expense"');
+       }
+       if(oldVersion<4){
+         await db.execute(
+           '''
+           CREATE TABLE cards(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cardName TEXT,
+            amount REAL
+           )
+           '''
+         );
+       }
+       if(oldVersion<5){
+         await db.execute('ALTER TABLE cards ADD COLUMN iconCode INTEGER');
        }
      }
    );
@@ -47,6 +62,17 @@ class DatabaseConnection{
        date TEXT,
        time TEXT,
        moneyType TEXT
+      )
+      '''
+    );
+
+    await db.execute(
+      '''
+      CREATE TABLE cards(
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       cardName TEXT,
+       amount REAL,
+       iconCode INTEGER
       )
       '''
     );
@@ -77,4 +103,28 @@ class DatabaseConnection{
     final db = await getDB();
     db.close();
   }
+
+  //CRUD for cards table
+
+  Future<int> insertCard(CardModel card)async{
+    final db = await getDB();
+    return db.insert('cards', card.toMap(),conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<CardModel>> getAllCards()async{
+    final db = await getDB();
+    List<Map<String,dynamic>> data = await db.query('cards',orderBy: 'id DESC');
+    return data.map((i)=>CardModel.fromMap(i)).toList();
+  }
+
+  Future<int> updateCard(CardModel card)async{
+    final db = await getDB();
+    return db.update('cards', card.toMap(),where: 'id = ?',whereArgs: [card.id]);
+  }
+
+  Future<int> deleteCard(int id)async{
+    final db = await getDB();
+    return db.delete('cards',where: 'id = ?', whereArgs: [id]);
+  }
+
 }

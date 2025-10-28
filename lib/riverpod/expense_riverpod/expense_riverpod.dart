@@ -8,6 +8,7 @@ import 'package:flutter_riverpod/legacy.dart';
 
 final totalExpenseProvider = StateProvider<double>((ref)=>0);
 final totalIncomeProvider = StateProvider<double>((ref)=>0);
+final totalMoneyProvider = StateProvider<double>((ref)=>0);
 
 final expenseProvider = StateNotifierProvider<ExpenseNotifier,ExpenseState>((ref)=>ExpenseNotifier(ref));
 
@@ -91,7 +92,8 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
         amount: expense.amount,
         category: expense.category,
         date: expense.date,
-        time: expense.time
+        time: expense.time,
+        moneyType: expense.moneyType
     );
 
     state = state.copyWith(expenses: [newExpense,...state.expenses]);
@@ -132,7 +134,6 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
       selectedDate: selectedDate,
       filteredRecord: filtered,
     );
-
     _calculateTotals();
   }
 
@@ -150,6 +151,8 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     }
     _ref.read(totalExpenseProvider.notifier).state = totalExpense;
     _ref.read(totalIncomeProvider.notifier).state = totalIncome;
+
+    _ref.read(totalMoneyProvider.notifier).state = (totalIncome-totalExpense);
   }
 
   Future<void> refreshExpenses() async {
@@ -161,7 +164,4 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     );
     await getExpenses();
   }
-
-
-
 }

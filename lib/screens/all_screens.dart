@@ -35,7 +35,7 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                   onPressed: (){
 
                   },
-                  icon: Icon(Icons.search,color: theme.iconTheme.color,size: 30,)
+                  icon: Icon(Icons.search,color: theme.iconTheme.color,size: 25,)
               ),
             )
           ],
@@ -51,30 +51,34 @@ class _AllScreensState extends ConsumerState<AllScreens> {
      ),
      bottomNavigationBar: NavigationBar(
          backgroundColor: theme.navigationBarTheme.backgroundColor,
+         indicatorColor: Colors.transparent,
          selectedIndex: index,
+         height: 60,
+         maintainBottomViewPadding: true,
+         labelPadding: EdgeInsets.zero,
          onDestinationSelected: (ind){
          ref.read(indexProvider.notifier).state = ind;
        },
          destinations: [
            NavigationDestination(
-               selectedIcon: Icon(Icons.featured_play_list,color: Colors.black,),
-               icon: Icon(Icons.featured_play_list_outlined,color: theme.iconTheme.color,),
+               selectedIcon: Icon(Icons.feed,color: theme.colorScheme.primary,size: 25,),
+               icon: Icon(Icons.feed_outlined,color: theme.iconTheme.color,size: 25,),
                label: 'Records'
            ),
            NavigationDestination(
-               selectedIcon: Icon(Icons.insert_chart,color: Colors.black,),
-               icon: Icon(Icons.insert_chart_outlined,color: theme.iconTheme.color,),
-               label: 'Statistics'
+               selectedIcon: Icon(Icons.pie_chart,color: theme.colorScheme.primary,size: 25,),
+               icon: Icon(Icons.pie_chart_outline,color: theme.iconTheme.color,size: 25,),
+               label: 'Analysis'
            ),
            NavigationDestination(
-               selectedIcon: Icon(Icons.account_balance_wallet,color: Colors.black,),
-               icon: Icon(Icons.account_balance_wallet_outlined,color: theme.iconTheme.color,),
+               selectedIcon: Icon(Icons.account_balance_wallet,color: theme.colorScheme.primary,size: 25,),
+               icon: Icon(Icons.account_balance_wallet_outlined,color: theme.iconTheme.color,size: 25,),
                label: 'Accounts'
            ),
            NavigationDestination(
-               selectedIcon: Icon(Icons.widgets,color: Colors.black,),
-               icon: Icon(Icons.widgets_outlined,color: theme.iconTheme.color,),
-               label: 'Categories'
+               selectedIcon: Icon(Icons.paid,color: theme.colorScheme.primary,size: 25,),
+               icon: Icon(Icons.paid_outlined,color: theme.iconTheme.color,size: 25,),
+               label: 'Budget'
            ),
          ]
        ),

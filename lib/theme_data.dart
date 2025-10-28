@@ -16,7 +16,7 @@ ThemeData lightTheme = ThemeData(
     onSurface: AppColors.lightTextPrimary, // Dark Gray (#1F2A44)
     onError: Colors.white,
   ),
-  scaffoldBackgroundColor: AppColors.lightBackground,
+  scaffoldBackgroundColor: Colors.grey.shade200,
   textTheme: GoogleFonts.interTextTheme().copyWith(
     labelSmall: GoogleFonts.inter(
         color: AppColors.lightTextPrimary, fontSize: 11, fontWeight: FontWeight.w700),
@@ -58,7 +58,7 @@ ThemeData lightTheme = ThemeData(
   ),
   progressIndicatorTheme: ProgressIndicatorThemeData(color: AppColors.mainColor),
   bottomNavigationBarTheme: BottomNavigationBarThemeData(
-    backgroundColor: AppColors.lightSurface,
+    backgroundColor: AppColors.lightBackground,
     selectedItemColor: AppColors.mainColor,
     unselectedItemColor: AppColors.lightTextSecondary,
   ),
@@ -69,7 +69,7 @@ ThemeData lightTheme = ThemeData(
         color: AppColors.lightTextPrimary, fontSize: 14, fontWeight: FontWeight.bold),
   ),
   iconTheme: IconThemeData(color: AppColors.lightTextPrimary),
-  cardColor: AppColors.lightSurface,
+  cardColor: AppColors.lightBackground,
   dialogTheme: DialogThemeData(
     titleTextStyle: TextStyle(
         color: AppColors.lightTextPrimary, fontSize: 28, fontWeight: FontWeight.bold),
@@ -78,7 +78,7 @@ ThemeData lightTheme = ThemeData(
     backgroundColor: AppColors.lightBackground,
   ),
   navigationBarTheme: NavigationBarThemeData(
-    backgroundColor: AppColors.lightSurface,
+    backgroundColor: AppColors.lightBackground,
     indicatorColor: AppColors.mainColor,
     surfaceTintColor: Colors.transparent,
   ),
