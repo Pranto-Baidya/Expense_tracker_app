@@ -1,5 +1,6 @@
 
 
+import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/screens/accounts_screen.dart';
 import 'package:expense_tracker_app/screens/categories_screen.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
@@ -27,7 +28,7 @@ class _AllScreensState extends ConsumerState<AllScreens> {
     var theme = Theme.of(context);
     return Scaffold(
       appBar: CustomAppbar(
-          title: 'ExpenseMate',
+          title: 'MoneyMate',
           action: [
             Padding(
               padding: EdgeInsets.only(right: 5.w),
@@ -40,15 +41,13 @@ class _AllScreensState extends ConsumerState<AllScreens> {
             )
           ],
       ),
-     body: IndexedStack(
-       index: index,
-       children: [
+     body: [
          RecordsScreen(),
          StatsScreen(),
          AccountsScreen(),
          CategoryScreen()
-       ],
-     ),
+       ][index],
+
      bottomNavigationBar: NavigationBar(
          backgroundColor: theme.navigationBarTheme.backgroundColor,
          indicatorColor: Colors.transparent,

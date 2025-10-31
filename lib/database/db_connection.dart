@@ -61,7 +61,8 @@ class DatabaseConnection{
        category TEXT,
        date TEXT,
        time TEXT,
-       moneyType TEXT
+       moneyType TEXT,
+       accountId INTEGER
       )
       '''
     );
@@ -72,7 +73,9 @@ class DatabaseConnection{
        id INTEGER PRIMARY KEY AUTOINCREMENT,
        cardName TEXT,
        amount REAL,
-       iconCode INTEGER
+       iconCode INTEGER,
+       progress REAL,
+       moneyType TEXT
       )
       '''
     );

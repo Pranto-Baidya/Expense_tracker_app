@@ -1,6 +1,9 @@
 import 'dart:math';
 
+import 'package:dropdown_button2/dropdown_button2.dart';
+import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
+import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
@@ -10,6 +13,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+import 'package:overlay_support/overlay_support.dart';
 
 import '../widgets/balace_dashboard.dart';
 
@@ -23,6 +27,8 @@ final editingProvider = StateProvider<bool>((ref)=>false);
 final selectedDateProvider = StateProvider<DateTime>((ref)=>DateTime.now());
 final selectedTimeProvider = StateProvider<TimeOfDay>((ref)=>TimeOfDay.now());
 final moneyTypeProvider = StateProvider<MoneyType>((ref)=>MoneyType.expense);
+final selectedAccountProvider = StateProvider<int?>((ref)=>null);
+final enteredAmountProvider = StateProvider<double>((ref)=>0);
 
 class RecordsScreen extends ConsumerStatefulWidget {
   const RecordsScreen({super.key});
@@ -62,19 +68,20 @@ class _HomeState extends ConsumerState<RecordsScreen> {
     super.dispose();
   }
 
-  void checkTyping(WidgetRef ref,{ExpenseModel? expense}){
+  void checkTyping(WidgetRef ref,{ExpenseModel? expense,CardModel? card}){
     final isEditing = ref.read(editingProvider);
     final moneyTypeState = ref.read(moneyTypeProvider);
+    final account = ref.read(selectedAccountProvider);
 
     if(!isEditing) {
-      bool hasContents = _titleController.text.isNotEmpty && _amountController.text.isNotEmpty && ref.read(categorySelectionProvider);
+      bool hasContents = _titleController.text.isNotEmpty && _amountController.text.isNotEmpty && ref.read(categorySelectionProvider) && ref.read(selectedAccountProvider.notifier).state!=null;
       if (hasContents != ref.read(checkTypingProvider.notifier).state) {
         ref.read(checkTypingProvider.notifier).state = hasContents;
       }
     }
     else{
       bool hasChanged = _editTitleController.text!=expense?.title || _editAmountController.text!=expense?.amount.toString() || ref.read(categoryProvider)!=expense?.category
-      || ref.read(selectedDateProvider)!=expense?.date || ref.read(selectedTimeProvider)!=expense?.time || moneyTypeState!=expense?.moneyType;
+      || ref.read(selectedDateProvider)!=expense?.date || ref.read(selectedTimeProvider)!=expense?.time || moneyTypeState!=expense?.moneyType || account!=card?.id;
 
       if(hasChanged!=ref.read(checkTypingProvider.notifier).state){
         ref.read(checkTypingProvider.notifier).state = hasChanged;
@@ -150,6 +157,9 @@ class _HomeState extends ConsumerState<RecordsScreen> {
               final moneyTypeState = ref.watch(moneyTypeProvider);
               final moneyTypeNotifier = ref.read(moneyTypeProvider.notifier);
 
+              final selectedAccountState = ref.watch(selectedAccountProvider);
+              final selectedAccountNotifier = ref.read(selectedAccountProvider.notifier);
+
               return SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -191,19 +201,25 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                       ),
                     ),
                     SizedBox(height: 15.h),
-                    DropdownButtonFormField(
-                      dropdownColor: theme.dropdownMenuTheme.menuStyle
-                          ?.backgroundColor
-                          ?.resolve({}),
-                      borderRadius: BorderRadius.circular(10.r),
+                    DropdownButtonFormField2(
+                      isExpanded: true,
+                      value: category,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10.r),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        filled: true,
+                        fillColor: theme.colorScheme.surfaceVariant,
+                        contentPadding: EdgeInsets.zero,
+                      ),
                       hint: Text(
                         'Select category',
                         style: theme.textTheme.labelLarge
                             ?.copyWith(color: AppColors.hintTextColor),
                       ),
-                      value: category,
                       items: categories.map((item) {
-                        return DropdownMenuItem(
+                        return DropdownMenuItem<String>(
                           value: item,
                           child: Text(
                             item,
@@ -212,10 +228,37 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                         );
                       }).toList(),
                       onChanged: (value) {
-                        ref.read(categoryProvider.notifier).state = value!;
-                        ref.read(categorySelectionProvider.notifier).state = true;
-                        checkTyping(ref);
+                        if (value != null) {
+                          ref.read(categoryProvider.notifier).state = value;
+                          ref.read(categorySelectionProvider.notifier).state = true;
+                          checkTyping(ref);
+                        }
                       },
+                      iconStyleData: const IconStyleData(
+                        icon: Icon(Icons.arrow_drop_down_rounded),
+                        iconSize: 28,
+                      ),
+                      buttonStyleData: ButtonStyleData(
+                        height: 55.h,
+                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                      ),
+                      dropdownStyleData: DropdownStyleData(
+                        maxHeight: 300,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10.r),
+                          color: theme.dropdownMenuTheme.menuStyle
+                              ?.backgroundColor
+                              ?.resolve({}) ??
+                              theme.colorScheme.surface,
+                        ),
+                      ),
+                      menuItemStyleData: const MenuItemStyleData(
+                        height: 48,
+                        padding: EdgeInsets.symmetric(horizontal: 15),
+                      ),
                     ),
                     SizedBox(height: 15.h),
                     Row(
@@ -272,6 +315,66 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                         );
                       }).toList(),
                     ),
+                    SizedBox(height: 10.h),
+                    Text('Choose account',style: theme.textTheme.titleMedium,),
+                    SizedBox(height: 10.h,),
+                    DropdownButtonFormField2(
+                      isExpanded: true,
+                      value: selectedAccountState,
+                      decoration: InputDecoration(
+                        contentPadding: EdgeInsets.zero,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        filled: true,
+                        fillColor: theme.colorScheme.surfaceVariant,
+                      ),
+                      hint: Text(
+                        'Choose account',
+                        style: theme.textTheme.labelLarge?.copyWith(color: AppColors.hintTextColor,),
+                      ),
+                      items: ref.watch(cardsProvider).cards.map((card) {
+                        return DropdownMenuItem<int>(
+                          value: card.id,
+                          child: Row(
+                            children: [
+                              Icon(card.icon, size: 20, color: theme.iconTheme.color),
+                              const SizedBox(width: 10),
+                              Text(
+                                card.cardName,
+                                style: theme.textTheme.titleSmall,
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          selectedAccountNotifier.state = value;
+                          checkTyping(ref);
+                        }
+                      },
+                      iconStyleData: const IconStyleData(
+                        icon: Icon(Icons.arrow_drop_down_rounded),
+                        iconSize: 28,
+                      ),
+                      buttonStyleData: ButtonStyleData(
+                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        height: 55.h,
+                      ),
+                      dropdownStyleData: DropdownStyleData(
+                        maxHeight: 300,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: theme.colorScheme.surface,
+                        ),
+                      ),
+                      menuItemStyleData: const MenuItemStyleData(
+                        height: 50,
+                        padding: EdgeInsets.symmetric(horizontal: 15),
+                      ),
+                    ),
                     SizedBox(height: 15.h),
                     SizedBox(
                       width: double.infinity,
@@ -293,6 +396,14 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                       )
                           : CustomAppButton(
                         onPressed: () {
+                          ref.read(enteredAmountProvider.notifier).state = double.parse(_amountController.text);
+                          final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==selectedAccountNotifier.state);
+                          
+                          if((ref.read(enteredAmountProvider.notifier).state>selectedCard.amount || selectedCard.amount<=0) && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
+                            toast('Not sufficient balance, please choose a different card or update the balance');
+                            return;
+                          }
+
                           ref.read(expenseProvider.notifier).insertExpense(
                             ExpenseModel(
                               title: _titleController.text,
@@ -300,9 +411,11 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                               category: category,
                               date: ref.read(selectedDateProvider.notifier).state,
                               time: ref.read(selectedTimeProvider.notifier).state,
-                              moneyType: ref.read(moneyTypeProvider.notifier).state
+                              moneyType: ref.read(moneyTypeProvider.notifier).state,
+                              accountId: ref.read(selectedAccountProvider)!
                             ),
                           );
+                          ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
                           Navigator.pop(context);
                         },
                         title: 'Add record',
@@ -326,6 +439,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
   }
 
   void editExpenseDialogue(ExpenseModel expense) {
+
     int? id = expense.id;
     _editTitleController.text = expense.title;
     _editAmountController.text = expense.amount.toString();
@@ -363,6 +477,9 @@ class _HomeState extends ConsumerState<RecordsScreen> {
 
               final moneyTypeState = ref.watch(moneyTypeProvider);
               final moneyTypeNotifier = ref.read(moneyTypeProvider.notifier);
+
+              final selectedAccountState = ref.watch(selectedAccountProvider);
+              final selectedAccountNotifier = ref.read(selectedAccountProvider.notifier);
 
               return SingleChildScrollView(
                 child: Column(
@@ -475,6 +592,66 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                         );
                       }).toList(),
                     ),
+                    SizedBox(height: 10.h),
+                    Text('Choose account',style: theme.textTheme.titleMedium,),
+                    SizedBox(height: 10.h,),
+                    DropdownButtonFormField2(
+                      isExpanded: true,
+                      value: selectedAccountState,
+                      decoration: InputDecoration(
+                        contentPadding: EdgeInsets.zero,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        filled: true,
+                        fillColor: theme.colorScheme.surfaceVariant,
+                      ),
+                      hint: Text(
+                        'Choose account',
+                        style: theme.textTheme.labelLarge?.copyWith(color: AppColors.hintTextColor,),
+                      ),
+                      items: ref.watch(cardsProvider).cards.map((card) {
+                        return DropdownMenuItem<int>(
+                          value: card.id,
+                          child: Row(
+                            children: [
+                              Icon(card.icon, size: 20, color: theme.iconTheme.color),
+                              const SizedBox(width: 10),
+                              Text(
+                                card.cardName,
+                                style: theme.textTheme.titleSmall,
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          selectedAccountNotifier.state = value;
+                          checkTyping(ref);
+                        }
+                      },
+                      iconStyleData: const IconStyleData(
+                        icon: Icon(Icons.arrow_drop_down_rounded),
+                        iconSize: 28,
+                      ),
+                      buttonStyleData: ButtonStyleData(
+                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        height: 55.h,
+                      ),
+                      dropdownStyleData: DropdownStyleData(
+                        maxHeight: 300,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          color: theme.colorScheme.surface,
+                        ),
+                      ),
+                      menuItemStyleData: const MenuItemStyleData(
+                        height: 50,
+                        padding: EdgeInsets.symmetric(horizontal: 15),
+                      ),
+                    ),
                     SizedBox(height: 15.h),
                     SizedBox(
                       width: double.infinity,
@@ -495,6 +672,18 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                       )
                           : CustomAppButton(
                         onPressed: () {
+
+                          if(ref.read(editingProvider.notifier).state==true) {
+                            ref.read(enteredAmountProvider.notifier).state = double.parse(_editAmountController.text);
+                          }
+
+                          final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==selectedAccountNotifier.state);
+
+                          if((ref.read(enteredAmountProvider.notifier).state>selectedCard.amount || selectedCard.amount<=0) && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
+                            toast('Not sufficient balance, please choose a different card or update the balance');
+                            return;
+                          }
+
                           ref.read(expenseProvider.notifier).updateExpense(
                             ExpenseModel(
                               id: id,
@@ -503,9 +692,12 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                               category: category,
                               date: ref.read(selectedDateProvider.notifier).state,
                               time: ref.read(selectedTimeProvider.notifier).state,
-                              moneyType: ref.read(moneyTypeProvider.notifier).state
+                              moneyType: ref.read(moneyTypeProvider.notifier).state,
+                              accountId: ref.read(selectedAccountProvider)!
                             ),
                           );
+
+                          ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
 
                           ref.read(editingProvider.notifier).state = false;
                           ref.read(checkTypingProvider.notifier).state = false;
@@ -621,7 +813,12 @@ class _HomeState extends ConsumerState<RecordsScreen> {
               ),
               SizedBox(height: 10.h,),
               if(expenseList.isEmpty)
-                Center(child: Text('No records yet',style: theme.textTheme.titleMedium,),),
+                Column(
+                  children: [
+                    SizedBox(height: 200.h,),
+                    Center(child: Text('No records yet',style: theme.textTheme.titleMedium,),),
+                  ],
+                ),
               NotificationListener<ScrollNotification>(
                   onNotification: (scrollInfo){
                     if(scrollInfo.metrics.pixels>=scrollInfo.metrics.maxScrollExtent-100 && !expenseState.isLoading && expenseState.hasMore){
@@ -636,10 +833,18 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                         itemBuilder: (context,index){
                           if(index<expenseList.length){
                             final data = expenseList[index];
+                            final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==data.accountId,orElse: ()=>CardModel(
+                              id: -1,
+                              cardName: 'Unknown',
+                              icon: Icons.help_outline,
+                              amount: 0,
+                             ),
+                            );
                              return ExpenseTile(
                                  icon: icons(data.category),
                                  expenseModel: data,
                                  currency: selectedCurrency,
+                                 cardModel: selectedCard,
                                  onEdit: (){
                                    editExpenseDialogue(data);
                                  },

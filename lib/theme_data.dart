@@ -89,17 +89,17 @@ ThemeData lightTheme = ThemeData(
     fillColor: AppColors.lightSurface,
     filled: true,
     border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15.r),
+        borderRadius: BorderRadius.circular(15),
         borderSide: BorderSide.none),
     focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15.r),
+        borderRadius: BorderRadius.circular(15),
         borderSide: BorderSide.none),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(15.r),
+      borderRadius: BorderRadius.circular(15),
       borderSide: BorderSide.none,
     ),
     errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15.r),
+        borderRadius: BorderRadius.circular(15),
         borderSide: BorderSide.none),
   ),
   drawerTheme: DrawerThemeData(
@@ -205,17 +205,17 @@ ThemeData darkTheme = ThemeData(
     fillColor: AppColors.darkSurface,
     filled: true,
     border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15.r),
+        borderRadius: BorderRadius.circular(15),
         borderSide: BorderSide.none),
     focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15.r),
+        borderRadius: BorderRadius.circular(15),
         borderSide: BorderSide.none),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(15.r),
+      borderRadius: BorderRadius.circular(15),
       borderSide: BorderSide.none,
     ),
     errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15.r),
+        borderRadius: BorderRadius.circular(15),
         borderSide: BorderSide.none),
   ),
   dropdownMenuTheme: DropdownMenuThemeData(

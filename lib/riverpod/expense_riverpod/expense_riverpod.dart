@@ -93,7 +93,8 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
         category: expense.category,
         date: expense.date,
         time: expense.time,
-        moneyType: expense.moneyType
+        moneyType: expense.moneyType,
+        accountId: expense.accountId
     );
 
     state = state.copyWith(expenses: [newExpense,...state.expenses]);

@@ -11,6 +11,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 final selectedIconProvider = StateProvider<IconData>((ref)=>Icons.credit_card);
 final typingProvider = StateProvider<bool>((ref)=>false);
+final accountEditingProvider = StateProvider<bool>((ref)=>false);
 
 
 class AccountsScreen extends ConsumerStatefulWidget {
@@ -24,6 +25,9 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
+  
+  final TextEditingController _editNameController = TextEditingController();
+  final TextEditingController _editAmountController = TextEditingController();
 
   @override
   void initState() {
@@ -42,13 +46,28 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
     super.dispose();
   }
 
-  void checkTyping(WidgetRef ref){
-    final isTyping = ref.read(typingProvider);
-    bool hasValue = _nameController.text.isNotEmpty && _amountController.text.isNotEmpty;
+  void checkTyping(WidgetRef ref,{CardModel? card}){
 
-    if(hasValue!=isTyping){
-      ref.read(typingProvider.notifier).state = hasValue;
+    final isTyping = ref.read(typingProvider);
+    final isEditing = ref.read(accountEditingProvider);
+
+    if(!isEditing) {
+      bool hasValue = _nameController.text.isNotEmpty &&
+          _amountController.text.isNotEmpty;
+      if (hasValue != isTyping) {
+        ref.read(typingProvider.notifier).state = hasValue;
+      }
     }
+   else {
+      bool hasChanged = _editNameController.text != card?.cardName
+          || _editAmountController.text != card?.amount.toString()
+          || ref.read(selectedIconProvider.notifier).state != card?.icon;
+
+      if (hasChanged != isTyping) {
+        ref.read(typingProvider.notifier).state = hasChanged;
+      }
+    }
+
   }
 
   void addCardDialogue(){
@@ -156,7 +175,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
                             final card = CardModel(
                                 cardName: _nameController.text,
                                 amount: double.parse(_amountController.text),
-                                icon: selectedIcon
+                                icon: selectedIcon,
                             );
                             ref.read(cardsProvider.notifier).addCard(card);
                             Navigator.pop(context);
@@ -174,6 +193,136 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
       _amountController.clear();
       ref.read(selectedIconProvider.notifier).state=Icons.credit_card;
     });
+  }
+  
+  void editCardDialogue(CardModel card){
+
+    ref.read(typingProvider.notifier).state = false;
+    ref.read(accountEditingProvider.notifier).state = true;
+    
+    _editNameController.text = card.cardName;
+    _editAmountController.text = card.amount.toString();
+    ref.read(selectedIconProvider.notifier).state = card.icon;
+    
+    showDialog(
+        context: context, 
+        builder: (context){
+          var theme = Theme.of(context);
+
+          List<IconData> icons = [
+            Icons.credit_card,
+            Icons.savings_outlined,
+            Icons.paid_outlined,
+            Icons.wallet_outlined,
+            Icons.phone_iphone_sharp
+          ];
+
+          return Consumer(
+              builder: (context,ref,_){
+                final isTyping = ref.watch(typingProvider);
+                return AlertDialog(
+                  title: Row(
+                    children: [
+                      Text('Edit account',style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),),
+                      Spacer(),
+                      IconButton(
+                          onPressed: (){
+                            Navigator.pop(context);
+                          }, 
+                          icon: Icon(Icons.close,color: theme.iconTheme.color,)
+                      )
+                    ],
+                  ),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      TextField(
+                        controller: _editNameController,
+                        decoration: InputDecoration(
+                            hintText: 'Name of your account',
+                            hintStyle: theme.textTheme.titleSmall?.copyWith(color: AppColors.hintTextColor)
+                        ),
+                        onChanged: (_)=>checkTyping(ref,card: card),
+                      ),
+                      SizedBox(height: 15.h,),
+                      TextField(
+                        controller: _editAmountController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                            hintText: 'Initial amount',
+                            hintStyle: theme.textTheme.titleSmall?.copyWith(color: AppColors.hintTextColor)
+                        ),
+                        onChanged: (_)=>checkTyping(ref,card: card),
+                      ),
+                      SizedBox(height: 20.h,),
+                      Text('Choose icon',style: theme.textTheme.titleMedium),
+                      SizedBox(height: 10.h,),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: [
+                            ...icons.map((icon){
+                              final selectedIconState = ref.watch(selectedIconProvider);
+                              final selectedIconNotifier = ref.read(selectedIconProvider.notifier);
+                              final isSelected = selectedIconState==icon;
+                              return Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 5),
+                                child: ChoiceChip(
+                                  label: Icon(icon,color: isSelected?Colors.white:theme.iconTheme.color,),
+                                  selected: isSelected,
+                                  checkmarkColor: Colors.white,
+                                  selectedColor: theme.colorScheme.primary,
+                                  onSelected: (selected){
+                                    selectedIconNotifier.state = icon;
+                                    checkTyping(ref);
+                                  },
+                                ),
+                              );
+                            })
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: 20.h,),
+                      !isTyping?ElevatedButton(
+                        onPressed: null,
+                        style: ElevatedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15.r),
+                          ),
+                          elevation: 0,
+                          minimumSize: Size(double.infinity.w, 55.h),
+                        ),
+                        child: Text(
+                          'Edit account',
+                          style: theme.textTheme.titleMedium
+                              ?.copyWith(color: Colors.grey),
+                        ),
+                      ):CustomAppButton(
+                          onPressed: (){
+                            final newData = CardModel(
+                                id: card.id,
+                                cardName: _editNameController.text,
+                                amount: double.parse(_editAmountController.text),
+                                icon: ref.read(selectedIconProvider.notifier).state
+                            );
+                            ref.read(cardsProvider.notifier).updateCard(newData);
+                            Navigator.pop(context);
+                          },
+                          title: 'Edit account'
+                      )
+
+                    ],
+                  ),
+                );
+              }
+          );
+        }
+    ).then((_){
+      ref.read(accountEditingProvider.notifier).state = false;
+      ref.read(typingProvider.notifier).state = false;
+    });
+    
   }
 
 
@@ -205,12 +354,20 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
                           itemCount: cardState.cards.length,
                           itemBuilder: (context,index){
                             final data = cardState.cards[index];
+                            double amount = 0;
+                            if(data.amount<=0 && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
+                              amount = 0;
+                            }
+                            else{
+                              amount = data.amount;
+                            }
                             return AccountsWidget(
                                 title: data.cardName,
-                                amount: data.amount,
+                                amount: amount,
                                 icon: data.icon,
+                                value: data.progress,
                                 onEdit: (){
-
+                                  editCardDialogue(data);
                                 },
                                 onDelete: (){
                                   ref.read(cardsProvider.notifier).deleteCard(data.id!);

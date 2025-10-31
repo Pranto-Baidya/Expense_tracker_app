@@ -9,6 +9,7 @@ class ExpenseModel{
   final DateTime date;
   final TimeOfDay time;
   final MoneyType moneyType;
+  final int accountId;
 
   ExpenseModel({
     this.id,
@@ -17,7 +18,8 @@ class ExpenseModel{
     required this.category,
     required this.date,
     required this.time,
-    this.moneyType = MoneyType.expense
+    required this.accountId,
+    this.moneyType = MoneyType.expense,
   });
 
   factory ExpenseModel.fromMap(Map<String,dynamic> map){
@@ -36,7 +38,8 @@ class ExpenseModel{
         category: map['category'],
         date: DateTime.parse(map['date'] as String),
         time: decodedTime,
-        moneyType: map['moneyType'] == 'income'?MoneyType.income:MoneyType.expense
+        moneyType: map['moneyType'] == 'income'?MoneyType.income:MoneyType.expense,
+        accountId: map['accountId']
     );
   }
 
@@ -49,7 +52,8 @@ class ExpenseModel{
       'category' : category,
       'date' : date.toIso8601String(),
       'time' : formattedTime,
-      'moneyType': moneyType.name
+      'moneyType': moneyType.name,
+      'accountId' : accountId
     };
   }
 }

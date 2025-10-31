@@ -4,6 +4,7 @@ import 'package:expense_tracker_app/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:overlay_support/overlay_support.dart';
 
 void main() {
   runApp(const ProviderScope(child: MyApp()));
@@ -19,11 +20,13 @@ class MyApp extends ConsumerWidget {
       minTextAdapt: true,
       designSize: Size(375, 812),
       builder: (context,_){
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          home: AllScreens(),
-          theme: lightTheme,
-          darkTheme: darkTheme,
+        return OverlaySupport.global(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            home: AllScreens(),
+            theme: lightTheme,
+            darkTheme: darkTheme,
+          ),
         );
       },
     );

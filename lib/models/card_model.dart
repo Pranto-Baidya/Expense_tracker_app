@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -8,12 +9,16 @@ class CardModel{
   final String cardName;
   final double amount;
   final IconData icon;
+  final double progress;
+  final MoneyType moneyType;
 
   CardModel({
     this.id,
     required this.cardName,
     required this.amount,
-    required this.icon
+    required this.icon,
+    this.progress = 0,
+    this.moneyType = MoneyType.expense,
   });
 
   factory CardModel.fromMap(Map<String,dynamic> map){
@@ -24,7 +29,10 @@ class CardModel{
         icon: IconData(
           map['iconCode'] ?? Icons.credit_card.codePoint,
           fontFamily: 'MaterialIcons'
-        )
+        ),
+        progress: map['progress'],
+        moneyType: map['moneyType']=='income'? MoneyType.income : MoneyType.expense
+
     );
   }
 
@@ -33,7 +41,9 @@ class CardModel{
       'id' : id,
       'cardName' : cardName,
       'amount' : amount,
-      'iconCode' : icon.codePoint
+      'iconCode' : icon.codePoint,
+      'progress' : progress,
+      'moneyType' : moneyType.name
     };
     return data;
   }

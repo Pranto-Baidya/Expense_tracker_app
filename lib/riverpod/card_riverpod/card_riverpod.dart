@@ -1,10 +1,13 @@
 
 import 'package:expense_tracker_app/database/db_connection.dart';
 import 'package:expense_tracker_app/models/card_model.dart';
+import 'package:expense_tracker_app/screens/records_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+
 final cardsProvider = StateNotifierProvider<CardNotifier,CardState>((ref){
-  return CardNotifier();
+  return CardNotifier(ref);
 });
 
 class CardState{
@@ -13,16 +16,16 @@ class CardState{
 
   CardState({
     this.cards = const [],
-    this.isLoading = false
+    this.isLoading = false,
   });
 
   CardState copyWith({
     List<CardModel>? cards,
-    bool? isLoading
+    bool? isLoading,
   }){
     return CardState(
         cards: cards ?? this.cards,
-        isLoading: isLoading ?? this.isLoading
+        isLoading: isLoading ?? this.isLoading,
     );
   }
 }
@@ -31,7 +34,9 @@ class CardNotifier extends StateNotifier<CardState>{
 
   final DatabaseConnection databaseConnection = DatabaseConnection();
 
-  CardNotifier() : super(CardState());
+  final Ref _ref;
+
+  CardNotifier(this._ref) : super(CardState());
 
   Future<void> addCard(CardModel card)async{
 
@@ -43,7 +48,9 @@ class CardNotifier extends StateNotifier<CardState>{
         id: id,
         cardName: card.cardName,
         amount: card.amount,
-        icon: card.icon
+        icon: card.icon,
+        moneyType: card.moneyType,
+        progress: card.progress
     );
 
     state = state.copyWith(
@@ -88,5 +95,44 @@ class CardNotifier extends StateNotifier<CardState>{
     );
   }
 
+  void calculateTotalAmountInAccount() async {
+
+    final selectedAccountId = _ref.read(selectedAccountProvider);
+    final enteredAmount = _ref.read(enteredAmountProvider);
+    final moneyType = _ref.read(moneyTypeProvider);
+
+    if(selectedAccountId==null){
+      return;
+    }
+
+    final selectedCard = state.cards.firstWhere((card)=>card.id==selectedAccountId,orElse: ()=>throw Exception('Invalid account'));
+
+    double updatedAmount = selectedCard.amount;
+    double progress = selectedCard.progress;
+
+    if (moneyType == MoneyType.expense) {
+      updatedAmount -= enteredAmount;
+      progress = (enteredAmount / (selectedCard.amount == 0 ? 1 : selectedCard.amount)).clamp(0.0, 1.0);
+    }
+    else if(moneyType==MoneyType.income){
+      updatedAmount+=enteredAmount;
+      progress = 0.0;
+    }
+
+    final newBalance = CardModel(
+        id: selectedCard.id,
+        cardName: selectedCard.cardName,
+        amount: updatedAmount,
+        icon: selectedCard.icon,
+        moneyType: selectedCard.moneyType,
+        progress: progress
+    );
+
+    await databaseConnection.updateCard(newBalance);
+
+    state = state.copyWith(
+      cards: state.cards.map((card)=>card.id==newBalance.id?newBalance:card).toList(),
+    );
+  }
 
 }
