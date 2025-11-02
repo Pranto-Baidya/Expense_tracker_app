@@ -88,11 +88,11 @@ class BalanceDashboard extends ConsumerWidget {
                 children: [
                   SizedBox(height: 10.h,),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       SizedBox(width: 10.w,),
                       Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
                           Text(
                             'Expense',
@@ -109,7 +109,7 @@ class BalanceDashboard extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      SizedBox(width: 40.w,),
+                      //SizedBox(width: 40.w,),
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -128,7 +128,7 @@ class BalanceDashboard extends ConsumerWidget {
                           ),
                         ],
                       ),
-                      SizedBox(width: 40.w,),
+                      //SizedBox(width: 40.w,),
                       Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [

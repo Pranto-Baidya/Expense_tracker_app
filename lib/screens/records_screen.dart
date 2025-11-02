@@ -395,7 +395,8 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                         ),
                       )
                           : CustomAppButton(
-                        onPressed: () {
+                          onPressed: () {
+
                           ref.read(enteredAmountProvider.notifier).state = double.parse(_amountController.text);
                           final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==selectedAccountNotifier.state);
                           
@@ -795,6 +796,11 @@ class _HomeState extends ConsumerState<RecordsScreen> {
     final timeNotifier = ref.read(selectedTimeProvider.notifier);
 
     final expenseList = expenseState.filteredRecord;
+
+    final groupedExpenses = _groupByDate(expenseList);
+
+    final sortedDates = groupedExpenses.keys.toList()..sort((a,b)=>b.compareTo(a));
+
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: Center(
@@ -828,40 +834,54 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                   },
                   child: Expanded(
                     child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: expenseList.length + (expenseState.hasMore? 1 : 0),
-                        itemBuilder: (context,index){
-                          if(index<expenseList.length){
-                            final data = expenseList[index];
-                            final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==data.accountId,orElse: ()=>CardModel(
-                              id: -1,
-                              cardName: 'Unknown',
-                              icon: Icons.help_outline,
-                              amount: 0,
-                             ),
-                            );
-                             return ExpenseTile(
-                                 icon: icons(data.category),
-                                 expenseModel: data,
-                                 currency: selectedCurrency,
-                                 cardModel: selectedCard,
-                                 onEdit: (){
-                                   editExpenseDialogue(data);
-                                 },
-                                 onDelete: (){
-                                   deleteAlert(data);
-                                 },
-                             );
-                          }
-                          else{
-                            return expenseState.hasMore? Padding(
-                              padding: const EdgeInsets.all(8.0),
-                              child: Center(child: CircularProgressIndicator(),),
-                            ):SizedBox.shrink();
-                          }
-                        }
+                      shrinkWrap: true,
+                      itemCount: sortedDates.length,
+                      itemBuilder: (context, index) {
+
+                        final date = sortedDates[index];
+                        final expensesForDate = groupedExpenses[date]!;
+
+                        return Padding(
+                          padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 20.w),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                DateFormat('MMMM dd, yyyy').format(date),
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              SizedBox(height: 5.h),
+                              Divider(
+                                thickness: 2,
+                                indent: 0,
+                                endIndent: 1,
+                                color: theme.colorScheme.primary,
+                              ),
+                              ...expensesForDate.map((expense) {
+                                  final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card) => card.id == expense.accountId,
+                                    orElse: () => CardModel(
+                                      id: -1,
+                                      cardName: 'Unknown',
+                                      icon: Icons.help_outline,
+                                      amount: 0,
+                                    ),
+                                  );
+                                  return ExpenseTile(
+                                    icon: icons(expense.category),
+                                    expenseModel: expense,
+                                    currency: selectedCurrency,
+                                    cardModel: selectedCard,
+                                    onEdit: () => editExpenseDialogue(expense),
+                                    onDelete: () => deleteAlert(expense),
+                                  );
+                                }),
+                            ],
+                          ),
+                        );
+                      },
                     ),
                   )
+
               ),
             ],
           ),
@@ -878,7 +898,22 @@ class _HomeState extends ConsumerState<RecordsScreen> {
         ),
       ),
     );
+
   }
+  Map<DateTime,List<ExpenseModel>> _groupByDate(List<ExpenseModel> expense){
+    Map<DateTime,List<ExpenseModel>> map = {};
+
+    for(var exp in expense){
+      final date = DateTime(exp.date.year,exp.date.month,exp.date.day);
+
+      if(!map.containsKey(date)){
+        map[date] = [];
+      }
+      map[date]!.add(exp);
+    }
+    return map;
+  }
+
 }
 
 

@@ -1,5 +1,6 @@
 import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:expense_tracker_app/widgets/accounts_widget.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
@@ -353,14 +354,17 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
                           shrinkWrap: true,
                           itemCount: cardState.cards.length,
                           itemBuilder: (context,index){
+
                             final data = cardState.cards[index];
                             double amount = 0;
+
                             if(data.amount<=0 && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
                               amount = 0;
                             }
                             else{
                               amount = data.amount;
                             }
+
                             return AccountsWidget(
                                 title: data.cardName,
                                 amount: amount,

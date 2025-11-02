@@ -2,7 +2,7 @@
 
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/screens/accounts_screen.dart';
-import 'package:expense_tracker_app/screens/categories_screen.dart';
+import 'package:expense_tracker_app/screens/budgets_screen.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:expense_tracker_app/screens/stats_screen.dart';
 import 'package:expense_tracker_app/widgets/custom_appbar.dart';
@@ -43,9 +43,9 @@ class _AllScreensState extends ConsumerState<AllScreens> {
       ),
      body: [
          RecordsScreen(),
-         StatsScreen(),
          AccountsScreen(),
-         CategoryScreen()
+         CategoryScreen(),
+         StatsScreen(),
        ][index],
 
      bottomNavigationBar: NavigationBar(
@@ -65,11 +65,6 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                label: 'Records'
            ),
            NavigationDestination(
-               selectedIcon: Icon(Icons.pie_chart,color: theme.colorScheme.primary,size: 25,),
-               icon: Icon(Icons.pie_chart_outline,color: theme.iconTheme.color,size: 25,),
-               label: 'Analysis'
-           ),
-           NavigationDestination(
                selectedIcon: Icon(Icons.account_balance_wallet,color: theme.colorScheme.primary,size: 25,),
                icon: Icon(Icons.account_balance_wallet_outlined,color: theme.iconTheme.color,size: 25,),
                label: 'Accounts'
@@ -78,6 +73,11 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                selectedIcon: Icon(Icons.paid,color: theme.colorScheme.primary,size: 25,),
                icon: Icon(Icons.paid_outlined,color: theme.iconTheme.color,size: 25,),
                label: 'Budget'
+           ),
+           NavigationDestination(
+               selectedIcon: Icon(Icons.pie_chart,color: theme.colorScheme.primary,size: 25,),
+               icon: Icon(Icons.pie_chart_outline,color: theme.iconTheme.color,size: 25,),
+               label: 'Analysis'
            ),
          ]
        ),

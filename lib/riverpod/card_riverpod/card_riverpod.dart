@@ -113,11 +113,11 @@ class CardNotifier extends StateNotifier<CardState>{
     if (moneyType == MoneyType.expense) {
       updatedAmount -= enteredAmount;
       progress = (enteredAmount / (selectedCard.amount == 0 ? 1 : selectedCard.amount)).clamp(0.0, 1.0);
+    } else if (moneyType == MoneyType.income) {
+      updatedAmount += enteredAmount;
+      progress = (selectedCard.progress - (enteredAmount / (selectedCard.amount == 0 ? 1 : selectedCard.amount))).clamp(0.0, 1.0);
     }
-    else if(moneyType==MoneyType.income){
-      updatedAmount+=enteredAmount;
-      progress = 0.0;
-    }
+
 
     final newBalance = CardModel(
         id: selectedCard.id,

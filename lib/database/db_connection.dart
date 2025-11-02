@@ -1,5 +1,6 @@
 
 import 'dart:io';
+import 'package:expense_tracker_app/models/budget_model.dart';
 import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:path/path.dart';
@@ -79,27 +80,40 @@ class DatabaseConnection{
       )
       '''
     );
+
+    await db.execute(
+      '''
+      CREATE TABLE budgets(
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       categoryName TEXT,
+       budget REAL,
+       spent REAL,
+       remaining REAL,
+       date TEXT
+      )
+      '''
+    );
   }
 
   Future<int> insertExpense(ExpenseModel expense)async{
     final db = await getDB();
-    return db.insert('expenses', expense.toMap(),conflictAlgorithm: ConflictAlgorithm.replace);
+    return await db.insert('expenses', expense.toMap(),conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<ExpenseModel>> getAllExpenses({int offset = 0, int limit = 10})async{
     final db = await getDB();
     List<Map<String,dynamic>> data = await db.query('expenses',orderBy: 'id DESC',offset: offset, limit: limit);
-    return data.map((i)=>ExpenseModel.fromMap(i)).toList();
+    return await data.map((i)=>ExpenseModel.fromMap(i)).toList();
   }
 
   Future<int> updateExpenses(ExpenseModel expense)async{
     final db = await getDB();
-    return db.update('expenses', expense.toMap(), where: 'id = ?', whereArgs: [expense.id]);
+    return await db.update('expenses', expense.toMap(), where: 'id = ?', whereArgs: [expense.id]);
   }
 
   Future<int> deleteExpenses(int id)async{
     final db = await getDB();
-    return db.delete('expenses',where: 'id=?', whereArgs: [id]);
+    return await db.delete('expenses',where: 'id=?', whereArgs: [id]);
   }
 
   Future<void> closeDB()async{
@@ -111,23 +125,46 @@ class DatabaseConnection{
 
   Future<int> insertCard(CardModel card)async{
     final db = await getDB();
-    return db.insert('cards', card.toMap(),conflictAlgorithm: ConflictAlgorithm.replace);
+    return await db.insert('cards', card.toMap(),conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   Future<List<CardModel>> getAllCards()async{
     final db = await getDB();
     List<Map<String,dynamic>> data = await db.query('cards',orderBy: 'id DESC');
-    return data.map((i)=>CardModel.fromMap(i)).toList();
+    return await data.map((i)=>CardModel.fromMap(i)).toList();
   }
 
   Future<int> updateCard(CardModel card)async{
     final db = await getDB();
-    return db.update('cards', card.toMap(),where: 'id = ?',whereArgs: [card.id]);
+    return await db.update('cards', card.toMap(),where: 'id = ?',whereArgs: [card.id]);
   }
 
   Future<int> deleteCard(int id)async{
     final db = await getDB();
-    return db.delete('cards',where: 'id = ?', whereArgs: [id]);
+    return await db.delete('cards',where: 'id = ?', whereArgs: [id]);
+  }
+
+//CRUD for budgets table
+
+  Future<int> insertBudget(BudgetModel budget)async{
+    final db = await getDB();
+    return await db.insert('budgets', budget.toMap(),conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<BudgetModel>> getAllBudgets()async{
+    final db = await getDB();
+    List<Map<String,dynamic>> values = await db.query('budgets',orderBy: 'id DESC');
+    return await values.map((i)=>BudgetModel.fromMap(i)).toList();
+  }
+
+  Future<int> updateBudget(BudgetModel budget)async{
+    final db = await getDB();
+    return await db.update('budgets', budget.toMap(),where: 'id = ?',whereArgs: [budget.id]);
+  }
+
+  Future<int> deleteBudget(int id)async{
+    final db = await getDB();
+    return await db.delete('budgets',where: 'id = ?',whereArgs: [id]);
   }
 
 }

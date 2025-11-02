@@ -30,7 +30,7 @@ class ExpenseTile extends StatelessWidget {
     var theme = Theme.of(context);
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 5.h),
+      padding: EdgeInsets.symmetric(horizontal: 0.w, vertical: 8.h),
       child: Slidable(
         key: ValueKey(expenseModel.id),
         startActionPane: ActionPane(
