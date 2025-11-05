@@ -1,6 +1,5 @@
+import 'dart:ui';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
-import 'package:expense_tracker_app/screens/records_screen.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -26,8 +25,7 @@ class BalanceDashboard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context,WidgetRef ref) {
-
+  Widget build(BuildContext context, WidgetRef ref) {
     final totalExpenseState = ref.watch(totalExpenseProvider);
     final totalIncomeState = ref.watch(totalIncomeProvider);
     final totalMoneyState = ref.watch(totalMoneyProvider);
@@ -35,125 +33,157 @@ class BalanceDashboard extends ConsumerWidget {
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 15.w),
       child: Container(
-        height: 150.h,
+        height: 190.h,
         decoration: BoxDecoration(
           color: theme.cardColor,
-          borderRadius: BorderRadius.circular(15.r),
+          borderRadius: BorderRadius.circular(20.r),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
               offset: const Offset(0, 4),
-              blurRadius: 20,
+              blurRadius: 15,
               spreadRadius: 2,
             ),
             BoxShadow(
               color: Colors.white.withOpacity(0.2),
               offset: const Offset(0, -2),
               blurRadius: 10,
-              spreadRadius: 0,
             ),
           ],
-
         ),
-        child: Column(
-          children: [
-            Column(
-              children: [
-                SizedBox(height: 10.h,),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    IconButton(
-                        onPressed: (){
-                          dateNotifier.state = DateTime(dateNotifier.state.year,dateNotifier.state.month-1);
-                          ref.read(expenseProvider.notifier).filterRecordsByMonth(dateNotifier.state,timeNotifier.state);
-                        },
-                        icon: Icon(Icons.keyboard_double_arrow_left,color: theme.iconTheme.color,size: 30,)
-                    ),
-                    Text(DateFormat('MMMM, yyyy').format(dateState),style: theme.textTheme.titleMedium,),
-                    IconButton(
-                        onPressed: (){
-                          dateNotifier.state = DateTime(dateNotifier.state.year,dateNotifier.state.month+1);
-                          ref.read(expenseProvider.notifier).filterRecordsByMonth(dateNotifier.state,timeNotifier.state);
-                        },
-                        icon: Icon(Icons.keyboard_double_arrow_right,color: theme.iconTheme.color,size: 30,)
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 10.w),
-              child: Column(
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20.r),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              SizedBox(height: 10.h),
+
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  SizedBox(height: 10.h,),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      SizedBox(width: 10.w,),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: [
-                          Text(
-                            'Expense',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                          SizedBox(height: 5.h),
-                          Text(
-                            '-$selectedCurrency$totalExpenseState',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: Colors.red,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
+                  Padding(
+                    padding: EdgeInsets.only(left: 10.w),
+                    child: IconButton(
+                      onPressed: () {
+                        dateNotifier.state = DateTime(
+                          dateNotifier.state.year,
+                          dateNotifier.state.month - 1,
+                        );
+                        ref.read(expenseProvider.notifier).filterRecordsByMonth(dateNotifier.state, timeNotifier.state);
+                      },
+                      icon: Icon(
+                        Icons.keyboard_double_arrow_left_rounded,
+                        color: theme.iconTheme.color,
+                        size: 28,
                       ),
-                      //SizedBox(width: 40.w,),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Income',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                          SizedBox(height: 5.h),
-                          Text(
-                            '+$selectedCurrency$totalIncomeState',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: Colors.green,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
+                    ),
+                  ),
+                  Text(
+                    DateFormat('MMMM, yyyy').format(dateState),
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      letterSpacing: 1,
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.only(right: 10.w),
+                    child: IconButton(
+                      onPressed: () {
+                        dateNotifier.state = DateTime(
+                          dateNotifier.state.year,
+                          dateNotifier.state.month + 1,
+                        );
+                        ref.read(expenseProvider.notifier).filterRecordsByMonth(dateNotifier.state, timeNotifier.state);
+                      },
+                      icon: Icon(
+                        Icons.keyboard_double_arrow_right_rounded,
+                        color: theme.iconTheme.color,
+                        size: 28,
                       ),
-                      //SizedBox(width: 40.w,),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Total',
-                            style: theme.textTheme.titleMedium,
-                          ),
-                          SizedBox(height: 5.h),
-                          Text(
-                            '$selectedCurrency$totalMoneyState',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                      SizedBox(width: 10.w,),
-                    ],
+                    ),
                   ),
                 ],
               ),
-            ),
-          ],
+
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 10.h),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    _buildBalanceCard(
+                      title: 'Expense',
+                      amount: '-$selectedCurrency$totalExpenseState',
+                      color: Colors.redAccent,
+                      theme: theme,
+                      icon: Icons.trending_down_rounded,
+                    ),
+                    _buildBalanceCard(
+                      title: 'Income',
+                      amount: '+$selectedCurrency$totalIncomeState',
+                      color: Colors.green,
+                      theme: theme,
+                      icon: Icons.trending_up_rounded,
+                    ),
+                    _buildBalanceCard(
+                      title: 'Total',
+                      amount: '$selectedCurrency$totalMoneyState',
+                      color: theme.colorScheme.primary,
+                      theme: theme,
+                      icon: Icons.request_page_outlined,
+                    ),
+                  ],
+                ),
+              ),
+              SizedBox(height: 10.h,)
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildBalanceCard({
+    required String title,
+    required String amount,
+    required Color color,
+    required ThemeData theme,
+    required IconData icon,
+  }) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      width: 100.w,
+      height: 90.h,
+      decoration: BoxDecoration(
+        color: theme.cardColor.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(15.r),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            offset: const Offset(0, 3),
+            blurRadius: 8,
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 24),
+          SizedBox(height: 6.h),
+          Text(
+            title,
+            style: theme.textTheme.labelLarge
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            amount,
+            style: theme.textTheme.bodyLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: color,
+              fontSize: 15,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }

@@ -70,17 +70,33 @@ class CardNotifier extends StateNotifier<CardState>{
     );
   }
 
-  Future<void> updateCard(CardModel card)async{
-    state = state.copyWith(
-      isLoading: true
+  Future<void> updateCard(CardModel card) async {
+    state = state.copyWith(cards: state.cards, isLoading: true);
+
+    final existingCard = state.cards.firstWhere((c) => c.id == card.id);
+
+    double newProgress = existingCard.progress;
+    if (existingCard.amount > 0) {
+      double spentRatio = existingCard.amount * existingCard.progress;
+      newProgress = (spentRatio / (card.amount == 0 ? 1 : card.amount)).clamp(0.0, 1.0);
+    }
+
+    final updatedCard = CardModel(
+      id: card.id,
+      cardName: card.cardName,
+      amount: card.amount,
+      icon: card.icon,
+      moneyType: card.moneyType,
+      progress: newProgress,
     );
 
-    await databaseConnection.updateCard(card);
+    await databaseConnection.updateCard(updatedCard);
 
-    state = state.copyWith(
-      cards: state.cards.map((i)=>i.id==card.id? card : i).toList(),
-      isLoading: false
-    );
+    final updatedCards = state.cards.map((i) {
+      return i.id == card.id ? updatedCard : i;
+    }).toList();
+
+    state = state.copyWith(cards: updatedCards, isLoading: false);
   }
 
   Future<void> deleteCard(int id)async{
@@ -133,6 +149,7 @@ class CardNotifier extends StateNotifier<CardState>{
     state = state.copyWith(
       cards: state.cards.map((card)=>card.id==newBalance.id?newBalance:card).toList(),
     );
+    await getCards();
   }
 
 }

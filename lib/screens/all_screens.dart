@@ -4,6 +4,7 @@ import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/screens/accounts_screen.dart';
 import 'package:expense_tracker_app/screens/budgets_screen.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
+import 'package:expense_tracker_app/screens/search_records_screen.dart';
 import 'package:expense_tracker_app/screens/stats_screen.dart';
 import 'package:expense_tracker_app/widgets/custom_appbar.dart';
 import 'package:flutter/material.dart';
@@ -34,7 +35,7 @@ class _AllScreensState extends ConsumerState<AllScreens> {
               padding: EdgeInsets.only(right: 5.w),
               child: IconButton(
                   onPressed: (){
-
+                    Navigator.push(context, MaterialPageRoute(builder: (context)=>SearchRecordsScreen()));
                   },
                   icon: Icon(Icons.search,color: theme.iconTheme.color,size: 25,)
               ),
@@ -75,8 +76,8 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                label: 'Budget'
            ),
            NavigationDestination(
-               selectedIcon: Icon(Icons.pie_chart,color: theme.colorScheme.primary,size: 25,),
-               icon: Icon(Icons.pie_chart_outline,color: theme.iconTheme.color,size: 25,),
+               selectedIcon: Icon(Icons.analytics,color: theme.colorScheme.primary,size: 25,),
+               icon: Icon(Icons.analytics_outlined,color: theme.iconTheme.color,size: 25,),
                label: 'Analysis'
            ),
          ]

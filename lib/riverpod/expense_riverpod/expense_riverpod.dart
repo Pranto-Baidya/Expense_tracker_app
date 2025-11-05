@@ -1,6 +1,10 @@
 
 import 'package:expense_tracker_app/database/db_connection.dart';
+import 'package:expense_tracker_app/models/budget_model.dart';
+import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
+import 'package:expense_tracker_app/riverpod/budget_riverpod/budget_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -15,6 +19,7 @@ final expenseProvider = StateNotifierProvider<ExpenseNotifier,ExpenseState>((ref
 class ExpenseState{
   final List<ExpenseModel> expenses;
   final List<ExpenseModel> filteredRecord;
+  final List<ExpenseModel> searchRecords;
   final bool isLoading;
   final bool hasMore;
   final int offset;
@@ -24,6 +29,7 @@ class ExpenseState{
   ExpenseState({
     this.expenses = const [],
     this.filteredRecord = const [],
+    this.searchRecords = const [],
     this.isLoading = false,
     this.hasMore = true,
     this.offset = 0,
@@ -35,6 +41,7 @@ class ExpenseState{
   ExpenseState copyWith({
     List<ExpenseModel>? expenses,
     List<ExpenseModel>? filteredRecord,
+    List<ExpenseModel>? searchRecords,
     bool? isLoading,
     bool? hasMore,
     int? offset,
@@ -44,6 +51,7 @@ class ExpenseState{
     return ExpenseState(
       expenses: expenses ?? this.expenses,
       filteredRecord: filteredRecord ?? this.filteredRecord,
+      searchRecords: searchRecords ?? this.searchRecords,
       isLoading: isLoading ?? this.isLoading,
       hasMore: hasMore ?? this.hasMore,
       offset: offset ?? this.offset,
@@ -116,13 +124,92 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
   }
 
   Future<void> deleteExpense(int id)async{
+
+    final selectedRecord = state.filteredRecord.firstWhere((data)=>data.id==id);
+
+    final selectedCard = _ref.read(cardsProvider).cards.firstWhere((card)=>card.id==selectedRecord.accountId);
+
+    final selectedBudget = _ref.read(budgetProvider).budgets.firstWhere((budget)=>budget.categoryName==selectedRecord.category);
+
+    double updatedAmount = selectedCard.amount;
+
+    double updatedProgress = selectedCard.progress;
+
+    if(selectedRecord.moneyType==MoneyType.expense){
+      updatedAmount+= selectedRecord.amount;
+    }
+    else if(selectedRecord.moneyType==MoneyType.income){
+      updatedAmount-= selectedRecord.amount;
+    }
+
+    if(selectedCard.amount>0){
+      double spentAmount = selectedCard.amount * selectedCard.progress;
+      updatedProgress = (spentAmount/(updatedAmount==0 ? 1 : updatedAmount)).clamp(0.0, 1.0);
+    }
+
+    final updatedCard = CardModel(
+        id: selectedCard.id,
+        cardName: selectedCard.cardName,
+        amount: updatedAmount,
+        icon: selectedCard.icon,
+        moneyType: selectedCard.moneyType,
+        progress: updatedProgress
+    );
+
+    await databaseConnection.updateCard(updatedCard);
+
+    final cardNotifier = _ref.read(cardsProvider.notifier);
+
+    cardNotifier.state = cardNotifier.state.copyWith(
+      cards: cardNotifier.state.cards.map((card){
+        return card.id==updatedCard.id? updatedCard : card;
+      }).toList()
+    );
+
+    double updatedSpent = selectedBudget.spent;
+
+    double updatedRemaining = selectedBudget.remaining;
+
+    if(selectedRecord.moneyType==MoneyType.expense){
+      updatedSpent -= selectedRecord.amount;
+      updatedRemaining += selectedRecord.amount;
+    }
+
+    final updatedBudget = BudgetModel(
+        id: selectedBudget.id,
+        categoryName: selectedBudget.categoryName,
+        budget: selectedBudget.budget,
+        spent: updatedSpent,
+        remaining: updatedRemaining,
+        date: selectedBudget.date
+    );
+
+    await _ref.read(budgetProvider.notifier).updateBudgetFromExpense(updatedBudget);
+
     await databaseConnection.deleteExpenses(id);
+
     state = state.copyWith(
       expenses: state.expenses.where((e)=>e.id!=id).toList()
     );
     if (state.selectedDate != null && state.selectedTime!=null) {
       filterRecordsByMonth(state.selectedDate!,state.selectedTime!);
     }
+  }
+
+  void searchForRecords(String query){
+    if(query.isEmpty){
+      state = state.copyWith(
+        searchRecords: []
+      );
+      return;
+    }
+    state = state.copyWith(
+      searchRecords: state.expenses.where((data){
+        return data.title.toLowerCase().contains(query.toLowerCase())
+            || data.category.toLowerCase().contains(query.toLowerCase())
+            || data.amount.toString().toLowerCase().contains(query.toLowerCase());
+      }).toList()
+    );
   }
 
   void filterRecordsByMonth(DateTime selectedDate, TimeOfDay selectedTime) {

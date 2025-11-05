@@ -2,12 +2,15 @@
 
 import 'package:expense_tracker_app/database/db_connection.dart';
 import 'package:expense_tracker_app/models/budget_model.dart';
+import 'package:expense_tracker_app/screens/records_screen.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
-final budgetProvider = StateNotifierProvider<BudgetNotifier,BudgetState>((ref)=>BudgetNotifier());
+final budgetProvider = StateNotifierProvider<BudgetNotifier,BudgetState>((ref)=>BudgetNotifier(ref));
 
 class BudgetState{
   final List<BudgetModel> budgets;
+
 
   BudgetState({
     this.budgets = const []
@@ -24,7 +27,9 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
 
   final DatabaseConnection databaseConnection = DatabaseConnection();
 
-  BudgetNotifier() : super(BudgetState());
+  final Ref ref;
+
+  BudgetNotifier(this.ref) : super(BudgetState());
 
   Future<void> getAllBudgetsList()async{
     state = state.copyWith(budgets: []);
@@ -52,10 +57,24 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
   }
 
   Future<void> updateBudget(BudgetModel budget)async{
-    await databaseConnection.updateBudget(budget);
+
+    final selectedBudgetedCategory = state.budgets.firstWhere((i)=>i.id==budget.id);
+
+    final remaining = budget.budget-selectedBudgetedCategory.spent;
+
+    final updatedBudget = BudgetModel(
+       id: selectedBudgetedCategory.id,
+       categoryName: selectedBudgetedCategory.categoryName,
+       budget: budget.budget,
+       spent: selectedBudgetedCategory.spent,
+       remaining: remaining,
+       date: selectedBudgetedCategory.date
+   );
+
+    await databaseConnection.updateBudget(updatedBudget);
 
     state = state.copyWith(
-      budgets: state.budgets.map((budj)=>budj.id == budget.id? budget : budj).toList()
+      budgets: state.budgets.map((budj)=>budj.id == budget.id? updatedBudget : budj).toList()
     );
   }
 
@@ -66,4 +85,51 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
       budgets: state.budgets.where((i)=>i.id!=id).toList()
     );
   }
+
+  Future<void> updateBudgetFromExpense(BudgetModel updatedBudget) async {
+    await databaseConnection.updateBudget(updatedBudget);
+
+    state = state.copyWith(
+      budgets: state.budgets.map((b) => b.id == updatedBudget.id ? updatedBudget : b).toList(),
+    );
+  }
+
+
+  void calculateAmount()async{
+
+    final selectedCategory = ref.read(categoryProvider);
+    final enteredAmount = ref.read(enteredAmountProvider);
+    final moneyType = ref.read(moneyTypeProvider);
+
+    final selectedCategoryForBudget = state.budgets.firstWhere((i)=>i.categoryName==selectedCategory,orElse: ()=>throw Exception('Not found'));
+
+    double currentAmount = selectedCategoryForBudget.budget;
+    double spent = selectedCategoryForBudget.spent;
+
+    if(moneyType==MoneyType.expense){
+      spent += enteredAmount;
+    }
+
+    double remaining = currentAmount-spent;
+
+    final newBudget = BudgetModel(
+        id: selectedCategoryForBudget.id,
+        categoryName: selectedCategoryForBudget.categoryName,
+        budget: currentAmount,
+        spent: spent,
+        remaining: remaining,
+        date: selectedCategoryForBudget.date
+    );
+
+    await databaseConnection.updateBudget(newBudget);
+
+    state = state.copyWith(
+      budgets: state.budgets.map((current)=>current.id==newBudget.id?newBudget:current).toList()
+    );
+
+    await getAllBudgetsList();
+
+  }
+
+
 }

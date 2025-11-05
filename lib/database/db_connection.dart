@@ -25,7 +25,7 @@ class DatabaseConnection{
    final path = join(dir.path,'ExpenseDB.db');
    return openDatabase(
      path,
-     version: 5,
+     version: 6,
      onCreate: _createTable,
      onUpgrade: (db,oldVersion, newVersion)async{
        if(oldVersion<2){
@@ -47,6 +47,9 @@ class DatabaseConnection{
        }
        if(oldVersion<5){
          await db.execute('ALTER TABLE cards ADD COLUMN iconCode INTEGER');
+       }
+       if(oldVersion<6){
+         await db.execute('ALTER TABLE budgets ADD COLUMN moneyType TEXT DEFAULT "expense"');
        }
      }
    );
@@ -89,7 +92,8 @@ class DatabaseConnection{
        budget REAL,
        spent REAL,
        remaining REAL,
-       date TEXT
+       date TEXT,
+       moneyType TEXT
       )
       '''
     );
@@ -159,7 +163,7 @@ class DatabaseConnection{
 
   Future<int> updateBudget(BudgetModel budget)async{
     final db = await getDB();
-    return await db.update('budgets', budget.toMap(),where: 'id = ?',whereArgs: [budget.id]);
+    return await db.update('budgets',budget.toMap(),where: 'id = ?',whereArgs: [budget.id]);
   }
 
   Future<int> deleteBudget(int id)async{

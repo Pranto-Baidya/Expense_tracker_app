@@ -84,7 +84,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
           List<IconData> icons = [
             Icons.credit_card,
             Icons.savings_outlined,
-            Icons.paid_outlined,
+            Icons.attach_money,
             Icons.wallet_outlined,
             Icons.phone_iphone_sharp
           ];
@@ -100,7 +100,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
                           onPressed: (){
                             Navigator.pop(context);
                           },
-                          icon: Icon(Icons.close,color: theme.iconTheme.color,size: 30,)
+                          icon: Icon(Icons.close,color: theme.colorScheme.primary,size: 30,)
                       )
                     ],
                   ),
@@ -109,6 +109,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       TextField(
+                        autofocus: true,
                         controller: _nameController,
                         decoration: InputDecoration(
                             hintText: 'Name of your account',
@@ -162,7 +163,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
                             borderRadius: BorderRadius.circular(15.r),
                           ),
                           elevation: 0,
-                          minimumSize: Size(double.infinity.w, 55.h),
+                          minimumSize: Size(double.infinity.w, 50.h),
                         ),
                         child: Text(
                           'Add account',
@@ -230,7 +231,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
                           onPressed: (){
                             Navigator.pop(context);
                           }, 
-                          icon: Icon(Icons.close,color: theme.iconTheme.color,)
+                          icon: Icon(Icons.close,color: theme.colorScheme.primary,size: 30,)
                       )
                     ],
                   ),
@@ -239,6 +240,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       TextField(
+                        autofocus: true,
                         controller: _editNameController,
                         decoration: InputDecoration(
                             hintText: 'Name of your account',
@@ -292,7 +294,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
                             borderRadius: BorderRadius.circular(15.r),
                           ),
                           elevation: 0,
-                          minimumSize: Size(double.infinity.w, 55.h),
+                          minimumSize: Size(double.infinity.w, 50.h),
                         ),
                         child: Text(
                           'Edit account',

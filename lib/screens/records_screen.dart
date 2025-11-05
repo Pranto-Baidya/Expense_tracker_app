@@ -15,6 +15,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:overlay_support/overlay_support.dart';
 
+import '../riverpod/budget_riverpod/budget_riverpod.dart';
 import '../widgets/balace_dashboard.dart';
 
 enum MoneyType {expense, income}
@@ -50,6 +51,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ref.read(expenseProvider.notifier).getExpenses();
+      await ref.read(cardsProvider.notifier).getCards();
 
       final selectedDate = ref.read(selectedDateProvider);
       final selectedTime = ref.read(selectedTimeProvider);
@@ -183,6 +185,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                     ),
                     SizedBox(height: 15.h),
                     TextFormField(
+                      autofocus: true,
                       controller: _titleController,
                       decoration: InputDecoration(
                         hintText: 'Name of your expense or income',
@@ -192,6 +195,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                     ),
                     SizedBox(height: 15.h),
                     TextFormField(
+                      autofocus: true,
                       keyboardType: TextInputType.number,
                       controller: _amountController,
                       decoration: InputDecoration(
@@ -401,7 +405,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                           final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==selectedAccountNotifier.state);
                           
                           if((ref.read(enteredAmountProvider.notifier).state>selectedCard.amount || selectedCard.amount<=0) && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
-                            toast('Not sufficient balance, please choose a different card or update the balance');
+                            toast('Not sufficient balance, please choose a different account or update the balance');
                             return;
                           }
 
@@ -417,6 +421,8 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                             ),
                           );
                           ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
+                          ref.read(budgetProvider.notifier).calculateAmount();
+
                           Navigator.pop(context);
                         },
                         title: 'Add record',
@@ -504,6 +510,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                     ),
                     SizedBox(height: 15.h),
                     TextFormField(
+                      autofocus: true,
                       controller: _editTitleController,
                       onChanged: (_) => checkTyping(ref, expense: expense),
                       decoration: InputDecoration(
@@ -514,6 +521,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                     ),
                     SizedBox(height: 15.h),
                     TextFormField(
+                      autofocus: true,
                       controller: _editAmountController,
                       keyboardType: TextInputType.number,
                       onChanged: (_) => checkTyping(ref, expense: expense),
@@ -681,7 +689,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                           final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==selectedAccountNotifier.state);
 
                           if((ref.read(enteredAmountProvider.notifier).state>selectedCard.amount || selectedCard.amount<=0) && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
-                            toast('Not sufficient balance, please choose a different card or update the balance');
+                            toast('Not sufficient balance, please choose a different account or update the balance');
                             return;
                           }
 
@@ -852,7 +860,8 @@ class _HomeState extends ConsumerState<RecordsScreen> {
                               ),
                               SizedBox(height: 5.h),
                               Divider(
-                                thickness: 2,
+                                radius: BorderRadius.circular(0),
+                                thickness: 3,
                                 indent: 0,
                                 endIndent: 1,
                                 color: theme.colorScheme.primary,

@@ -1,4 +1,6 @@
 
+import 'package:expense_tracker_app/screens/records_screen.dart';
+
 class BudgetModel{
   final int? id;
   final String categoryName;
@@ -6,6 +8,7 @@ class BudgetModel{
   final double spent;
   final double remaining;
   final DateTime date;
+  final MoneyType moneyType;
 
   BudgetModel({
     this.id,
@@ -13,7 +16,8 @@ class BudgetModel{
     required this.budget,
     this.spent = 0.0,
     this.remaining = 0.0,
-    required this.date
+    required this.date,
+    this.moneyType = MoneyType.expense
   });
 
   factory BudgetModel.fromMap(Map<String,dynamic> map){
@@ -23,7 +27,8 @@ class BudgetModel{
         budget: (map['budget'] as num).toDouble(),
         spent: (map['spent'] as num).toDouble(),
         remaining: (map['remaining'] as num).toDouble(),
-        date: DateTime.parse(map['date'] as String)
+        date: DateTime.parse(map['date'] as String),
+        moneyType: map['moneyType'] == 'income'? MoneyType.income : MoneyType.expense
     );
   }
 
@@ -34,7 +39,8 @@ class BudgetModel{
       'budget' : budget,
       'spent' : spent,
       'remaining' : remaining,
-      'date' : date.toIso8601String()
+      'date' : date.toIso8601String(),
+      'moneyType' : moneyType.name
     };
     return data;
   }
