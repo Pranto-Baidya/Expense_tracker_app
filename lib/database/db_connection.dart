@@ -148,6 +148,12 @@ class DatabaseConnection{
     return await db.delete('cards',where: 'id = ?', whereArgs: [id]);
   }
 
+  Future<void> deleteExpensesByAccountId(int accountId) async {
+    final db = await getDB();
+    await db.delete('expenses', where: 'accountId = ?', whereArgs: [accountId]);
+  }
+
+
 //CRUD for budgets table
 
   Future<int> insertBudget(BudgetModel budget)async{

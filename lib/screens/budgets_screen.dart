@@ -1,6 +1,7 @@
 import 'package:expense_tracker_app/models/budget_model.dart';
 import 'package:expense_tracker_app/riverpod/budget_riverpod/budget_riverpod.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
+import 'package:expense_tracker_app/widgets/budget_dashboard.dart';
 import 'package:expense_tracker_app/widgets/budget_widget.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +12,7 @@ import 'package:intl/intl.dart';
 
 final checkBudgetTyping = StateProvider<bool>((ref)=>false);
 final budgetEditingProvider = StateProvider<bool>((ref)=>false);
+final selectedDateProviderForBudgets = StateProvider<DateTime>((ref)=>DateTime.now());
 
 class CategoryScreen extends ConsumerStatefulWidget {
   const CategoryScreen({super.key});
@@ -37,8 +39,9 @@ class _StatsScreenState extends ConsumerState<CategoryScreen> {
 
   @override
   void initState() {
-    WidgetsBinding.instance.addPostFrameCallback((_){
-      ref.read(budgetProvider.notifier).getAllBudgetsList();
+    WidgetsBinding.instance.addPostFrameCallback((_)async{
+      await ref.read(budgetProvider.notifier).getAllBudgetsList();
+      ref.read(budgetProvider.notifier).filterBudgetsByMonth(ref.read(selectedDateProviderForBudgets));
     });
     _budgetController.addListener(()=>checkForBudgetTyping(ref));
     super.initState();
@@ -104,9 +107,7 @@ class _StatsScreenState extends ConsumerState<CategoryScreen> {
           builder: (context, ref, _) {
             final isTyping = ref.watch(checkBudgetTyping);
             return AlertDialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20.r),
-              ),
+              backgroundColor: Theme.of(context).cardColor,
               title: Row(
                 children: [
                   Text(
@@ -190,6 +191,7 @@ class _StatsScreenState extends ConsumerState<CategoryScreen> {
       },
     ).then((_){
       ref.read(checkBudgetTyping.notifier).state = false;
+      _budgetController.clear();
     });
   }
 
@@ -208,7 +210,7 @@ class _StatsScreenState extends ConsumerState<CategoryScreen> {
               builder: (context,ref,_){
                 final isTyping = ref.watch(checkBudgetTyping);
                 return AlertDialog(
-                  backgroundColor: theme.dialogTheme.backgroundColor,
+                  backgroundColor: Theme.of(context).cardColor,
                   title: Row(
                     children: [
                       Text('Change budget',style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),),
@@ -286,18 +288,30 @@ class _StatsScreenState extends ConsumerState<CategoryScreen> {
   @override
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
+
     final budgetState = ref.watch(budgetProvider);
+
     final budgetNotifier = ref.read(budgetProvider.notifier);
 
-    final budgetedCategories = budgetState.budgets.map((i)=>i.categoryName).toSet();
+    final budgetedCategories = budgetState.filteredBudgets.map((i)=>i.categoryName).toSet();
     
     final unbudgetedCategories = categories.where((i){
       return !budgetedCategories.contains(i);
     }).toList();
-    
-    final groupedBudgets = _groupByDate(budgetState.budgets);
-    
+
+    final groupedBudgets = _groupByDate(budgetState.filteredBudgets);
+
     final sortedDates = groupedBudgets.keys.toList()..sort((a,b)=>b.compareTo(a));
+
+    final totalBudget = budgetState.filteredBudgets.fold(0,(a,b)=>(a+b.budget).toInt());
+
+    final totalSpent = budgetState.filteredBudgets.fold(0,(a,b)=>(a+b.spent).toInt());
+
+    final selectedDate = ref.watch(selectedDateProviderForBudgets);
+
+    final now = DateTime.now();
+
+    final isPastMonth = selectedDate.year<now.year || (selectedDate.year==now.year && selectedDate.month<now.month);
 
     return Scaffold(
       body: Padding(
@@ -305,6 +319,35 @@ class _StatsScreenState extends ConsumerState<CategoryScreen> {
         child: SingleChildScrollView(
           child: Column(
             children: [
+              SizedBox(height: 10.h,),
+              BudgetDashboard(
+                dateNotifier: ref.read(selectedDateProviderForBudgets.notifier),
+                dateState: ref.watch(selectedDateProviderForBudgets),
+                totalBudget: totalBudget,
+                totalSpent: totalSpent,
+              ),
+              if(isPastMonth && budgetedCategories.isEmpty)...[
+                Column(
+                  children: [
+                    SizedBox(height: 50.h),
+                    Icon(Icons.event_busy, color: theme.colorScheme.primary, size: 100),
+                    SizedBox(height: 10.h),
+                    Text('Month expired', style: theme.textTheme.titleMedium),
+                    Text('View past budget limits for comparison',style: theme.textTheme.titleMedium)
+                  ],
+                ),
+              ],
+              if (budgetedCategories.isEmpty && !isPastMonth)
+                Column(
+                  children: [
+                    SizedBox(height: 20.h),
+                    Icon(Icons.note_add_outlined, color: theme.colorScheme.primary, size: 100),
+                    SizedBox(height: 10.h),
+                    Text('No budget was applied for this month', style: theme.textTheme.titleMedium),
+                    Text('Set a budget from the list below',style: theme.textTheme.titleMedium)
+                  ],
+                ),
+              SizedBox(height: 10.h,),
               if(budgetedCategories.isNotEmpty)
                     ListView.builder(
                         shrinkWrap: true,
@@ -348,85 +391,74 @@ class _StatsScreenState extends ConsumerState<CategoryScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: 20.h),
-                  Text(
-                    'Not budgeted this month',
-                    style: theme.textTheme.titleMedium,
-                  ),
-                  SizedBox(height: 5.h),
-                  Divider(
-                    thickness: 3,
-                    indent: 0,
-                    endIndent: 1,
-                    color: theme.colorScheme.primary,
-                  ),
-                  ...unbudgetedCategories.map((cat) {
-                    final icon = getIconForCategory(cat);
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8.0),
-                      child: Container(
-                        padding: const EdgeInsets.all(15),
-                        decoration: BoxDecoration(
-                          color: theme.cardColor,
-                          borderRadius: BorderRadius.circular(15.r),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              offset: const Offset(0, 4),
-                              blurRadius: 20,
-                              spreadRadius: 2,
-                            ),
-                            BoxShadow(
-                              color: Colors.white.withOpacity(0.2),
-                              offset: const Offset(0, -2),
-                              blurRadius: 10,
-                              spreadRadius: 0,
-                            ),
-                          ],
-                        ),
-                        child: Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: theme.colorScheme.primary,
-                              child: Icon(
-                                icon,
-                                color: Colors.white,
+
+                  if(!isPastMonth)...[
+                    SizedBox(height: 20.h),
+                    Text(
+                      'Not budgeted this month',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    SizedBox(height: 5.h),
+                    Divider(
+                      thickness: 3,
+                      indent: 0,
+                      endIndent: 1,
+                      color: theme.colorScheme.primary,
+                    ),
+                    ...unbudgetedCategories.map((cat) {
+                      final icon = getIconForCategory(cat);
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Container(
+                          padding: const EdgeInsets.all(15),
+                          decoration: BoxDecoration(
+                            color: theme.cardColor,
+                            borderRadius: BorderRadius.circular(15.r),
+                          ),
+                          child: Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 20,
+                                backgroundColor: theme.colorScheme.primary,
+                                child: Icon(
+                                  icon,
+                                  color: Colors.white,
+                                ),
                               ),
-                            ),
-                            SizedBox(width: 20.w),
-                            Text(
-                              cat,
-                              style: theme.textTheme.titleMedium,
-                            ),
-                            const Spacer(),
-                            ElevatedButton(
-                              onPressed: () {
-                                addBudgetDialogue(cat, icon);
-                              },
-                              style: ElevatedButton.styleFrom(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(15.r),
-                                  side: BorderSide(
+                              SizedBox(width: 20.w),
+                              Text(
+                                cat,
+                                style: theme.textTheme.titleMedium,
+                              ),
+                              const Spacer(),
+                              ElevatedButton(
+                                onPressed: () {
+                                  addBudgetDialogue(cat, icon);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(15.r),
+                                    side: BorderSide(
+                                      color: theme.colorScheme.primary,
+                                    ),
+                                  ),
+                                  backgroundColor: theme.cardColor,
+                                  minimumSize: const Size(100, 50),
+                                  elevation: 0,
+                                ),
+                                child: Text(
+                                  'Set budget',
+                                  style: theme.textTheme.titleMedium?.copyWith(
                                     color: theme.colorScheme.primary,
                                   ),
                                 ),
-                                backgroundColor: theme.cardColor,
-                                minimumSize: const Size(100, 50),
-                                elevation: 0,
                               ),
-                              child: Text(
-                                'Set budget',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  }),
+                      );
+                    }),
+                  ]
                 ],
               ),
             ],

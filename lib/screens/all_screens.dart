@@ -1,14 +1,13 @@
 
 
-import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
+import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:expense_tracker_app/screens/accounts_screen.dart';
+import 'package:expense_tracker_app/screens/analysis_screen/stats_screen.dart';
 import 'package:expense_tracker_app/screens/budgets_screen.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:expense_tracker_app/screens/search_records_screen.dart';
-import 'package:expense_tracker_app/screens/stats_screen.dart';
 import 'package:expense_tracker_app/widgets/custom_appbar.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -22,7 +21,11 @@ class AllScreens extends ConsumerStatefulWidget {
   _AllScreensState createState() => _AllScreensState();
 }
 
+
 class _AllScreensState extends ConsumerState<AllScreens> {
+
+  final GlobalKey<RecordsScreenState> _recordKey = GlobalKey<RecordsScreenState>();
+
   @override
   Widget build(BuildContext context) {
     final index = ref.watch(indexProvider);
@@ -35,18 +38,36 @@ class _AllScreensState extends ConsumerState<AllScreens> {
               padding: EdgeInsets.only(right: 5.w),
               child: IconButton(
                   onPressed: (){
-                    Navigator.push(context, MaterialPageRoute(builder: (context)=>SearchRecordsScreen()));
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const SearchRecordsScreen()),
+                    ).then((result) {
+                      if (result != null && result is Map<String, dynamic>) {
+                        final expense = result['expense'] as ExpenseModel;
+                        final action = result['action'] as String;
+
+                        if (action == 'edit') {
+                          _recordKey.currentState?.editExpenseDialogue(expense);
+                        } else if (action == 'delete') {
+                          _recordKey.currentState?.deleteAlert(expense);
+                        }
+                      }
+                    });
+
                   },
-                  icon: Icon(Icons.search,color: theme.iconTheme.color,size: 25,)
+                  icon: Padding(
+                    padding: const EdgeInsets.only(right: 5.0),
+                    child: Icon(Icons.search,color: theme.iconTheme.color,size: 30,),
+                  )
               ),
             )
           ],
       ),
      body: [
-         RecordsScreen(),
+         RecordsScreen(key: _recordKey,),
          AccountsScreen(),
          CategoryScreen(),
-         StatsScreen(),
+         StatsScreen()
        ][index],
 
      bottomNavigationBar: NavigationBar(
@@ -58,6 +79,7 @@ class _AllScreensState extends ConsumerState<AllScreens> {
          labelPadding: EdgeInsets.zero,
          onDestinationSelected: (ind){
          ref.read(indexProvider.notifier).state = ind;
+         ref.read(isIncomeProvider.notifier).state = false;
        },
          destinations: [
            NavigationDestination(
@@ -82,7 +104,9 @@ class _AllScreensState extends ConsumerState<AllScreens> {
            ),
          ]
        ),
-      drawer: Drawer(),
+      drawer: Drawer(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+      ),
     );
   }
 }

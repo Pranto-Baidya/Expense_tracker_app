@@ -1,6 +1,8 @@
 
 import 'package:expense_tracker_app/database/db_connection.dart';
 import 'package:expense_tracker_app/models/card_model.dart';
+import 'package:expense_tracker_app/models/expense_model.dart';
+import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -103,7 +105,19 @@ class CardNotifier extends StateNotifier<CardState>{
 
     state = state.copyWith(isLoading: true);
 
+    final expenseNotifier = _ref.read(expenseProvider.notifier);
+    final expenseState = _ref.read(expenseProvider);
+
+    List<ExpenseModel> remainingRecords = expenseState.expenses.where((exp)=>exp.accountId!=id).toList();
+    
+    await databaseConnection.deleteExpensesByAccountId(id);
+
     await databaseConnection.deleteCard(id);
+
+    expenseNotifier.state = expenseNotifier.state.copyWith(
+      expenses: remainingRecords,
+      filteredRecord: remainingRecords,
+    );
 
     state = state.copyWith(
       cards: state.cards.where((i)=>i.id!=id).toList(),
@@ -133,7 +147,6 @@ class CardNotifier extends StateNotifier<CardState>{
       updatedAmount += enteredAmount;
       progress = (selectedCard.progress - (enteredAmount / (selectedCard.amount == 0 ? 1 : selectedCard.amount))).clamp(0.0, 1.0);
     }
-
 
     final newBalance = CardModel(
         id: selectedCard.id,

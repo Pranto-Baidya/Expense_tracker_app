@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -16,7 +18,7 @@ ThemeData lightTheme = ThemeData(
     onSurface: AppColors.lightTextPrimary, // Dark Gray (#1F2A44)
     onError: Colors.white,
   ),
-  scaffoldBackgroundColor: Colors.grey.shade200,
+  scaffoldBackgroundColor: Colors.grey.shade200.withValues(alpha: 0.8),
   textTheme: GoogleFonts.interTextTheme().copyWith(
     labelSmall: GoogleFonts.inter(
         color: AppColors.lightTextPrimary, fontSize: 11, fontWeight: FontWeight.w700),
@@ -124,7 +126,7 @@ ThemeData darkTheme = ThemeData(
     onSurface: AppColors.darkTextPrimary, // Light Gray (#D1D5DB)
     onError: Colors.white,
   ),
-  scaffoldBackgroundColor: AppColors.darkBackground,
+  scaffoldBackgroundColor: AppColors.darkBackground.withValues(alpha: 0.2),
   appBarTheme: AppBarTheme(
     backgroundColor: AppColors.darkBackground,
     scrolledUnderElevation: 0,
@@ -179,7 +181,7 @@ ThemeData darkTheme = ThemeData(
         color: AppColors.darkTextPrimary, fontSize: 14, fontWeight: FontWeight.bold),
   ),
   iconTheme: IconThemeData(color: AppColors.darkTextPrimary),
-  cardColor: AppColors.darkSurface,
+  cardColor: AppColors.darkBackground,
   dialogTheme: DialogThemeData(
     titleTextStyle: TextStyle(
         color: AppColors.darkTextPrimary, fontSize: 28, fontWeight: FontWeight.bold),
@@ -193,7 +195,7 @@ ThemeData darkTheme = ThemeData(
     unselectedItemColor: AppColors.darkTextSecondary,
   ),
   navigationBarTheme: NavigationBarThemeData(
-    backgroundColor: AppColors.darkSurface,
+    backgroundColor: AppColors.darkBackground,
     indicatorColor: AppColors.mainColor,
     surfaceTintColor: Colors.transparent,
     elevation: 1,

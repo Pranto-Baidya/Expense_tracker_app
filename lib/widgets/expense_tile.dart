@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'package:intl/intl.dart';
 
 import '../screens/records_screen.dart';
 
@@ -29,6 +30,11 @@ class ExpenseTile extends StatelessWidget {
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
 
+    final formattedAmount = NumberFormat.currency(
+      symbol: currency,
+      decimalDigits: 2,
+    ).format(expenseModel.amount);
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 0.w, vertical: 8.h),
       child: Slidable(
@@ -43,7 +49,7 @@ class ExpenseTile extends StatelessWidget {
               foregroundColor: Colors.white,
               icon: Icons.edit,
               label: 'Edit',
-              borderRadius: BorderRadius.circular(15.r),
+              borderRadius: BorderRadius.only(topLeft: Radius.circular(15.r),bottomLeft: Radius.circular(15.r)),
             ),
           ],
         ),
@@ -53,11 +59,11 @@ class ExpenseTile extends StatelessWidget {
           children: [
             SlidableAction(
               onPressed: (context) => onDelete(),
-              backgroundColor: AppColors.lightError,
+              backgroundColor: Colors.redAccent.shade200,
               foregroundColor: Colors.white,
               icon: Icons.delete,
               label: 'Delete',
-              borderRadius: BorderRadius.circular(15.r),
+              borderRadius: BorderRadius.only(topRight: Radius.circular(15.r),bottomRight: Radius.circular(15.r)),
             ),
           ],
         ),
@@ -65,20 +71,6 @@ class ExpenseTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.cardColor,
             borderRadius: BorderRadius.circular(15.r),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                offset: const Offset(0, 4),
-                blurRadius: 20,
-                spreadRadius: 2,
-              ),
-              BoxShadow(
-                color: Colors.white.withOpacity(0.2),
-                offset: const Offset(0, -2),
-                blurRadius: 10,
-                spreadRadius: 0,
-              ),
-            ],
           ),
           padding: const EdgeInsets.all(10),
           child: Column(
@@ -90,11 +82,14 @@ class ExpenseTile extends StatelessWidget {
                 children: [
                   Padding(
                     padding: EdgeInsets.only(left: 8.0.w, right: 12.w),
-                    child: Icon(
-                      icon,
-                      color: theme.colorScheme.primary,
-                      size: 30,
-                    ),
+                    child: CircleAvatar(
+                      radius: 20,
+                      backgroundColor: theme.colorScheme.primary,
+                      child: Icon(
+                        icon,
+                        color: Colors.white,
+                      ),
+                    )
                   ),
                   Text(
                     expenseModel.title,
@@ -105,7 +100,7 @@ class ExpenseTile extends StatelessWidget {
                   Padding(
                     padding: EdgeInsets.only(right: 8.0.w),
                     child: Text(
-                      '${expenseModel.moneyType.name == 'income' ? '+' : '-'} $currency${expenseModel.amount.toStringAsFixed(2)}',
+                      '${expenseModel.moneyType.name == 'income' ? '+' : '-'} $formattedAmount',
                       style: theme.textTheme.titleSmall?.copyWith(
                         color: getColor(expenseModel.moneyType),
                         fontWeight: FontWeight.bold,

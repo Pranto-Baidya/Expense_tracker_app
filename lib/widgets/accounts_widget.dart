@@ -1,7 +1,9 @@
+import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
 
 class AccountsWidget extends ConsumerWidget {
   final String title;
@@ -25,6 +27,11 @@ class AccountsWidget extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
 
+    final formattedBalance = NumberFormat.currency(
+      symbol: ref.read(currencyProvider),
+      decimalDigits: 2
+    ).format(amount);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Container(
@@ -32,20 +39,6 @@ class AccountsWidget extends ConsumerWidget {
         decoration: BoxDecoration(
           color: theme.cardColor,
           borderRadius: BorderRadius.circular(15.r),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, 4),
-              blurRadius: 20,
-              spreadRadius: 2,
-            ),
-            BoxShadow(
-              color: Colors.white.withOpacity(0.2),
-              offset: const Offset(0, -2),
-              blurRadius: 10,
-              spreadRadius: 0,
-            ),
-          ],
         ),
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
@@ -74,8 +67,7 @@ class AccountsWidget extends ConsumerWidget {
                             'Balance: ',
                             style: theme.textTheme.titleSmall,
                           ),
-                          Text(
-                            '\$$amount',
+                          Text(formattedBalance,
                             style: theme.textTheme.titleSmall,
                           ),
                         ],

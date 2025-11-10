@@ -84,7 +84,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
           List<IconData> icons = [
             Icons.credit_card,
             Icons.savings_outlined,
-            Icons.attach_money,
+            Icons.money,
             Icons.wallet_outlined,
             Icons.phone_iphone_sharp
           ];
@@ -92,6 +92,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
               builder: (context,ref,_){
                 final isTyping = ref.watch(typingProvider);
                 return AlertDialog(
+                  backgroundColor: Theme.of(context).cardColor,
                   title: Row(
                     children: [
                       Text('Add a new account',style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),),
@@ -214,7 +215,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
           List<IconData> icons = [
             Icons.credit_card,
             Icons.savings_outlined,
-            Icons.paid_outlined,
+            Icons.money,
             Icons.wallet_outlined,
             Icons.phone_iphone_sharp
           ];
@@ -223,6 +224,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
               builder: (context,ref,_){
                 final isTyping = ref.watch(typingProvider);
                 return AlertDialog(
+                  backgroundColor: Theme.of(context).cardColor,
                   title: Row(
                     children: [
                       Text('Edit account',style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),),
@@ -350,7 +352,17 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
                         return Center(child: CircularProgressIndicator(),);
                       }
                       if(cardState.cards.isEmpty){
-                        return Center(child: Text('No cards are added yet',style: theme.textTheme.titleMedium,),);
+                        return Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.credit_card_off_outlined,color: theme.colorScheme.primary,size: 100,),
+                              SizedBox(height: 10.h,),
+                              Text('No accounts are added yet',style: theme.textTheme.titleMedium,),
+                              Text('Tap the + button to add a new account',style: theme.textTheme.titleMedium,),
+                            ],
+                          ),
+                        );
                       }
                       return ListView.builder(
                           shrinkWrap: true,
@@ -393,7 +405,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
         child: FloatingActionButton(
             onPressed: addCardDialogue,
             backgroundColor: theme.colorScheme.primary,
-            elevation: 3,
+            elevation: 0,
             child: Icon(Icons.add_card,color: Colors.white,size: 30,),
             ),
       ),

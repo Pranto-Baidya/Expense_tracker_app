@@ -24,7 +24,7 @@ class CustomAppbar extends ConsumerWidget implements PreferredSizeWidget {
       iconTheme: theme.iconTheme,
       actions: action,
       systemOverlayStyle: SystemUiOverlayStyle(
-        systemNavigationBarColor: theme.bottomNavigationBarTheme.backgroundColor,
+        systemNavigationBarColor: theme.navigationBarTheme.backgroundColor,
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.dark
       ),

@@ -106,6 +106,7 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     );
 
     state = state.copyWith(expenses: [newExpense,...state.expenses]);
+
     if (state.selectedDate != null && state.selectedTime!=null) {
       filterRecordsByMonth(expense.date,expense.time);
     }
@@ -125,11 +126,22 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
 
   Future<void> deleteExpense(int id)async{
 
-    final selectedRecord = state.filteredRecord.firstWhere((data)=>data.id==id);
+    final selectedRecord = state.filteredRecord.firstWhere(
+          (data) => data.id == id,
+      orElse: () => throw Exception('Record not found'),
+    );
 
-    final selectedCard = _ref.read(cardsProvider).cards.firstWhere((card)=>card.id==selectedRecord.accountId);
+    final selectedCard = _ref.read(cardsProvider).cards.firstWhere(
+          (card) => card.id == selectedRecord.accountId,
+      orElse: () => throw Exception('Card not found'),
+    );
 
-    final selectedBudget = _ref.read(budgetProvider).budgets.firstWhere((budget)=>budget.categoryName==selectedRecord.category);
+    final budgetList = _ref.read(budgetProvider).budgets;
+    BudgetModel? selectedBudget;
+
+    if(budgetList.any((budget)=>budget.categoryName==selectedRecord.category)){
+      selectedBudget = budgetList.firstWhere((cat)=>cat.categoryName==selectedRecord.category,orElse: ()=>throw Exception('Not found'));
+    }
 
     double updatedAmount = selectedCard.amount;
 
@@ -166,6 +178,8 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
       }).toList()
     );
 
+    if(selectedBudget!=null){
+
     double updatedSpent = selectedBudget.spent;
 
     double updatedRemaining = selectedBudget.remaining;
@@ -185,6 +199,7 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     );
 
     await _ref.read(budgetProvider.notifier).updateBudgetFromExpense(updatedBudget);
+    }
 
     await databaseConnection.deleteExpenses(id);
 

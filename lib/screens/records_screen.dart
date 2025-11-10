@@ -5,6 +5,7 @@ import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
+import 'package:expense_tracker_app/screens/search_records_screen.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
 import 'package:expense_tracker_app/widgets/expense_tile.dart';
@@ -35,10 +36,10 @@ class RecordsScreen extends ConsumerStatefulWidget {
   const RecordsScreen({super.key});
 
   @override
-  _HomeState createState() => _HomeState();
+  RecordsScreenState createState() => RecordsScreenState();
 }
 
-class _HomeState extends ConsumerState<RecordsScreen> {
+class RecordsScreenState extends ConsumerState<RecordsScreen> {
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
@@ -126,7 +127,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).dialogTheme.backgroundColor,
+      backgroundColor: Theme.of(context).cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -460,7 +461,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).dialogTheme.backgroundColor,
+      backgroundColor: Theme.of(context).cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -735,7 +736,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
         context: context,
         builder: (BuildContext context){
           return AlertDialog(
-            backgroundColor: Theme.of(context).dialogTheme.backgroundColor,
+            backgroundColor: Theme.of(context).cardColor,
             title: Text('Wait!',style: Theme.of(context).textTheme.titleLarge,),
             content: Text('Are you sure you want to delete this entry?',style: Theme.of(context).textTheme.titleSmall,),
             actions: [
@@ -760,27 +761,26 @@ class _HomeState extends ConsumerState<RecordsScreen> {
     );
   }
 
-
   List<String> currencies = ["\$","€","₹","৳"];
 
   IconData icons(String category){
     switch(category){
       case 'Personal':
-        return Icons.person_outline;
+        return Icons.person;
       case 'Family':
-        return Icons.groups_outlined;
+        return Icons.groups;
       case 'Food':
-        return Icons.fastfood_outlined;
+        return Icons.fastfood;
       case 'Shopping':
-        return Icons.shopping_bag_outlined;
+        return Icons.shopping_bag;
       case 'Transport':
-        return Icons.directions_car_outlined;
+        return Icons.directions_car;
       case 'Phone':
-        return Icons.phone_android_outlined;
+        return Icons.phone_android;
       case 'Bills':
-        return Icons.receipt_long_outlined;
+        return Icons.receipt_long;
       case 'Rent':
-        return Icons.maps_home_work_outlined;
+        return Icons.maps_home_work;
       case 'Other':
         return Icons.control_point_duplicate;
       default: return Icons.control_point_duplicate;
@@ -817,20 +817,27 @@ class _HomeState extends ConsumerState<RecordsScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SizedBox(height: 20.h,),
-              BalanceDashboard(
-                  theme: theme,
-                  dateNotifier: dateNotifier,
-                  timeNotifier: timeNotifier,
-                  dateState: dateState,
-                  timeState: timeState,
-                  selectedCurrency: selectedCurrency
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 15.w),
+                child: BalanceDashboard(
+                    theme: theme,
+                    dateNotifier: dateNotifier,
+                    timeNotifier: timeNotifier,
+                    dateState: dateState,
+                    timeState: timeState,
+                    selectedCurrency: selectedCurrency
+                ),
               ),
               SizedBox(height: 10.h,),
               if(expenseList.isEmpty)
                 Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    SizedBox(height: 200.h,),
-                    Center(child: Text('No records yet',style: theme.textTheme.titleMedium,),),
+                    SizedBox(height: 50.h,),
+                    Icon(Icons.info_outlined,color: theme.colorScheme.primary,size: 100,),
+                    SizedBox(height: 10.h,),
+                    Text('No records in this month',style: theme.textTheme.titleMedium,),
+                    Text('Tap the + button to add a new record',style: theme.textTheme.titleMedium,),
                   ],
                 ),
               NotificationListener<ScrollNotification>(
@@ -902,7 +909,7 @@ class _HomeState extends ConsumerState<RecordsScreen> {
         child: FloatingActionButton(
             onPressed: addExpenseDialogue,
             backgroundColor: theme.colorScheme.primary,
-            elevation: 3,
+            elevation: 0,
             child: Icon(Icons.add,color: Colors.white,size: 30,),
         ),
       ),

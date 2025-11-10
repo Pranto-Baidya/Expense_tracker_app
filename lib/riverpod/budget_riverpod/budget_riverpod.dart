@@ -6,19 +6,23 @@ import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../../screens/budgets_screen.dart';
+
 final budgetProvider = StateNotifierProvider<BudgetNotifier,BudgetState>((ref)=>BudgetNotifier(ref));
 
 class BudgetState{
   final List<BudgetModel> budgets;
-
+  final List<BudgetModel> filteredBudgets;
 
   BudgetState({
-    this.budgets = const []
+    this.budgets = const [],
+    this.filteredBudgets = const []
   });
 
-  BudgetState copyWith({List<BudgetModel>? budgets}){
+  BudgetState copyWith({List<BudgetModel>? budgets,List<BudgetModel>? filteredBudgets}){
     return BudgetState(
-      budgets: budgets ?? this.budgets
+      budgets: budgets ?? this.budgets,
+      filteredBudgets: filteredBudgets ?? this.filteredBudgets
     );
   }
 }
@@ -48,17 +52,19 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
         id: id,
         categoryName: budget.categoryName,
         budget: budget.budget,
-        date: budget.date
+        date: ref.read(selectedDateProviderForBudgets.notifier).state
     );
 
     state = state.copyWith(
       budgets: [newBudget,...state.budgets]
     );
+
+    filterBudgetsByMonth(budget.date);
   }
 
   Future<void> updateBudget(BudgetModel budget)async{
 
-    final selectedBudgetedCategory = state.budgets.firstWhere((i)=>i.id==budget.id);
+    final selectedBudgetedCategory = state.budgets.firstWhere((i)=>i.id==budget.id,orElse: ()=>throw Exception('Not found'));
 
     final remaining = budget.budget-selectedBudgetedCategory.spent;
 
@@ -76,15 +82,22 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
     state = state.copyWith(
       budgets: state.budgets.map((budj)=>budj.id == budget.id? updatedBudget : budj).toList()
     );
+
+    filterBudgetsByMonth(budget.date);
   }
 
-  Future<void> deleteBudget(int id)async{
+  Future<void> deleteBudget(int id) async {
     await databaseConnection.deleteBudget(id);
 
-    state = state.copyWith(
-      budgets: state.budgets.where((i)=>i.id!=id).toList()
-    );
+    final updatedBudgets = state.budgets.where((i) => i.id != id).toList();
+
+    state = state.copyWith(budgets: updatedBudgets);
+
+    final selectedDate = ref.read(selectedDateProviderForBudgets);
+
+    filterBudgetsByMonth(selectedDate);
   }
+
 
   Future<void> updateBudgetFromExpense(BudgetModel updatedBudget) async {
     await databaseConnection.updateBudget(updatedBudget);
@@ -92,6 +105,19 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
     state = state.copyWith(
       budgets: state.budgets.map((b) => b.id == updatedBudget.id ? updatedBudget : b).toList(),
     );
+
+    filterBudgetsByMonth(updatedBudget.date);
+  }
+
+  void filterBudgetsByMonth(DateTime selectedDate){
+    state = state.copyWith(
+      filteredBudgets: state.budgets.where((data){
+        final yearInBudgets = data.date.year;
+        final monthInBudgets = data.date.month;
+        return selectedDate.year==yearInBudgets && selectedDate.month==monthInBudgets;
+      }).toList()
+    );
+    calculateAmount();
   }
 
 
