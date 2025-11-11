@@ -1,3 +1,6 @@
+import 'dart:ffi';
+
+import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:fl_chart/fl_chart.dart';
@@ -5,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
 
 final isIncomeProvider = StateProvider<bool>((ref)=>false);
 
@@ -25,9 +29,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 
     final recordList = ref.watch(expenseProvider);
 
-    final nonZeroInExpense = recordList.expenses.where((exp) => exp.amount != 0 && (exp.moneyType == MoneyType.expense)).toList();
+    final nonZeroInExpense = recordList.expenses.where((exp) => exp.amount != 0 && (exp.moneyType == MoneyType.expense)).map((i)=>i.category).toSet().toList();
 
-    final nonZeroInIncome = recordList.expenses.where((exp) => exp.amount != 0 && (exp.moneyType == MoneyType.income)).toList();
+    final nonZeroInIncome = recordList.expenses.where((exp) => exp.amount != 0 && (exp.moneyType == MoneyType.income)).map((i)=>i.category).toSet().toList();
 
     final selectedColor = selected.contains('Expense') ? Colors.red : Colors.green;
 
@@ -63,7 +67,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                   segments: [
                     ButtonSegment(
                       value: 'Expense',
-                      icon: Icon(Icons.warning_amber,
+                      icon: Icon(Icons.remove,
                           color: selected.contains('Expense')
                               ? Colors.white
                               : Colors.redAccent),
@@ -106,7 +110,9 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                 ),
               ),
               SizedBox(height: 20.h),
-              Center(child: Text('Pie chart of records',style: theme.textTheme.titleLarge,)),
+              Center(child: isIncome?Text('Income overview',style: theme.textTheme.titleLarge,):Text('Expense overview',style: theme.textTheme.titleLarge,)),
+              SizedBox(height: 5.h,),
+              Divider(indent: 50,endIndent: 50,thickness: 3,),
               SizedBox(height: 30.h),
               Center(
                 child: SizedBox(
@@ -124,7 +130,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                   children: !isIncome?
                   nonZeroInExpense.map((item) {
                     late Color color;
-                    switch (item.category) {
+                    switch (item) {
                       case "Personal":
                         color = Colors.green;
                         break;
@@ -162,7 +168,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                         ),
                         SizedBox(height: 5.h),
                         Text(
-                          item.category,
+                          item,
                           style: theme.textTheme.bodySmall,
                         ),
                       ],
@@ -170,7 +176,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                   }).toList()
                       :nonZeroInIncome.map((item) {
                     late Color incomeLegendColor;
-                    switch (item.category) {
+                    switch (item) {
                       case "Personal":
                         incomeLegendColor = Colors.green;
                         break;
@@ -208,7 +214,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                         ),
                         SizedBox(height: 5.h),
                         Text(
-                          item.category,
+                          item,
                           style: theme.textTheme.bodySmall,
                         ),
                       ],
@@ -227,6 +233,28 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                   style: theme.textTheme.titleMedium,
                 ),
               ),
+              SizedBox(height: 40.h,),
+              Center(child: isIncome? Text('Income flow',style: theme.textTheme.titleLarge,):Text('Expense flow',style: theme.textTheme.titleLarge,)),
+              SizedBox(height: 5.h,),
+              Divider(indent: 50,endIndent: 50,thickness: 3,),
+              SizedBox(height: 30.h,),
+              SizedBox(
+                height: 400.h,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 8.0),
+                  child: LineChartScreen(),
+                ),
+              ),
+              SizedBox(height: 40.h,),
+              Center(child: Text('Analysis of accounts',style: theme.textTheme.titleLarge,)),
+              SizedBox(height: 5.h,),
+              Divider(indent: 50,endIndent: 50,thickness: 3,),
+              SizedBox(height: 30.h,),
+              SizedBox(
+                  height: 400.h,
+                  child: BarChartScreen()
+              ),
+              SizedBox(height: 20.h,),
             ],
           ),
         ),
@@ -288,7 +316,8 @@ class PieChartScreen extends ConsumerWidget {
       }
     }
 
-    final total = personal +
+    final total =
+        personal +
         family +
         food +
         shopping +
@@ -342,3 +371,239 @@ class PieChartScreen extends ConsumerWidget {
     );
 }
 }
+
+class LineChartScreen extends ConsumerWidget {
+  const LineChartScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final recordList = ref.watch(expenseProvider).expenses;
+    final isIncome = ref.watch(isIncomeProvider);
+
+    Map<String, double> dayMap = {};
+
+    for (var i in recordList) {
+      final date = DateTime(i.date.year, i.date.month, i.date.day);
+      final formattedDate = DateFormat('yyyy-MM-dd').format(date);
+      if (isIncome ? i.moneyType == MoneyType.income : i.moneyType == MoneyType.expense) {
+        dayMap[formattedDate] = (dayMap[formattedDate] ?? 0) + i.amount;
+      }
+    }
+
+    final sortedDates = dayMap.keys.toList()..sort((a, b) => a.compareTo(b));
+
+    if (sortedDates.isEmpty) {
+      return const Center(child: Text("No data to display"));
+    }
+
+    List<FlSpot> spots = [];
+
+    for (var i = 0; i < sortedDates.length; i++) {
+      spots.add(FlSpot(i.toDouble(), dayMap[sortedDates[i]] ?? 0));
+    }
+
+
+    final maxY = dayMap.values.isNotEmpty ? dayMap.values.reduce((a, b) => a > b ? a : b) : 10;
+
+    final interval = (sortedDates.length / 6).ceilToDouble();
+
+    return LineChart(
+      LineChartData(
+        minX: 0,
+        minY: 0,
+        maxY: maxY * 1.2,
+        gridData: FlGridData(
+          drawHorizontalLine: true,
+          drawVerticalLine: false,
+          getDrawingHorizontalLine: (_) => FlLine(
+            color: Colors.grey.withOpacity(0.3),
+            strokeWidth: 1,
+          ),
+        ),
+        borderData: FlBorderData(
+          show: true,
+          border: Border.all(color: Colors.grey.withOpacity(0.3)),
+        ),
+        titlesData: FlTitlesData(
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 45,
+              interval: maxY / 5,
+              getTitlesWidget: (val, _) => Text(
+                val.toInt().toString(),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              interval: interval,
+              getTitlesWidget: (val, _) {
+                final index = val.toInt();
+                if (index >= 0 && index < sortedDates.length) {
+                  final date = sortedDates[index];
+                  return Text(
+                    DateFormat('MMM,dd').format(DateTime.parse(date)),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                      fontSize: 11,
+                    ),
+                  );
+                }
+                return const Text('');
+              },
+            ),
+          ),
+          topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(
+
+              sideTitles: SideTitles(showTitles: false)),
+        ),
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: false,
+            barWidth: 3,
+            color: isIncome ? Colors.greenAccent : Colors.redAccent,
+            belowBarData: BarAreaData(
+              show: true,
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isIncome
+                    ? [Colors.greenAccent.withOpacity(0.3), Colors.transparent]
+                    : [Colors.redAccent.withOpacity(0.3), Colors.transparent],
+              ),
+            ),
+            dotData: FlDotData(show: true),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class BarChartScreen extends ConsumerWidget {
+  const BarChartScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    
+    final allAccounts = ref.watch(cardsProvider);
+    
+    if(allAccounts.cards.isEmpty){
+      return const Center(child: Text("No account data available"));
+    }
+    
+    final recordList = ref.watch(expenseProvider).expenses;
+    
+    final accountStats = allAccounts.cards.map((card){
+
+      final totalExpenses = recordList.where((acc)=>acc.accountId==card.id && acc.moneyType==MoneyType.expense).fold(0.0, (a,b)=>a+b.amount);
+      
+      final totalIncome = recordList.where((acc)=>acc.accountId==card.id && acc.moneyType==MoneyType.income).fold(0.0, (a,b)=>a+b.amount);
+
+      return {
+        'name' : card.cardName,
+        'income' : totalIncome,
+        'expense' : totalExpenses
+      };
+
+    }).toList();
+    
+    final maxY = accountStats.map((i)=>(i['income'] as double) > (i['expense'] as double) ? i['income'] as double : i['expense'] as double)
+                 .reduce((a,b)=>a>b?a:b) * 1.5;
+    
+    return BarChart(
+      BarChartData(
+        maxY: maxY>0?maxY:10,
+        alignment: BarChartAlignment.spaceEvenly,
+        borderData: FlBorderData(show: false),
+        gridData: FlGridData(
+          drawVerticalLine: false,
+          drawHorizontalLine: true,
+          getDrawingHorizontalLine: (_)=>FlLine(
+            color: Colors.grey.withOpacity(0.3)
+          )
+        ),
+        titlesData: FlTitlesData(
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              reservedSize: 50,
+              showTitles: true,
+              interval: maxY/5,
+              getTitlesWidget: (val,_){
+                final formatted = NumberFormat.currency(
+                  symbol: ref.read(currencyProvider),
+                  decimalDigits: 2
+                ).format(val);
+                return Text(formatted.toString(),style: theme.textTheme.labelSmall,);
+              }
+            )
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (val,_){
+                final index = val.toInt();
+                if(index>=0 && index<accountStats.length){
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(accountStats[index]['name'].toString(),style: theme.textTheme.bodySmall,textAlign: TextAlign.center,),
+                  );
+                }
+                return const Text('');
+              }
+            )
+          ),
+          rightTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: false
+            )
+          ),
+          topTitles: AxisTitles(
+              sideTitles: SideTitles(
+                  showTitles: false
+              )
+          ),
+        ),
+        barGroups: List.generate(accountStats.length, (index){
+          final income = accountStats[index]['income'] as double;
+          final expense = accountStats[index]['expense'] as double;
+          return BarChartGroupData(
+              x: index,
+              barsSpace: 10,
+              barRods: [
+                BarChartRodData(
+                  toY: expense,
+                  color: Colors.redAccent,
+                  width: 30.w,
+                  borderRadius: BorderRadius.circular(0),
+                ),
+                BarChartRodData(
+                  toY: income,
+                  color: Colors.green.shade700,
+                  width: 30.w,
+                  borderRadius: BorderRadius.circular(0),
+                )
+              ]
+          );
+        })
+      )
+    );
+  }
+}
+
+
+
+
+
