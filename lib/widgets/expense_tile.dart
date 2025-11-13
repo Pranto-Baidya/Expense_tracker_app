@@ -36,7 +36,7 @@ class ExpenseTile extends StatelessWidget {
     ).format(expenseModel.amount);
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 0.w, vertical: 8.h),
+      padding: EdgeInsets.symmetric(vertical: 8.h),
       child: Slidable(
         key: ValueKey(expenseModel.id),
         startActionPane: ActionPane(
@@ -71,6 +71,7 @@ class ExpenseTile extends StatelessWidget {
           decoration: BoxDecoration(
             color: theme.cardColor,
             borderRadius: BorderRadius.circular(15.r),
+              border: Border.all(color: theme.dividerColor.withOpacity(0.3))
           ),
           padding: const EdgeInsets.all(10),
           child: Column(

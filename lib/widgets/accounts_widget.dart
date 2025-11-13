@@ -35,10 +35,11 @@ class AccountsWidget extends ConsumerWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Container(
-        padding: EdgeInsets.all(10),
+        padding: EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: theme.cardColor,
           borderRadius: BorderRadius.circular(15.r),
+          border: Border.all(color: theme.dividerColor.withOpacity(0.3))
         ),
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
@@ -47,7 +48,6 @@ class AccountsWidget extends ConsumerWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-
                   CircleAvatar(
                     radius: 20,
                     child: Icon(icon, color: Colors.white),
@@ -80,7 +80,7 @@ class AccountsWidget extends ConsumerWidget {
                     const AnimationStyle(curve: Curves.easeInOut),
                     menuPadding: const EdgeInsets.all(20),
                     color: theme.cardColor,
-                    icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
+                    icon: Icon(Icons.more_horiz, color: theme.iconTheme.color),
                     itemBuilder: (context) {
                       return [
                         PopupMenuItem(

@@ -1,3 +1,4 @@
+import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
 import 'package:expense_tracker_app/screens/all_screens.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:expense_tracker_app/theme_data.dart';
@@ -15,6 +16,9 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context,WidgetRef ref) {
+
+    final themeState = ref.watch(themeModeProvider);
+
     return ScreenUtilInit(
       splitScreenMode: true,
       minTextAdapt: true,
@@ -24,6 +28,7 @@ class MyApp extends ConsumerWidget {
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
             home: AllScreens(),
+            themeMode: themeState,
             theme: lightTheme,
             darkTheme: darkTheme,
           ),

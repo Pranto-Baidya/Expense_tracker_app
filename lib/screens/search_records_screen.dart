@@ -2,6 +2,7 @@
 
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/expense_tile.dart';
@@ -62,14 +63,18 @@ class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
   Widget build(BuildContext context) {
 
     var theme = Theme.of(context);
+
     final searchState = ref.watch(expenseProvider);
 
     final hasSearched = ref.watch(hasSearchedProvider);
+
     final hasSearchedNotifier = ref.read(hasSearchedProvider.notifier);
 
     final groupedSearchesWithDate = _groupedData(searchState.searchRecords);
 
     final sortedDates = _groupedData(searchState.searchRecords).keys.toList()..sort((a,b)=>b.compareTo(a));
+
+    //final isDark = ref.watch(themeModeProvider)==ThemeOptions.Dark;
 
     return PopScope(
       onPopInvokedWithResult: (_,_){

@@ -1,6 +1,7 @@
 
 
 import 'package:expense_tracker_app/models/expense_model.dart';
+import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
 import 'package:expense_tracker_app/screens/accounts_screen.dart';
 import 'package:expense_tracker_app/screens/analysis_screen/stats_screen.dart';
 import 'package:expense_tracker_app/screens/budgets_screen.dart';
@@ -25,6 +26,81 @@ class AllScreens extends ConsumerStatefulWidget {
 class _AllScreensState extends ConsumerState<AllScreens> {
 
   final GlobalKey<RecordsScreenState> _recordKey = GlobalKey<RecordsScreenState>();
+
+  void chooseTheme() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        var theme = Theme.of(context);
+        return Consumer(
+          builder: (context, ref, _) {
+            final selected = ref.watch(themeModeProvider);
+            final selectedNotifier = ref.read(themeModeProvider.notifier);
+
+            return AlertDialog(
+              backgroundColor: theme.cardColor,
+              title: Row(
+                children: [
+                  Text(
+                    'Choose theme',
+                    style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),
+                  ),
+                  Spacer(),
+                  IconButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    icon: Icon(
+                      Icons.close,
+                      color: theme.colorScheme.primary,
+                      size: 30,
+                    ),
+                  ),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ...ThemeMode.values.map((mode) {
+                    return RadioListTile(
+                      value: mode,
+                      tileColor: Colors.transparent,
+                      fillColor: WidgetStatePropertyAll(
+                        Theme.of(context).colorScheme.primary,
+                      ),
+                      title: mode == ThemeMode.system
+                          ? Text('System')
+                          : mode == ThemeMode.light
+                          ? Text('Light')
+                          : Text('Dark'),
+                      groupValue: selected,
+                      onChanged: (val) {
+                        if (val != null) {
+                          selectedNotifier.saveTheme(val);
+                        }
+                      },
+                    );
+                  })
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                  },
+                  child: Text(
+                    'Close',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +182,94 @@ class _AllScreensState extends ConsumerState<AllScreens> {
        ),
       drawer: Drawer(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+        child: ListView(
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+              ) ,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipOval(
+                    child: Image.asset('assets/icon.png',fit: BoxFit.cover,width: 60,height: 60,),
+                  ),
+                  SizedBox(height: 10.h,),
+                  Text('MoneyMate',style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),),
+                  SizedBox(height: 5.h,),
+                  Text('Version : 2.23 (Free)',style: theme.textTheme.titleSmall,)
+                ],
+              ),
+            ),
+            ListTile(
+              tileColor: Colors.transparent,
+              title: Text('Preferences',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary,fontSize: 18),),
+            ),
+            ListTile(
+              onTap: chooseTheme,
+              tileColor: Colors.transparent,
+              leading: Icon(Icons.wb_sunny_outlined,color: theme.iconTheme.color,),
+              title: Text('Display mode'),
+              trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+            ),
+            Divider(indent: 10,endIndent: 10,thickness: 1,color: theme.colorScheme.primary,),
+            ListTile(
+                tileColor: Colors.transparent,
+                leading: Icon(Icons.attach_money,color: theme.iconTheme.color,),
+                title: Text('Currency sign'),
+                trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+            ),
+            Divider(indent: 10,endIndent: 10,thickness: 1,color: theme.colorScheme.primary,),
+            ListTile(
+                tileColor: Colors.transparent,
+                leading: Icon(Icons.lock_outline,color: theme.iconTheme.color,),
+                title: Text('Protection'),
+                trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+            ),
+            Divider(indent: 10,endIndent: 10,thickness: 1,color: theme.colorScheme.primary,),
+            ListTile(
+                tileColor: Colors.transparent,
+                leading: Icon(Icons.notifications_none,color: theme.iconTheme.color,),
+                title: Text('Remind everyday'),
+                trailing: Switch(
+                    value: true,
+                    onChanged: (val){
+
+                    })
+            ),
+            Divider(indent: 10,endIndent: 10,thickness: 1,color: theme.colorScheme.primary,),
+            ListTile(
+              tileColor: Colors.transparent,
+              title: Text('About app',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary,fontSize: 18),),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Text('MoneyMate',style: theme.textTheme.titleMedium?.copyWith(fontSize: 16),),
+                ),
+                SizedBox(height: 5.h,),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Text('Your smart companion for budgeting, saving, and spending wisely.',style: theme.textTheme.titleSmall,),
+                ),
+                SizedBox(height: 10.h,),
+                Divider(indent: 10,endIndent: 10,thickness: 1,color: theme.colorScheme.primary,),
+                SizedBox(height: 20.h,),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Text('Developed by Pranto Baidya',style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w100),),
+                ),
+                SizedBox(height: 5.h,),
+                Padding(
+                  padding: const EdgeInsets.only(left: 16),
+                  child: Text('Contact@Prantobhai.com',style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w100),),
+                ),
+              ],
+            )
+          ],
+        ),
       ),
     );
   }

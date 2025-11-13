@@ -51,6 +51,7 @@ class BalanceDashboard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(color: theme.dividerColor.withOpacity(0.3))
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20.r),
@@ -70,8 +71,11 @@ class BalanceDashboard extends ConsumerWidget {
                         dateNotifier.state.year,
                         dateNotifier.state.month - 1,
                       );
-                      if(timeNotifier!=null)
-                      ref.read(expenseProvider.notifier).filterRecordsByMonth(dateNotifier.state, timeNotifier!.state);
+                      ref.read(expenseProvider.notifier).filterRecordsByMonth(
+                        dateNotifier.state,
+                        timeNotifier?.state ?? TimeOfDay.now(),
+                      );
+
                     },
                     icon: Icon(
                       Icons.keyboard_double_arrow_left_rounded,
@@ -94,8 +98,11 @@ class BalanceDashboard extends ConsumerWidget {
                         dateNotifier.state.year,
                         dateNotifier.state.month + 1,
                       );
-                      if(timeNotifier!=null)
-                      ref.read(expenseProvider.notifier).filterRecordsByMonth(dateNotifier.state, timeNotifier!.state);
+                      ref.read(expenseProvider.notifier).filterRecordsByMonth(
+                        dateNotifier.state,
+                        timeNotifier?.state ?? TimeOfDay.now(),
+                      );
+
                     },
                     icon: Icon(
                       Icons.keyboard_double_arrow_right_rounded,

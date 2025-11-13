@@ -1,14 +1,16 @@
-import 'dart:ffi';
 
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
+import 'package:expense_tracker_app/widgets/balace_dashboard.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+
+final analysisDateProvider = StateProvider<DateTime>((ref)=>DateTime.now());
 
 final isIncomeProvider = StateProvider<bool>((ref)=>false);
 
@@ -21,6 +23,16 @@ class StatsScreen extends ConsumerStatefulWidget {
 
 class _StatsScreenState extends ConsumerState<StatsScreen> {
 
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await ref.read(expenseProvider.notifier).getExpenses();
+      await ref.read(cardsProvider.notifier).getCards();
+    });
+  }
+
+
   Set<String> selected = {'Expense'};
 
   @override
@@ -29,15 +41,19 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
 
     final recordList = ref.watch(expenseProvider);
 
-    final nonZeroInExpense = recordList.expenses.where((exp) => exp.amount != 0 && (exp.moneyType == MoneyType.expense)).map((i)=>i.category).toSet().toList();
+    final nonZeroInExpense = recordList.filteredRecord.where((exp) => exp.amount != 0 && (exp.moneyType == MoneyType.expense)).map((i)=>i.category).toSet().toList();
 
-    final nonZeroInIncome = recordList.expenses.where((exp) => exp.amount != 0 && (exp.moneyType == MoneyType.income)).map((i)=>i.category).toSet().toList();
+    final nonZeroInIncome = recordList.filteredRecord.where((exp) => exp.amount != 0 && (exp.moneyType == MoneyType.income)).map((i)=>i.category).toSet().toList();
 
     final selectedColor = selected.contains('Expense') ? Colors.red : Colors.green;
 
     final isIncome = ref.watch(isIncomeProvider);
 
     final isIncomeNotifier = ref.read(isIncomeProvider.notifier);
+
+    final analysisDateState = ref.watch(analysisDateProvider);
+
+    final analysisDateNotifier = ref.read(analysisDateProvider.notifier);
 
     return Scaffold(
       body: SingleChildScrollView(
@@ -46,6 +62,25 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              SizedBox(height: 10.h,),
+              BalanceDashboard(
+                  theme: theme,
+                  dateNotifier: analysisDateNotifier,
+                  dateState: analysisDateState,
+                  selectedCurrency: ref.read(currencyProvider)
+              ),
+              if(ref.watch(expenseProvider).filteredRecord.isEmpty)
+                Center(
+                  child: Column(
+                    children: [
+                      SizedBox(height: 80.h,),
+                      Icon(Icons.query_stats,size: 100,color: theme.colorScheme.primary,),
+                      SizedBox(height: 10.h,),
+                      Text('No analysis for this month',style: theme.textTheme.titleMedium,)
+                    ],
+                  ),
+                ),
+              if(ref.watch(expenseProvider).filteredRecord.isNotEmpty)...[
               SizedBox(height: 20.h),
               Text('Analysis of records', style: theme.textTheme.titleLarge),
               SizedBox(height: 20.h),
@@ -112,7 +147,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               SizedBox(height: 20.h),
               Center(child: isIncome?Text('Income overview',style: theme.textTheme.titleLarge,):Text('Expense overview',style: theme.textTheme.titleLarge,)),
               SizedBox(height: 5.h,),
-              Divider(indent: 50,endIndent: 50,thickness: 3,),
+              Divider(indent: 50,endIndent: 50,thickness: 3),
               SizedBox(height: 30.h),
               Center(
                 child: SizedBox(
@@ -224,7 +259,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               ),
 
              SizedBox(height: 20.h,),
-              Center(
+              ref.read(expenseProvider).filteredRecord.isNotEmpty?Center(
                 child: !isIncome?Text(
                   "(Expense distribution by category)",
                   style: theme.textTheme.titleMedium,
@@ -232,7 +267,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
                   "(Income distribution by category)",
                   style: theme.textTheme.titleMedium,
                 ),
-              ),
+              ):SizedBox.shrink(),
               SizedBox(height: 40.h,),
               Center(child: isIncome? Text('Income flow',style: theme.textTheme.titleLarge,):Text('Expense flow',style: theme.textTheme.titleLarge,)),
               SizedBox(height: 5.h,),
@@ -249,12 +284,48 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
               Center(child: Text('Analysis of accounts',style: theme.textTheme.titleLarge,)),
               SizedBox(height: 5.h,),
               Divider(indent: 50,endIndent: 50,thickness: 3,),
+              SizedBox(height: 20.h,),
+              Visibility(
+                visible: ref.read(expenseProvider).filteredRecord.isNotEmpty,
+                replacement: SizedBox.shrink(),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Container(
+                          width: 20,
+                          height: 20,
+                          color: Colors.redAccent,
+                        ),
+                        SizedBox(width: 5.h),
+                        Text(
+                          'Expense',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                        SizedBox(width: 10.w,),
+                        Container(
+                          width: 20,
+                          height: 20,
+                          color: Colors.green.shade700,
+                        ),
+                        SizedBox(width: 5.h),
+                        Text(
+                          'Income',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ]
+                  ),
+                ),
+              ),
+              SizedBox(height: 20.h,),
               SizedBox(height: 30.h,),
               SizedBox(
                   height: 400.h,
                   child: BarChartScreen()
               ),
               SizedBox(height: 20.h,),
+              ]
             ],
           ),
         ),
@@ -283,7 +354,7 @@ class PieChartScreen extends ConsumerWidget {
     final recordList = ref.watch(expenseProvider);
     final isIncome = ref.watch(isIncomeProvider);
 
-    for (var i in recordList.expenses) {
+    for (var i in recordList.filteredRecord) {
       if (isIncome? i.moneyType==MoneyType.income: i.moneyType == MoneyType.expense) {
         switch (i.category) {
           case "Personal":
@@ -378,7 +449,7 @@ class LineChartScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    final recordList = ref.watch(expenseProvider).expenses;
+    final recordList = ref.watch(expenseProvider).filteredRecord;
     final isIncome = ref.watch(isIncomeProvider);
 
     Map<String, double> dayMap = {};
@@ -497,19 +568,19 @@ class BarChartScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
-    
+
     final allAccounts = ref.watch(cardsProvider);
-    
-    if(allAccounts.cards.isEmpty){
+
+    if(ref.read(expenseProvider).filteredRecord.isEmpty){
       return const Center(child: Text("No account data available"));
     }
-    
-    final recordList = ref.watch(expenseProvider).expenses;
-    
+
+    final recordList = ref.watch(expenseProvider).filteredRecord;
+
     final accountStats = allAccounts.cards.map((card){
 
       final totalExpenses = recordList.where((acc)=>acc.accountId==card.id && acc.moneyType==MoneyType.expense).fold(0.0, (a,b)=>a+b.amount);
-      
+
       final totalIncome = recordList.where((acc)=>acc.accountId==card.id && acc.moneyType==MoneyType.income).fold(0.0, (a,b)=>a+b.amount);
 
       return {
@@ -519,10 +590,10 @@ class BarChartScreen extends ConsumerWidget {
       };
 
     }).toList();
-    
+
     final maxY = accountStats.map((i)=>(i['income'] as double) > (i['expense'] as double) ? i['income'] as double : i['expense'] as double)
                  .reduce((a,b)=>a>b?a:b) * 1.5;
-    
+
     return BarChart(
       BarChartData(
         maxY: maxY>0?maxY:10,
@@ -540,7 +611,7 @@ class BarChartScreen extends ConsumerWidget {
             sideTitles: SideTitles(
               reservedSize: 50,
               showTitles: true,
-              interval: maxY/5,
+              interval: (maxY / 5) > 0 ? (maxY / 5) : 1,
               getTitlesWidget: (val,_){
                 final formatted = NumberFormat.currency(
                   symbol: ref.read(currencyProvider),

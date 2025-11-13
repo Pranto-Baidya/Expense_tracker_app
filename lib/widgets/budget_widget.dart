@@ -54,6 +54,7 @@ class BudgetWidget extends ConsumerWidget {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(18.r),
+          border: Border.all(color: theme.dividerColor.withOpacity(0.3))
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,7 +90,7 @@ class BudgetWidget extends ConsumerWidget {
                 const AnimationStyle(curve: Curves.easeInOut),
                 menuPadding: const EdgeInsets.all(20),
                 color: theme.cardColor,
-                icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
+                icon: Icon(Icons.more_horiz, color: theme.iconTheme.color),
                 itemBuilder: (context) {
                   return [
                     PopupMenuItem(

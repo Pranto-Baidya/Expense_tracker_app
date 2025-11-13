@@ -33,6 +33,7 @@ class BudgetDashboard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(20.r),
+          border: Border.all(color: theme.dividerColor.withOpacity(0.3))
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
