@@ -317,6 +317,7 @@ class _StatsScreenState extends ConsumerState<CategoryScreen> {
       body: Padding(
         padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 8.h),
         child: SingleChildScrollView(
+          physics: const BouncingScrollPhysics(),
           child: Column(
             children: [
               SizedBox(height: 10.h,),
@@ -361,21 +362,35 @@ class _StatsScreenState extends ConsumerState<CategoryScreen> {
                             children: [
                               SizedBox(height: 10.h,),
                               Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  Text('Budgeted categories: ',style: theme.textTheme.titleMedium,),
-                                  SizedBox(width: 5.w,),
+                                  Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primary,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: theme.colorScheme.primary.withOpacity(0.4),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(width: 10.w),
+                                  Text('Budgeted categories,',style: theme.textTheme.titleMedium!.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),),
+                                  SizedBox(width: 5.w),
                                   Text(
-                                    DateFormat('MMM, yyyy').format(date),
-                                    style: Theme.of(context).textTheme.titleMedium,
+                                    DateFormat('MMM,yyyy').format(date),
+                                    style: theme.textTheme.titleMedium!.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ],
-                              ),
-                              SizedBox(height: 5.h),
-                              Divider(
-                                thickness: 3,
-                                indent: 0,
-                                endIndent: 1,
-                                color: theme.colorScheme.primary,
                               ),
                               ...budgetsForDates.map((budget){
                                 return BudgetWidget(
@@ -394,17 +409,31 @@ class _StatsScreenState extends ConsumerState<CategoryScreen> {
 
                   if(!isPastMonth)...[
                     SizedBox(height: 20.h),
-                    Text(
-                      'Not budgeted this month',
-                      style: theme.textTheme.titleMedium,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.colorScheme.primary.withOpacity(0.4),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(width: 10.w),
+                        Text('Not budgeted this month',style: theme.textTheme.titleMedium!.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),),
+                      ],
                     ),
-                    SizedBox(height: 5.h),
-                    Divider(
-                      thickness: 3,
-                      indent: 0,
-                      endIndent: 1,
-                      color: theme.colorScheme.primary,
-                    ),
+                    SizedBox(height: 10.h,),
                     ...unbudgetedCategories.map((cat) {
                       final icon = getIconForCategory(cat);
                       return Padding(

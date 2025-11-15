@@ -1,3 +1,4 @@
+import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -28,7 +29,7 @@ class AccountsWidget extends ConsumerWidget {
     final theme = Theme.of(context);
 
     final formattedBalance = NumberFormat.currency(
-      symbol: ref.read(currencyProvider),
+      symbol: ref.read(newCurrencyProvider).currency,
       decimalDigits: 2
     ).format(amount);
 

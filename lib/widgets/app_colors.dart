@@ -22,5 +22,6 @@ class AppColors{
   static const Color darkAccent = Color(0xFF60A5FA);
 
   // Shared colors
-  static const Color hintTextColor = Color(0xFF6B7280);
+  static const Color hintTextColor = Color(0xFF9CA3AF);
+
 }

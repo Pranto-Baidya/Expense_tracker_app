@@ -1,13 +1,16 @@
+import 'package:expense_tracker_app/notification/notification_service.dart';
 import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
 import 'package:expense_tracker_app/screens/all_screens.dart';
-import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:expense_tracker_app/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:overlay_support/overlay_support.dart';
 
-void main() {
+void main() async{
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.initNotification();
+  await NotificationService.requestPermission();
   runApp(const ProviderScope(child: MyApp()));
 }
 

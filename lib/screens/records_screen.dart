@@ -4,6 +4,7 @@ import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/screens/search_records_screen.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
@@ -24,7 +25,6 @@ enum MoneyType {expense, income}
 final categoryProvider = StateProvider<String>((ref)=>'Personal');
 final categorySelectionProvider = StateProvider<bool>((ref)=>false);
 final checkTypingProvider = StateProvider<bool>((ref)=>false);
-final currencyProvider = StateProvider<String>((ref)=>'\$');
 final editingProvider = StateProvider<bool>((ref)=>false);
 final selectedDateProvider = StateProvider<DateTime>((ref)=>DateTime.now());
 final selectedTimeProvider = StateProvider<TimeOfDay>((ref)=>TimeOfDay.now());
@@ -761,7 +761,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
     );
   }
 
-  List<String> currencies = ["\$","€","₹","৳"];
+
 
   IconData icons(String category){
     switch(category){
@@ -795,7 +795,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
     final expenseNotifier = ref.read(expenseProvider.notifier);
     var theme = Theme.of(context);
 
-    final selectedCurrency = ref.watch(currencyProvider);
+    final selectedCurrency = ref.watch(newCurrencyProvider).currency;
 
     final dateState = ref.watch(selectedDateProvider);
     final dateNotifier = ref.read(selectedDateProvider.notifier);
@@ -849,6 +849,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                   },
                   child: Expanded(
                     child: ListView.builder(
+                      physics: const BouncingScrollPhysics(),
                       shrinkWrap: true,
                       itemCount: sortedDates.length,
                       itemBuilder: (context, index) {
@@ -922,14 +923,40 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
           ),
       ),
       drawer: Drawer(),
-      floatingActionButton: SizedBox(
-        height: 60.h,
-        width: 60.w,
-        child: FloatingActionButton(
-            onPressed: addExpenseDialogue,
-            backgroundColor: theme.colorScheme.primary,
-            elevation: 0,
-            child: Icon(Icons.add,color: Colors.white,size: 30,),
+      floatingActionButton: Container(
+        height: 64.h,
+        width: 64.w,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              theme.colorScheme.primary,
+              theme.colorScheme.primary.withOpacity(0.8),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18.r),
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.primary.withOpacity(0.4),
+              blurRadius: 16,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: addExpenseDialogue,
+            borderRadius: BorderRadius.circular(18),
+            child: Center(
+              child: Icon(
+                Icons.add,
+                color: Colors.white,
+                size: 32,
+              ),
+            ),
+          ),
         ),
       ),
     );

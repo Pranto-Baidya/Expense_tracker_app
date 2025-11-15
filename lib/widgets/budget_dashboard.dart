@@ -1,5 +1,6 @@
 import 'package:expense_tracker_app/models/budget_model.dart';
 import 'package:expense_tracker_app/riverpod/budget_riverpod/budget_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -19,12 +20,12 @@ class BudgetDashboard extends ConsumerWidget {
   Widget build(BuildContext context,WidgetRef ref) {
     var theme = Theme.of(context);
     final formattedTotalBudget = NumberFormat.currency(
-      symbol: ref.read(currencyProvider),
+      symbol: ref.read(newCurrencyProvider).currency,
       decimalDigits: 2
     ).format(totalBudget);
 
     final formattedTotalSpent = NumberFormat.currency(
-      symbol: ref.read(currencyProvider),
+      symbol: ref.read(newCurrencyProvider).currency,
       decimalDigits: 2
     ).format(totalSpent);
 

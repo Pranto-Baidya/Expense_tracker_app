@@ -1,11 +1,10 @@
 import 'package:expense_tracker_app/models/budget_model.dart';
 import 'package:expense_tracker_app/screens/budgets_screen.dart';
-import 'package:expense_tracker_app/screens/records_screen.dart';
-import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+import '../riverpod/currency_riverpod/currency_pref.dart';
 
 
 class BudgetWidget extends ConsumerWidget {
@@ -34,17 +33,17 @@ class BudgetWidget extends ConsumerWidget {
     }
 
     final formattedTotal = NumberFormat.currency(
-      symbol: ref.read(currencyProvider),
+      symbol: ref.read(newCurrencyProvider).currency,
       decimalDigits: 2,
     ).format(budget.budget);
 
     final formattedSpent = NumberFormat.currency(
-      symbol: ref.read(currencyProvider),
+      symbol: ref.read(newCurrencyProvider).currency,
       decimalDigits: 2,
     ).format(budget.spent);
 
     final formattedRemaining = NumberFormat.currency(
-      symbol: ref.read(currencyProvider),
+      symbol: ref.read(newCurrencyProvider).currency,
       decimalDigits: 2,
     ).format(remaining);
 

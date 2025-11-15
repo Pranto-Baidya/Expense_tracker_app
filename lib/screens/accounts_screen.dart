@@ -365,6 +365,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
                         );
                       }
                       return ListView.builder(
+                          physics: const BouncingScrollPhysics(),
                           shrinkWrap: true,
                           itemCount: cardState.cards.length,
                           itemBuilder: (context,index){
@@ -399,15 +400,41 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
           ],
         ),
       ),
-      floatingActionButton: SizedBox(
-        height: 60.h,
-        width: 60.h,
-        child: FloatingActionButton(
-            onPressed: addCardDialogue,
-            backgroundColor: theme.colorScheme.primary,
-            elevation: 0,
-            child: Icon(Icons.add_card,color: Colors.white,size: 30,),
+      floatingActionButton: Container(
+        height: 64.h,
+        width: 64.w,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              theme.colorScheme.primary,
+              theme.colorScheme.primary.withOpacity(0.8),
+            ],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(18.r),
+          boxShadow: [
+            BoxShadow(
+              color: theme.colorScheme.primary.withOpacity(0.4),
+              blurRadius: 16,
+              offset: const Offset(0, 3),
             ),
+          ],
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: addCardDialogue,
+            borderRadius: BorderRadius.circular(18),
+            child: Center(
+              child: Icon(
+                Icons.add_card,
+                color: Colors.white,
+                size: 32,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

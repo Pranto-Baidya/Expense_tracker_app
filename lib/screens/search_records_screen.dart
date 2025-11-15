@@ -1,6 +1,7 @@
 
 
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
@@ -74,7 +75,7 @@ class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
 
     final sortedDates = _groupedData(searchState.searchRecords).keys.toList()..sort((a,b)=>b.compareTo(a));
 
-    //final isDark = ref.watch(themeModeProvider)==ThemeOptions.Dark;
+    final isDark = ref.watch(themeModeProvider)==ThemeMode.dark;
 
     return PopScope(
       onPopInvokedWithResult: (_,_){
@@ -83,7 +84,7 @@ class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
       },
       canPop: true,
       child: Scaffold(
-       backgroundColor: Colors.grey.shade300,
+       backgroundColor: isDark? AppColors.darkBackground.withOpacity(0.4): Colors.grey.shade300,
         appBar: AppBar(
           toolbarHeight: 80,
           titleSpacing: 0,
@@ -160,7 +161,7 @@ class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
                             return ExpenseTile(
                                 expenseModel: data,
                                 icon: icons(data.category),
-                                currency: ref.read(currencyProvider),
+                                currency: ref.read(newCurrencyProvider).currency,
                                 onEdit: (){
                                   Navigator.pop(context,{
                                     'action' : 'edit',

@@ -1,6 +1,9 @@
 
 
 import 'package:expense_tracker_app/models/expense_model.dart';
+import 'package:expense_tracker_app/notification/notification_service.dart';
+import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
+import 'package:expense_tracker_app/riverpod/prefs_riverpod/prefs_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
 import 'package:expense_tracker_app/screens/accounts_screen.dart';
 import 'package:expense_tracker_app/screens/analysis_screen/stats_screen.dart';
@@ -68,11 +71,7 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                       fillColor: WidgetStatePropertyAll(
                         Theme.of(context).colorScheme.primary,
                       ),
-                      title: mode == ThemeMode.system
-                          ? Text('System')
-                          : mode == ThemeMode.light
-                          ? Text('Light')
-                          : Text('Dark'),
+                      title: mode == ThemeMode.system ? Text('System') : mode == ThemeMode.light ? Text('Light') : Text('Dark'),
                       groupValue: selected,
                       onChanged: (val) {
                         if (val != null) {
@@ -98,6 +97,84 @@ class _AllScreensState extends ConsumerState<AllScreens> {
           },
         );
       },
+    );
+  }
+  
+  void chooseCurrency(){
+    showDialog(
+        context: context, 
+        builder: (BuildContext context){
+          var theme = Theme.of(context);
+          List<String> currencies = ["\$","€","₹","৳","¥","₽","R"];
+          List<String> currencyName = ["USD", "EUR", "INR", "BDT", "JPY/CNY", "RUB", "ZAR"];
+          
+          Map<String,String> currMap = {};
+          
+          for(var i=0; i<currencies.length; i++){
+            currMap[currencies[i]] = currencyName[i];
+          }
+
+          return Consumer(
+              builder: (context,ref,_){
+                
+                final selected = ref.watch(newCurrencyProvider).currency;
+                final selectedNotifier = ref.read(newCurrencyProvider.notifier);
+                
+                return AlertDialog(
+                  backgroundColor: theme.cardColor,
+                  title: Row(
+                    children: [
+                      Text('Choose currency',style: theme.textTheme.titleMedium?.copyWith(fontSize: 18,color: theme.colorScheme.primary),),
+                      Spacer(),
+                      IconButton(
+                          onPressed: (){
+                            Navigator.pop(context);
+                          }, 
+                          icon: Icon(Icons.close,color: theme.colorScheme.primary,size: 30,)
+                      )
+                    ],
+                  ),
+                  content: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ...currMap.entries.map((curr){
+                        return RadioListTile(
+                          tileColor: Colors.transparent,
+                          value: curr.key,
+                          fillColor: WidgetStatePropertyAll(theme.colorScheme.primary),
+                          title: Row(
+                            children: [
+                              Text(curr.key),
+                              SizedBox(width: 5,),
+                              Text(curr.value)
+                            ],
+                          ),
+                          groupValue: selected,
+                          onChanged: (val){
+                            if(val!=null){
+                              selectedNotifier.saveCurrency(val);
+                            }
+                          },
+                            
+                        );
+                      })
+                    ],
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                      child: Text(
+                        'Close',
+                        style: theme.textTheme.titleSmall,
+                      ),
+                    ),
+                  ],
+                );
+              }
+          );
+        }
     );
   }
 
@@ -191,8 +268,9 @@ class _AllScreensState extends ConsumerState<AllScreens> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  ClipOval(
-                    child: Image.asset('assets/icon.png',fit: BoxFit.cover,width: 60,height: 60,),
+                  CircleAvatar(
+                    radius: 35,
+                    backgroundImage: AssetImage('assets/icon.png'),
                   ),
                   SizedBox(height: 10.h,),
                   Text('MoneyMate',style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),),
@@ -214,6 +292,7 @@ class _AllScreensState extends ConsumerState<AllScreens> {
             ),
             Divider(indent: 10,endIndent: 10,thickness: 1,color: theme.colorScheme.primary,),
             ListTile(
+                onTap: chooseCurrency,
                 tileColor: Colors.transparent,
                 leading: Icon(Icons.attach_money,color: theme.iconTheme.color,),
                 title: Text('Currency sign'),
@@ -232,9 +311,16 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                 leading: Icon(Icons.notifications_none,color: theme.iconTheme.color,),
                 title: Text('Remind everyday'),
                 trailing: Switch(
-                    value: true,
+                    value: ref.watch(prefsProvider),
                     onChanged: (val){
-
+                      if(val==true) {
+                        ref.read(prefsProvider.notifier).savePref(val);
+                        NotificationService.showImmediateNotification();
+                      }
+                      else{
+                        NotificationService.cancelNotification();
+                        ref.read(prefsProvider.notifier).savePref(val);
+                      }
                     })
             ),
             Divider(indent: 10,endIndent: 10,thickness: 1,color: theme.colorScheme.primary,),
