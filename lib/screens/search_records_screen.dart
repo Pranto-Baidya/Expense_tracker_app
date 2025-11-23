@@ -84,7 +84,7 @@ class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
       },
       canPop: true,
       child: Scaffold(
-       backgroundColor: isDark? AppColors.darkBackground.withOpacity(0.4): Colors.grey.shade300,
+       backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
           toolbarHeight: 80,
           titleSpacing: 0,

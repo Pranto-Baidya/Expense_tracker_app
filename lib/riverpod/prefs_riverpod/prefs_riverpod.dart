@@ -14,7 +14,7 @@ class PrefsNotifier extends StateNotifier<bool>{
 
   Future<void> _loadPref()async{
     SharedPreferences preferences = await SharedPreferences.getInstance();
-    final val =  preferences.getBool('notifications') ?? false;
+    final val =  preferences.getBool('notification') ?? false;
     state = val;
   }
 

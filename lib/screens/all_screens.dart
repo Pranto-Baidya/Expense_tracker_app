@@ -2,14 +2,17 @@
 
 import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:expense_tracker_app/notification/notification_service.dart';
+import 'package:expense_tracker_app/riverpod/auth_riverpod/auth_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/prefs_riverpod/prefs_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
 import 'package:expense_tracker_app/screens/accounts_screen.dart';
 import 'package:expense_tracker_app/screens/analysis_screen/stats_screen.dart';
 import 'package:expense_tracker_app/screens/budgets_screen.dart';
+import 'package:expense_tracker_app/screens/category_screen.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:expense_tracker_app/screens/search_records_screen.dart';
+import 'package:expense_tracker_app/widgets/custom_app_button.dart';
 import 'package:expense_tracker_app/widgets/custom_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,6 +20,8 @@ import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 final indexProvider = StateProvider<int>((ref)=>0);
+final obSecureProvider = StateProvider<bool>((ref)=>true);
+
 
 class AllScreens extends ConsumerStatefulWidget {
   const AllScreens({super.key});
@@ -29,6 +34,10 @@ class AllScreens extends ConsumerStatefulWidget {
 class _AllScreensState extends ConsumerState<AllScreens> {
 
   final GlobalKey<RecordsScreenState> _recordKey = GlobalKey<RecordsScreenState>();
+
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+
+  final TextEditingController _pinController = TextEditingController();
 
   void chooseTheme() {
     showDialog(
@@ -178,6 +187,77 @@ class _AllScreensState extends ConsumerState<AllScreens> {
     );
   }
 
+  void setPin(){
+    showDialog(
+        context: context,
+        builder: (BuildContext context){
+          var theme = Theme.of(context);
+          return Consumer(
+              builder: (context,ref,_){
+                final obSecureState = ref.watch(obSecureProvider);
+                final authNotifier = ref.read(authProvider.notifier);
+                return AlertDialog(
+                  backgroundColor: theme.cardColor,
+                  title:  Row(
+                    children: [
+                      Text('Set 4 digit PIN',style: theme.textTheme.titleMedium?.copyWith(fontSize: 18,color: theme.colorScheme.primary),),
+                      Spacer(),
+                      IconButton(
+                          onPressed: (){
+                            Navigator.pop(context);
+                          },
+                          icon: Icon(Icons.close,color: theme.colorScheme.primary,size: 30,)
+                      )
+                    ],
+                  ),
+                  content: Form(
+                   key: _formKey,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextFormField(
+                          controller: _pinController,
+                          obscureText: obSecureState,
+                          keyboardType: TextInputType.number,
+                          validator: (value){
+                            if(value!.isEmpty){
+                              return "Please enter 4 digit pin code";
+                            }
+                            else if(value.length<4 || value.length>4){
+                              return "Pin code must be of only 4 digits";
+                            }
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            hintText: 'Enter digits',
+                            suffixIcon: IconButton(
+                                onPressed: (){
+                                 ref.read(obSecureProvider.notifier).state = !ref.read(obSecureProvider.notifier).state;
+                                },
+                                icon: obSecureState?Icon(Icons.visibility_off_outlined,color: theme.iconTheme.color,):Icon(Icons.visibility_outlined,color: theme.iconTheme.color,)
+                            )
+                          ),
+                        ),
+                        SizedBox(height: 15.h,),
+                        CustomAppButton(
+                            onPressed: (){
+                              if(_formKey.currentState!.validate()){
+                                authNotifier.savePass(_pinController.text);
+                                Navigator.pop(context);
+                              }
+                            },
+                            title: 'Set pin'
+                        )
+                      ],
+                    ),
+                  ),
+                );
+              }
+          );
+        }
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -219,44 +299,57 @@ class _AllScreensState extends ConsumerState<AllScreens> {
      body: [
          RecordsScreen(key: _recordKey,),
          AccountsScreen(),
-         CategoryScreen(),
-         StatsScreen()
+         BudgetScreen(),
+         StatsScreen(),
+         CategoryScreen()
        ][index],
 
-     bottomNavigationBar: NavigationBar(
-         backgroundColor: theme.navigationBarTheme.backgroundColor,
-         indicatorColor: Colors.transparent,
-         selectedIndex: index,
-         height: 60,
-         maintainBottomViewPadding: true,
-         labelPadding: EdgeInsets.zero,
-         onDestinationSelected: (ind){
-         ref.read(indexProvider.notifier).state = ind;
-         ref.read(isIncomeProvider.notifier).state = false;
-       },
-         destinations: [
-           NavigationDestination(
-               selectedIcon: Icon(Icons.feed,color: theme.colorScheme.primary,size: 25,),
-               icon: Icon(Icons.feed_outlined,color: theme.iconTheme.color,size: 25,),
-               label: 'Records'
+     bottomNavigationBar: Container(
+       decoration: BoxDecoration(
+           border: Border(
+               top: BorderSide(color: ref.watch(themeModeProvider)==ThemeMode.dark? Colors.grey.shade500 :Colors.grey.shade500,width: 0.5)
            ),
-           NavigationDestination(
-               selectedIcon: Icon(Icons.account_balance_wallet,color: theme.colorScheme.primary,size: 25,),
-               icon: Icon(Icons.account_balance_wallet_outlined,color: theme.iconTheme.color,size: 25,),
-               label: 'Accounts'
-           ),
-           NavigationDestination(
-               selectedIcon: Icon(Icons.paid,color: theme.colorScheme.primary,size: 25,),
-               icon: Icon(Icons.paid_outlined,color: theme.iconTheme.color,size: 25,),
-               label: 'Budget'
-           ),
-           NavigationDestination(
-               selectedIcon: Icon(Icons.analytics,color: theme.colorScheme.primary,size: 25,),
-               icon: Icon(Icons.analytics_outlined,color: theme.iconTheme.color,size: 25,),
-               label: 'Analysis'
-           ),
-         ]
+     ),
+       child: NavigationBar(
+           backgroundColor: theme.navigationBarTheme.backgroundColor,
+           indicatorColor: Colors.transparent,
+           selectedIndex: index,
+           height: 60,
+           maintainBottomViewPadding: true,
+           labelPadding: EdgeInsets.zero,
+           onDestinationSelected: (ind){
+             ref.read(indexProvider.notifier).state = ind;
+             ref.read(isIncomeProvider.notifier).state = false;
+           },
+           destinations: [
+             NavigationDestination(
+                 selectedIcon: Icon(Icons.feed,color: theme.colorScheme.primary,size: 25,),
+                 icon: Icon(Icons.feed_outlined,color: theme.iconTheme.color,size: 25,),
+                 label: 'Records'
+             ),
+             NavigationDestination(
+                 selectedIcon: Icon(Icons.account_balance_wallet,color: theme.colorScheme.primary,size: 25,),
+                 icon: Icon(Icons.account_balance_wallet_outlined,color: theme.iconTheme.color,size: 25,),
+                 label: 'Accounts'
+             ),
+             NavigationDestination(
+                 selectedIcon: Icon(Icons.paid,color: theme.colorScheme.primary,size: 25,),
+                 icon: Icon(Icons.paid_outlined,color: theme.iconTheme.color,size: 25,),
+                 label: 'Budget'
+             ),
+             NavigationDestination(
+                 selectedIcon: Icon(Icons.analytics,color: theme.colorScheme.primary,size: 25,),
+                 icon: Icon(Icons.analytics_outlined,color: theme.iconTheme.color,size: 25,),
+                 label: 'Analysis'
+             ),
+             NavigationDestination(
+                 selectedIcon: Icon(Icons.space_dashboard_rounded,color: theme.colorScheme.primary,size: 25,),
+                 icon: Icon(Icons.space_dashboard_outlined,color: theme.iconTheme.color,size: 25,),
+                 label: 'Category'
+             ),
+           ]
        ),
+     ),
       drawer: Drawer(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
         child: ListView(
@@ -303,7 +396,17 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                 tileColor: Colors.transparent,
                 leading: Icon(Icons.lock_outline,color: theme.iconTheme.color,),
                 title: Text('Protection'),
-                trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+                trailing:Switch(
+                    value: ref.watch(authProvider).isPinSet,
+                    onChanged: (val){
+                      if(val==true){
+                        setPin();
+                      }
+                      else{
+                        ref.read(authProvider.notifier).deletePin();
+                      }
+                    }
+                )
             ),
             Divider(indent: 10,endIndent: 10,thickness: 1,color: theme.colorScheme.primary,),
             ListTile(

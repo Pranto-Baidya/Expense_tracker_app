@@ -1,6 +1,8 @@
 import 'package:expense_tracker_app/notification/notification_service.dart';
 import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
 import 'package:expense_tracker_app/screens/all_screens.dart';
+import 'package:expense_tracker_app/screens/auth_screen/auth_screen.dart';
+import 'package:expense_tracker_app/screens/checkAuth.dart';
 import 'package:expense_tracker_app/theme_data.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -30,7 +32,7 @@ class MyApp extends ConsumerWidget {
         return OverlaySupport.global(
           child: MaterialApp(
             debugShowCheckedModeBanner: false,
-            home: AllScreens(),
+            home: CheckAuth(),
             themeMode: themeState,
             theme: lightTheme,
             darkTheme: darkTheme,

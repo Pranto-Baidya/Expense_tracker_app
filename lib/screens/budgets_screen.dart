@@ -14,14 +14,14 @@ final checkBudgetTyping = StateProvider<bool>((ref)=>false);
 final budgetEditingProvider = StateProvider<bool>((ref)=>false);
 final selectedDateProviderForBudgets = StateProvider<DateTime>((ref)=>DateTime.now());
 
-class CategoryScreen extends ConsumerStatefulWidget {
-  const CategoryScreen({super.key});
+class BudgetScreen extends ConsumerStatefulWidget {
+  const BudgetScreen({super.key});
 
   @override
   _StatsScreenState createState() => _StatsScreenState();
 }
 
-class _StatsScreenState extends ConsumerState<CategoryScreen> {
+class _StatsScreenState extends ConsumerState<BudgetScreen> {
   final TextEditingController _budgetController = TextEditingController();
   final TextEditingController _editBudgetController = TextEditingController();
 
@@ -443,6 +443,7 @@ class _StatsScreenState extends ConsumerState<CategoryScreen> {
                           decoration: BoxDecoration(
                             color: theme.cardColor,
                             borderRadius: BorderRadius.circular(15.r),
+                              border: Border.all(color: theme.dividerColor.withOpacity(0.3))
                           ),
                           child: Row(
                             children: [

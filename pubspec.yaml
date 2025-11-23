@@ -39,7 +39,7 @@ dependencies:
   path: ^1.9.1
   path_provider: ^2.1.5
   flutter_local_notifications: ^19.5.0
-  local_auth: ^3.0.0
+  local_auth: ^2.3.0
   shared_preferences: ^2.5.3
   flutter_screenutil: ^5.9.3
   google_fonts: ^6.3.2
@@ -51,6 +51,7 @@ dependencies:
   fl_chart: ^1.1.1
   timezone: ^0.10.1
   flutter_timezone: ^4.1.1
+  flutter_secure_storage: ^9.2.4
 
 dev_dependencies:
   flutter_test:

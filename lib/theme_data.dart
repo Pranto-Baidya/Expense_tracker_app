@@ -18,7 +18,7 @@ ThemeData lightTheme = ThemeData(
     onSurface: AppColors.lightTextPrimary, // Dark Gray (#1F2A44)
     onError: Colors.white,
   ),
-  scaffoldBackgroundColor: Colors.grey.shade200.withValues(alpha: 0.8),
+  scaffoldBackgroundColor: AppColors.lightBackground,
   textTheme: GoogleFonts.interTextTheme().copyWith(
     labelSmall: GoogleFonts.inter(
         color: AppColors.lightTextPrimary, fontSize: 11, fontWeight: FontWeight.w700),
@@ -126,7 +126,7 @@ ThemeData darkTheme = ThemeData(
     onSurface: AppColors.darkTextPrimary, // Light Gray (#D1D5DB)
     onError: Colors.white,
   ),
-  scaffoldBackgroundColor: AppColors.darkBackground.withValues(alpha: 0.2),
+  scaffoldBackgroundColor: AppColors.darkBackground,
   appBarTheme: AppBarTheme(
     backgroundColor: AppColors.darkBackground,
     scrolledUnderElevation: 0,
