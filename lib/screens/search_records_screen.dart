@@ -145,18 +145,34 @@ class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            DateFormat('MMMM dd, yyyy').format(date),
-                            style: Theme.of(context).textTheme.titleMedium,
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: theme.colorScheme.primary.withOpacity(0.4),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(width: 10.w),
+                              Text(
+                                DateFormat('MMMM dd, yyyy').format(date),
+                                style: theme.textTheme.titleMedium!.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
                           ),
-                          SizedBox(height: 5.h),
-                          Divider(
-                            radius: BorderRadius.circular(0),
-                            thickness: 3,
-                            indent: 0,
-                            endIndent: 1,
-                            color: theme.colorScheme.primary,
-                          ),
+                          SizedBox(height: 5.h,),
                           ...groupedSearches.map((data) {
                             return ExpenseTile(
                                 expenseModel: data,

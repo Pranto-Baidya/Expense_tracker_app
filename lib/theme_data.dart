@@ -88,21 +88,21 @@ ThemeData lightTheme = ThemeData(
     backgroundColor: WidgetStatePropertyAll(AppColors.lightSurface),
   ),
   inputDecorationTheme: InputDecorationTheme(
-    fillColor: AppColors.lightSurface,
+    fillColor: AppColors.lightBackground,
     filled: true,
     border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: BorderSide.none),
+        borderSide: BorderSide(color: AppColors.lightTextPrimary.withOpacity(0.3))),
     focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: BorderSide.none),
+        borderSide: BorderSide(color: AppColors.lightTextPrimary.withOpacity(0.3))),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(15),
-      borderSide: BorderSide.none,
+      borderSide: BorderSide(color: AppColors.lightTextPrimary.withOpacity(0.3)),
     ),
     errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: BorderSide.none),
+        borderSide: BorderSide(color: AppColors.lightTextPrimary.withOpacity(0.3))),
   ),
   drawerTheme: DrawerThemeData(
     backgroundColor: AppColors.lightBackground,
@@ -204,21 +204,21 @@ ThemeData darkTheme = ThemeData(
     backgroundColor: WidgetStatePropertyAll(AppColors.darkSurface),
   ),
   inputDecorationTheme: InputDecorationTheme(
-    fillColor: AppColors.darkSurface,
+    fillColor: AppColors.darkBackground,
     filled: true,
-    border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(15),
-        borderSide: BorderSide.none),
+      border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: AppColors.darkTextPrimary.withOpacity(0.3))),
     focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: BorderSide.none),
+        borderSide: BorderSide(color: AppColors.darkTextPrimary.withOpacity(0.3))),
     enabledBorder: OutlineInputBorder(
       borderRadius: BorderRadius.circular(15),
-      borderSide: BorderSide.none,
+      borderSide: BorderSide(color: AppColors.darkTextPrimary.withOpacity(0.3)),
     ),
     errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: BorderSide.none),
+        borderSide: BorderSide(color: AppColors.darkTextPrimary.withOpacity(0.3))),
   ),
   dropdownMenuTheme: DropdownMenuThemeData(
     menuStyle: MenuStyle(

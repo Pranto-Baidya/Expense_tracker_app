@@ -150,7 +150,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
     final isWrong = ref.watch(wrongProvider);
 
     return Scaffold(
-      backgroundColor: isDark ? Color(0xFF1E293B) : Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: CustomAppbar(title: '', toolbarHeight: 0),
       body: GestureDetector(
         onTap: () {

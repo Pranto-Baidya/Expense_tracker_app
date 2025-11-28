@@ -1,5 +1,7 @@
 import 'package:expense_tracker_app/models/budget_model.dart';
+import 'package:expense_tracker_app/models/category_model.dart';
 import 'package:expense_tracker_app/riverpod/budget_riverpod/budget_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/category_riverpod/category_riverpod.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/budget_dashboard.dart';
 import 'package:expense_tracker_app/widgets/budget_widget.dart';
@@ -41,6 +43,7 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
   void initState() {
     WidgetsBinding.instance.addPostFrameCallback((_)async{
       await ref.read(budgetProvider.notifier).getAllBudgetsList();
+      ref.read(categoryProvider.notifier).getAllCategories();
       ref.read(budgetProvider.notifier).filterBudgetsByMonth(ref.read(selectedDateProviderForBudgets));
     });
     _budgetController.addListener(()=>checkForBudgetTyping(ref));
@@ -96,7 +99,7 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
     }
   }
 
-  void addBudgetDialogue(String category, IconData icon) {
+  void addBudgetDialogue(CategoryModel category) {
     ref.read(checkBudgetTyping.notifier).state = false;
     var theme = Theme.of(context);
 
@@ -132,21 +135,21 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
                       CircleAvatar(
-                        radius: 20,
-                        backgroundColor: theme.colorScheme.primary,
+                        radius: 25,
+                        backgroundColor: category.color,
                         child: Icon(
-                          icon,
+                          category.icon,
                           color: Colors.white,
                         ),
                       ),
                       SizedBox(width: 15.w),
                       Text(
-                        category,
+                        category.categoryName,
                         style: theme.textTheme.titleMedium,
                       ),
                     ],
                   ),
-                  SizedBox(height: 15.h),
+                  SizedBox(height: 20.h),
                   TextField(
                     autofocus: true,
                     controller: _budgetController,
@@ -173,7 +176,7 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
                   CustomAppButton(
                       onPressed: (){
                        final newBudget = BudgetModel(
-                           categoryName: category,
+                           categoryName: category.categoryName,
                            budget: double.parse(_budgetController.text),
                            date: DateTime.now()
                        );
@@ -294,8 +297,10 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
     final budgetNotifier = ref.read(budgetProvider.notifier);
 
     final budgetedCategories = budgetState.filteredBudgets.map((i)=>i.categoryName).toSet();
+
+    final expenseCategories = ref.watch(categoryProvider);
     
-    final unbudgetedCategories = categories.where((i){
+    final unbudgetedCategories = expenseCategories.allExpenseCategories.where((i){
       return !budgetedCategories.contains(i);
     }).toList();
 
@@ -314,187 +319,234 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
     final isPastMonth = selectedDate.year<now.year || (selectedDate.year==now.year && selectedDate.month<now.month);
 
     return Scaffold(
-      body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 8.h),
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          child: Column(
-            children: [
-              SizedBox(height: 10.h,),
-              BudgetDashboard(
-                dateNotifier: ref.read(selectedDateProviderForBudgets.notifier),
-                dateState: ref.watch(selectedDateProviderForBudgets),
-                totalBudget: totalBudget,
-                totalSpent: totalSpent,
+      backgroundColor: theme.colorScheme.primary,
+      body: Column(
+        children: [
+          SizedBox(height: 10.h),
+          BudgetDashboard(
+            dateNotifier: ref.read(selectedDateProviderForBudgets.notifier),
+            dateState: ref.watch(selectedDateProviderForBudgets),
+            totalBudget: totalBudget,
+            totalSpent: totalSpent,
+          ),
+          SizedBox(height: 20.h),
+          Expanded(
+            child: Container(
+              decoration: BoxDecoration(
+                color: theme.cardColor,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(20.r),
+                  topRight: Radius.circular(20.r),
+                ),
               ),
-              if(isPastMonth && budgetedCategories.isEmpty)...[
-                Column(
+              child: SingleChildScrollView(
+                child: Column(
                   children: [
-                    SizedBox(height: 50.h),
-                    Icon(Icons.event_busy, color: theme.colorScheme.primary, size: 100),
-                    SizedBox(height: 10.h),
-                    Text('Month expired', style: theme.textTheme.titleMedium),
-                    Text('View past budget limits for comparison',style: theme.textTheme.titleMedium)
-                  ],
-                ),
-              ],
-              if (budgetedCategories.isEmpty && !isPastMonth)
-                Column(
-                  children: [
-                    SizedBox(height: 20.h),
-                    Icon(Icons.note_add_outlined, color: theme.colorScheme.primary, size: 100),
-                    SizedBox(height: 10.h),
-                    Text('No budget was applied for this month', style: theme.textTheme.titleMedium),
-                    Text('Set a budget from the list below',style: theme.textTheme.titleMedium)
-                  ],
-                ),
-              SizedBox(height: 10.h,),
-              if(budgetedCategories.isNotEmpty)
-                    ListView.builder(
-                        shrinkWrap: true,
-                        physics: NeverScrollableScrollPhysics(),
-                        itemCount: sortedDates.length,
-                        itemBuilder: (context,index){
-                          final date = sortedDates[index];
-                          final budgetsForDates = groupedBudgets[date]!;
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SizedBox(height: 10.h,),
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 8.h),
+                      child: Column(
+                        children: [
+                          if (isPastMonth && budgetedCategories.isEmpty)
+                            SizedBox(
+                              width: double.infinity.w,
+                              child: Column(
                                 children: [
-                                  Container(
-                                    width: 14,
-                                    height: 14,
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.primary,
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: theme.colorScheme.primary.withOpacity(0.4),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
+                                  SizedBox(height: 80.h),
+                                  Icon(Icons.event_busy, color: theme.colorScheme.primary, size: 100),
+                                  SizedBox(height: 24.h),
+                                  Text('Month expired', style: theme.textTheme.titleLarge),
+                                  SizedBox(height: 8.h),
+                                  Text('View past budget limits for comparison', style: theme.textTheme.bodyMedium),
+                                ],
+                              ),
+                            ),
+                          if (budgetedCategories.isEmpty && !isPastMonth)
+                            Column(
+                              children: [
+                                SizedBox(height: 20.h),
+                                Icon(Icons.note_add_outlined, color: theme.colorScheme.primary, size: 100),
+                                SizedBox(height: 24.h),
+                                Text('No budgets this month', style: theme.textTheme.titleLarge),
+                                SizedBox(height: 8.h),
+                                Text('Set a budget from the list below', style: theme.textTheme.bodyMedium),
+                              ],
+                            ),
+                          SizedBox(height: 10.h),
+                          if (budgetedCategories.isNotEmpty)
+                            ListView.builder(
+                              shrinkWrap: true,
+                              physics: NeverScrollableScrollPhysics(),
+                              itemCount: sortedDates.length,
+                              itemBuilder: (context, index) {
+                                final date = sortedDates[index];
+                                final budgetsForDates = groupedBudgets[date]!;
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(height: 10.h),
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 14,
+                                          height: 14,
+                                          decoration: BoxDecoration(
+                                            color: theme.colorScheme.primary,
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: theme.colorScheme.primary.withOpacity(0.4),
+                                                blurRadius: 4,
+                                                offset: Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        SizedBox(width: 10.w),
+                                        Text(
+                                          'Budgeted categories,',
+                                          style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                                        ),
+                                        SizedBox(width: 5.w),
+                                        Text(
+                                          DateFormat('MMM,yyyy').format(date),
+                                          style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  SizedBox(width: 10.w),
-                                  Text('Budgeted categories,',style: theme.textTheme.titleMedium!.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),),
-                                  SizedBox(width: 5.w),
-                                  Text(
-                                    DateFormat('MMM,yyyy').format(date),
-                                    style: theme.textTheme.titleMedium!.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              ...budgetsForDates.map((budget){
-                                return BudgetWidget(
-                                    budget: budget,
-                                    onEdit: ()=> editBudgetDialogue(budget),
-                                    onDelete: ()=> budgetNotifier.deleteBudget(budget.id!)
+                                    ...budgetsForDates.map((budget) {
+                                      return BudgetWidget(
+                                        budget: budget,
+                                        onEdit: () => editBudgetDialogue(budget),
+                                        onDelete: () => budgetNotifier.deleteBudget(budget.id!),
+                                      );
+                                    }),
+                                  ],
                                 );
-                              })
-                            ],
-                          );
-                        }
-                    ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-
-                  if(!isPastMonth)...[
-                    SizedBox(height: 20.h),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 14,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary,
-                            shape: BoxShape.circle,
-                            boxShadow: [
-                              BoxShadow(
-                                color: theme.colorScheme.primary.withOpacity(0.4),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(width: 10.w),
-                        Text('Not budgeted this month',style: theme.textTheme.titleMedium!.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),),
-                      ],
-                    ),
-                    SizedBox(height: 10.h,),
-                    ...unbudgetedCategories.map((cat) {
-                      final icon = getIconForCategory(cat);
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Container(
-                          padding: const EdgeInsets.all(15),
-                          decoration: BoxDecoration(
-                            color: theme.cardColor,
-                            borderRadius: BorderRadius.circular(15.r),
-                              border: Border.all(color: theme.dividerColor.withOpacity(0.3))
-                          ),
-                          child: Row(
+                              },
+                            ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              CircleAvatar(
-                                radius: 20,
-                                backgroundColor: theme.colorScheme.primary,
-                                child: Icon(
-                                  icon,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              SizedBox(width: 20.w),
-                              Text(
-                                cat,
-                                style: theme.textTheme.titleMedium,
-                              ),
-                              const Spacer(),
-                              ElevatedButton(
-                                onPressed: () {
-                                  addBudgetDialogue(cat, icon);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(15.r),
-                                    side: BorderSide(
-                                      color: theme.colorScheme.primary,
-                                    ),
+                              if (!isPastMonth)
+                                ...[
+                                  SizedBox(height: 20.h),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        width: 14,
+                                        height: 14,
+                                        decoration: BoxDecoration(
+                                          color: theme.colorScheme.primary,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: theme.colorScheme.primary.withOpacity(0.4),
+                                              blurRadius: 4,
+                                              offset: Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      SizedBox(width: 10.w),
+                                      Text(
+                                        'Not budgeted this month',
+                                        style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                                      ),
+                                    ],
                                   ),
-                                  backgroundColor: theme.cardColor,
-                                  minimumSize: const Size(100, 50),
-                                  elevation: 0,
-                                ),
-                                child: Text(
-                                  'Set budget',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: theme.colorScheme.primary,
+                                  SizedBox(height: 10.h),
+                                  ListView.builder(
+                                    shrinkWrap: true,
+                                    physics: NeverScrollableScrollPhysics(),
+                                    itemCount: unbudgetedCategories.length,
+                                    itemBuilder: (context, index) {
+                                      final data = unbudgetedCategories[index];
+                                      return Padding(
+                                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                                        child: Container(
+                                          padding: EdgeInsets.all(15),
+                                          decoration: BoxDecoration(
+                                            color: theme.cardColor.withOpacity(0.92),
+                                            borderRadius: BorderRadius.circular(18.r),
+                                            border: Border.all(
+                                              color: theme.dividerColor.withOpacity(0.15),
+                                              width: 1,
+                                            ),
+                                            boxShadow: Theme.of(context).brightness == Brightness.dark
+                                                ? [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.4),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(0.05),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, -1),
+                                              ),
+                                            ] : [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.06),
+                                                blurRadius: 18,
+                                                offset: const Offset(0, 6),
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(0.4),
+                                                blurRadius: 10,
+                                                offset: const Offset(-2, -2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              CircleAvatar(
+                                                radius: 25,
+                                                backgroundColor: data.color,
+                                                child: Icon(data.icon, color: Colors.white),
+                                              ),
+                                              SizedBox(width: 20.w),
+                                              Text(data.categoryName, style: theme.textTheme.titleMedium),
+                                              Spacer(),
+                                              ElevatedButton(
+                                                onPressed: ()=> addBudgetDialogue(data),
+                                                style: ElevatedButton.styleFrom(
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(15.r),
+                                                    side: BorderSide(color: theme.colorScheme.primary),
+                                                  ),
+                                                  backgroundColor: theme.cardColor,
+                                                  minimumSize: Size(100, 50),
+                                                  elevation: 0,
+                                                ),
+                                                child: Text(
+                                                  'Set budget',
+                                                  style: theme.textTheme.titleMedium?.copyWith(
+                                                    color: theme.colorScheme.primary,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
                                   ),
-                                ),
-                              ),
+                                ]
                             ],
                           ),
-                        ),
-                      );
-                    }),
-                  ]
-                ],
+                        ],
+                      ),
+                    )
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+        ],
+      )
+      ,
     );
   }
   

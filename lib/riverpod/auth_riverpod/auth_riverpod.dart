@@ -50,10 +50,11 @@ class AuthNotifier extends StateNotifier<AuthState>{
       }
 
       final didAuthenticate = await localAuthentication.authenticate(
-        localizedReason: 'Please verify',
+        localizedReason: 'Please verify to access',
         options: const AuthenticationOptions(
           biometricOnly: true,
           stickyAuth: true,
+          useErrorDialogs: true
         ),
       );
 

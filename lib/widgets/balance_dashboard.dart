@@ -1,36 +1,52 @@
-import 'package:expense_tracker_app/models/budget_model.dart';
-import 'package:expense_tracker_app/riverpod/budget_riverpod/budget_riverpod.dart';
-import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
-import 'package:expense_tracker_app/screens/records_screen.dart';
-import 'package:flutter/cupertino.dart';
+import 'dart:ui';
+import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
-class BudgetDashboard extends ConsumerWidget {
-  final int totalBudget;
-  final int totalSpent;
+class BalanceDashboard extends ConsumerWidget {
+  final ThemeData theme;
   final StateController<DateTime> dateNotifier;
+  final StateController<TimeOfDay>? timeNotifier;
   final DateTime dateState;
-  const BudgetDashboard({required this.totalBudget,required this.totalSpent,required this.dateNotifier, required this.dateState,super.key});
+  final TimeOfDay? timeState;
+  final String selectedCurrency;
+
+  const BalanceDashboard({
+    super.key,
+    required this.theme,
+    required this.dateNotifier,
+    this.timeNotifier,
+    required this.dateState,
+    this.timeState,
+    required this.selectedCurrency,
+  });
 
   @override
-  Widget build(BuildContext context,WidgetRef ref) {
-    var theme = Theme.of(context);
-    final formattedTotalBudget = NumberFormat.currency(
-      symbol: ref.read(newCurrencyProvider).currency,
-      decimalDigits: 2
-    ).format(totalBudget);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final totalExpenseState = ref.watch(totalExpenseProvider);
+    final totalIncomeState = ref.watch(totalIncomeProvider);
+    final totalMoneyState = ref.watch(totalMoneyProvider);
 
-    final formattedTotalSpent = NumberFormat.currency(
-      symbol: ref.read(newCurrencyProvider).currency,
-      decimalDigits: 2
-    ).format(totalSpent);
+    final formattedTotalAmount = NumberFormat.currency(
+        symbol: selectedCurrency,
+        decimalDigits: 2
+    ).format(totalMoneyState);
+
+    final formattedTotalExpense = NumberFormat.currency(
+        symbol: selectedCurrency,
+        decimalDigits: 2
+    ).format(totalExpenseState);
+
+    final formattedTotalIncome = NumberFormat.currency(
+        symbol: selectedCurrency,
+        decimalDigits: 2
+    ).format(totalIncomeState);
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 5.h),
+      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 15.h),
       child: Column(
         children: [
           Container(
@@ -53,80 +69,120 @@ class BudgetDashboard extends ConsumerWidget {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildNavigationButton(icon: Icons.chevron_left_outlined, onPressed: (){
-                  dateNotifier.state = DateTime(
-                    dateNotifier.state.year,
-                    dateNotifier.state.month - 1,
-                  );
-                  ref.read(budgetProvider.notifier).filterBudgetsByMonth(
-                    dateNotifier.state,
-                  );
-                }),
-                Text(DateFormat('MMMM, yyyy').format(dateState),style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20.sp,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                ),),
-                _buildNavigationButton(icon: Icons.chevron_right_outlined, onPressed: (){
-                  dateNotifier.state = DateTime(
-                    dateNotifier.state.year,
-                    dateNotifier.state.month + 1,
-                  );
-                  ref.read(budgetProvider.notifier).filterBudgetsByMonth(
-                    dateNotifier.state,
-                  );
-                }),
+                _buildNavigationButton(
+                  icon: Icons.chevron_left_rounded,
+                  onPressed: () {
+                    dateNotifier.state = DateTime(
+                      dateNotifier.state.year,
+                      dateNotifier.state.month - 1,
+                    );
+                    ref.read(expenseProvider.notifier).filterRecordsByMonth(
+                      dateNotifier.state,
+                      timeNotifier?.state ?? TimeOfDay.now(),
+                    );
+                  },
+                ),
+                Text(
+                  DateFormat('MMMM yyyy').format(dateState),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20.sp,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                _buildNavigationButton(
+                  icon: Icons.chevron_right_rounded,
+                  onPressed: () {
+                    dateNotifier.state = DateTime(
+                      dateNotifier.state.year,
+                      dateNotifier.state.month + 1,
+                    );
+                    ref.read(expenseProvider.notifier).filterRecordsByMonth(
+                      dateNotifier.state,
+                      timeNotifier?.state ?? TimeOfDay.now(),
+                    );
+                  },
+                ),
               ],
             ),
           ),
-          SizedBox(height: 15.h,),
+
+          SizedBox(height: 20.h),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               Expanded(
-                child: _buildBudgetCard(
-                    title: 'Total Budget',
-                    amount: formattedTotalBudget.toString(),
-                    color: Colors.green,
-                    theme: theme,
-                    icon: Icons.paid,
-                    gradientColors: [
-                      Color(0xFF51CF66),
-                      Color(0xFF69DB7C),
-                    ],
+                child: _buildBalanceCard(
+                  title: 'Expense',
+                  amount: formattedTotalExpense,
+                  icon: Icons.arrow_downward_rounded,
+                  gradientColors: [
+                    Color(0xFFFF6B6B),
+                    Color(0xFFFF8E8E),
+                  ],
                 ),
               ),
               SizedBox(width: 12.w),
               Expanded(
-                child: _buildBudgetCard(
-                    title: 'Total Spent',
-                    amount: formattedTotalSpent.toString(),
-                    color: Colors.redAccent,
-                    theme: theme,
-                    icon: Icons.receipt_long,
-                    gradientColors: [
-                      Color(0xFFFF6B6B),
-                      Color(0xFFFF8E8E),
+                child: _buildBalanceCard(
+                  title: 'Income',
+                  amount: formattedTotalIncome,
+                  icon: Icons.arrow_upward_rounded,
+                  gradientColors: [
+                    Color(0xFF51CF66),
+                    Color(0xFF69DB7C),
+                  ],
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: _buildBalanceCard(
+                  title: 'Balance',
+                  amount: formattedTotalAmount,
+                  icon: Icons.account_balance_wallet_rounded,
+                  gradientColors: [
+                    Color(0xFF748FFC),
+                    Color(0xFF91A7FF),
                   ],
                 ),
               ),
             ],
-          )
-
+          ),
         ],
       ),
     );
-
   }
 
-  Widget _buildBudgetCard({
+  Widget _buildNavigationButton({
+    required IconData icon,
+    required VoidCallback onPressed,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12.r),
+        child: Container(
+          padding: EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(12.r),
+          ),
+          child: Icon(
+            icon,
+            color: Colors.white,
+            size: 24,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBalanceCard({
     required String title,
     required String amount,
-    required Color color,
-    required ThemeData theme,
     required IconData icon,
-    required List<Color> gradientColors
+    required List<Color> gradientColors,
   }) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 400),
@@ -196,6 +252,7 @@ class BudgetDashboard extends ConsumerWidget {
                   size: 22,
                 ),
               ),
+
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -223,33 +280,8 @@ class BudgetDashboard extends ConsumerWidget {
                     ),
                   ),
                 ],
-              )
+              ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavigationButton({
-    required IconData icon,
-    required VoidCallback onPressed,
-  }) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(12.r),
-        child: Container(
-          padding: EdgeInsets.all(8),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(12.r),
-          ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 24,
           ),
         ),
       ),

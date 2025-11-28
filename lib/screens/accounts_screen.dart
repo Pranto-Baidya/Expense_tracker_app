@@ -1,7 +1,9 @@
 import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
+import 'package:expense_tracker_app/widgets/account_dashboard.dart';
 import 'package:expense_tracker_app/widgets/accounts_widget.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
@@ -337,68 +339,91 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
 
     final cardState = ref.watch(cardsProvider);
     return Scaffold(
-      body: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 15.w,vertical: 8.h),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(height: 20.h,),
-            Text('All Accounts',style: theme.textTheme.titleLarge,),
-            SizedBox(height: 15.h,),
-            Expanded(
-                child: Builder(
-                    builder: (context){
-                      if(cardState.isLoading){
-                        return Center(child: CircularProgressIndicator(),);
-                      }
-                      if(cardState.cards.isEmpty){
-                        return Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.credit_card_off_outlined,color: theme.colorScheme.primary,size: 100,),
-                              SizedBox(height: 10.h,),
-                              Text('No accounts are added yet',style: theme.textTheme.titleMedium,),
-                              Text('Tap the + button to add a new account',style: theme.textTheme.titleMedium,),
-                            ],
-                          ),
-                        );
-                      }
-                      return ListView.builder(
-                          physics: const BouncingScrollPhysics(),
-                          shrinkWrap: true,
-                          itemCount: cardState.cards.length,
-                          itemBuilder: (context,index){
-
-                            final data = cardState.cards[index];
-                            double amount = 0;
-
-                            if(data.amount<=0 && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
-                              amount = 0;
-                            }
-                            else{
-                              amount = data.amount;
-                            }
-
-                            return AccountsWidget(
-                                title: data.cardName,
-                                amount: amount,
-                                icon: data.icon,
-                                value: data.progress,
-                                onEdit: (){
-                                  editCardDialogue(data);
-                                },
-                                onDelete: (){
-                                  ref.read(cardsProvider.notifier).deleteCard(data.id!);
+      backgroundColor: theme.colorScheme.primary,
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AccountDashboard(
+              theme: theme,
+              selectedCurrency: ref.watch(newCurrencyProvider).currency
+          ),
+          SizedBox(height: 10.h,),
+          Expanded(
+              child: Container(
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(20.r),
+                    topRight: Radius.circular(20.r),
+                  ),
+                ),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 15.w,vertical: 8.h),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(height: 15.h,),
+                      cardState.cards.isEmpty?SizedBox.shrink():Text('All Accounts',style: theme.textTheme.titleLarge,),
+                      SizedBox(height: 10.h,),
+                      Expanded(
+                          child: Builder(
+                              builder: (context){
+                                if(cardState.isLoading){
+                                  return Center(child: CircularProgressIndicator(),);
                                 }
-                            );
-                          }
-                      );
-                    }
-                )
-            )
-          ],
-        ),
+                                if(cardState.cards.isEmpty){
+                                  return Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.credit_card_off_outlined,color: theme.colorScheme.primary,size: 100,),
+                                        SizedBox(height: 24.h,),
+                                        Text('No accounts yet',style: theme.textTheme.titleLarge,),
+                                        SizedBox(height: 8.h,),
+                                        Text('Tap the + button to add a new account',style: theme.textTheme.bodyMedium,),
+                                      ],
+                                    ),
+                                  );
+                                }
+                                return ListView.builder(
+                                    physics: const BouncingScrollPhysics(),
+                                    shrinkWrap: true,
+                                    itemCount: cardState.cards.length,
+                                    itemBuilder: (context,index){
+
+                                      final data = cardState.cards[index];
+                                      double amount = 0;
+
+                                      if(data.amount<=0 && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
+                                        amount = 0;
+                                      }
+                                      else{
+                                        amount = data.amount;
+                                      }
+
+                                      return AccountsWidget(
+                                          title: data.cardName,
+                                          amount: amount,
+                                          icon: data.icon,
+                                          value: data.progress,
+                                          onEdit: (){
+                                            editCardDialogue(data);
+                                          },
+                                          onDelete: (){
+                                            ref.read(cardsProvider.notifier).deleteCard(data.id!);
+                                          }
+                                      );
+                                    }
+                                );
+                              }
+                          )
+                      )
+                    ],
+                  ),
+                ),
+              )
+          )
+        ],
       ),
       floatingActionButton: Container(
         height: 64.h,

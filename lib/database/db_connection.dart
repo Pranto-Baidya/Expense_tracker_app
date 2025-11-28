@@ -2,6 +2,7 @@
 import 'dart:io';
 import 'package:expense_tracker_app/models/budget_model.dart';
 import 'package:expense_tracker_app/models/card_model.dart';
+import 'package:expense_tracker_app/models/category_model.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
@@ -25,7 +26,7 @@ class DatabaseConnection{
    final path = join(dir.path,'ExpenseDB.db');
    return openDatabase(
      path,
-     version: 6,
+     version: 8,
      onCreate: _createTable,
      onUpgrade: (db,oldVersion, newVersion)async{
        if(oldVersion<2){
@@ -51,6 +52,24 @@ class DatabaseConnection{
        if(oldVersion<6){
          await db.execute('ALTER TABLE budgets ADD COLUMN moneyType TEXT DEFAULT "expense"');
        }
+
+       if(oldVersion<7){
+         await db.execute(
+             '''
+         CREATE TABLE categories(
+         categoryId INTEGER PRIMARY KEY AUTOINCREMENT,
+         categoryName TEXT,
+         moneyType TEXT,
+         iconCode INTEGER
+        )
+             '''
+         );
+       }
+
+       if(oldVersion<8){
+         await db.execute('ALTER TABLE categories ADD COLUMN colorCode INTEGER');
+       }
+
      }
    );
   }
@@ -94,6 +113,18 @@ class DatabaseConnection{
        remaining REAL,
        date TEXT,
        moneyType TEXT
+      )
+      '''
+    );
+
+    await db.execute(
+      '''
+      CREATE TABLE categories(
+      categoryId INTEGER PRIMARY KEY AUTOINCREMENT,
+      categoryName TEXT,
+      categoryType TEXT,
+      iconCode INTEGER,
+      colorCode INTEGER
       )
       '''
     );
@@ -175,6 +206,29 @@ class DatabaseConnection{
   Future<int> deleteBudget(int id)async{
     final db = await getDB();
     return await db.delete('budgets',where: 'id = ?',whereArgs: [id]);
+  }
+
+  //CRUD for categories table
+
+  Future<int> addCategory(CategoryModel category)async{
+    final db = await getDB();
+    return await db.insert('categories', category.toMap(),conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<CategoryModel>> getAllCategories()async{
+    final db = await getDB();
+    List<Map<String,dynamic>> data = await db.query('categories',orderBy: 'categoryId DESC');
+    return data.map((i)=>CategoryModel.fromMap(i)).toList();
+  }
+
+  Future<int> updateCategory(CategoryModel category)async{
+    final db = await getDB();
+    return await db.update('categories', category.toMap(),where: 'categoryId = ?', whereArgs: [category.categoryId]);
+  }
+
+  Future<int> deleteCategory(int id)async{
+    final db = await getDB();
+    return await db.delete('categories',where: 'categoryId = ?',whereArgs: [id]);
   }
 
 }

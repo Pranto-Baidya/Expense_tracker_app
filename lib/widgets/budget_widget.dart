@@ -51,9 +51,36 @@ class BudgetWidget extends ConsumerWidget {
       margin: EdgeInsets.symmetric(vertical: 10.h),
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: theme.cardColor,
+        color: theme.cardColor.withOpacity(0.92),
         borderRadius: BorderRadius.circular(18.r),
-          border: Border.all(color: theme.dividerColor.withOpacity(0.3))
+        border: Border.all(
+          color: theme.dividerColor.withOpacity(0.15),
+          width: 1,
+        ),
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.4),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.white.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, -1),
+          ),
+        ] : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 18,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: Colors.white.withOpacity(0.4),
+            blurRadius: 10,
+            offset: const Offset(-2, -2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -89,7 +116,7 @@ class BudgetWidget extends ConsumerWidget {
                 const AnimationStyle(curve: Curves.easeInOut),
                 menuPadding: const EdgeInsets.all(20),
                 color: theme.cardColor,
-                icon: Icon(Icons.more_horiz, color: theme.iconTheme.color),
+                icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
                 itemBuilder: (context) {
                   return [
                     PopupMenuItem(

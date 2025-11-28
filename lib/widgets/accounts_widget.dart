@@ -38,9 +38,36 @@ class AccountsWidget extends ConsumerWidget {
       child: Container(
         padding: EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: theme.cardColor,
-          borderRadius: BorderRadius.circular(15.r),
-          border: Border.all(color: theme.dividerColor.withOpacity(0.3))
+          color: theme.cardColor.withOpacity(0.92),
+          borderRadius: BorderRadius.circular(18.r),
+          border: Border.all(
+            color: theme.dividerColor.withOpacity(0.15),
+            width: 1,
+          ),
+          boxShadow: Theme.of(context).brightness == Brightness.dark
+              ? [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, -1),
+            ),
+          ] : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.4),
+              blurRadius: 10,
+              offset: const Offset(-2, -2),
+            ),
+          ],
         ),
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
@@ -49,29 +76,38 @@ class AccountsWidget extends ConsumerWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 20,
-                    child: Icon(icon, color: Colors.white),
+                  Container(
+                    height: 45.w,
+                    width: 45.w,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(14.r),
+                      gradient: LinearGradient(
+                        colors: [
+                          theme.colorScheme.primary.withOpacity(0.9),
+                          theme.colorScheme.primary.withOpacity(0.6),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: theme.colorScheme.primary.withOpacity(0.3),
+                          blurRadius: 12,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 4),
+                        )
+                      ],
+                    ),
+                    child: Icon(icon, color: Colors.white, size: 22),
                   ),
-                  SizedBox(width: 16.w),
+                  SizedBox(width: 20.w),
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      SizedBox(height: 8.h,),
                       Text(
                         title,
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      SizedBox(height: 4.h),
-                      Row(
-                        children: [
-                          Text(
-                            'Balance: ',
-                            style: theme.textTheme.titleSmall,
-                          ),
-                          Text(formattedBalance,
-                            style: theme.textTheme.titleSmall,
-                          ),
-                        ],
+                        style: theme.textTheme.titleLarge,
                       ),
                     ],
                   ),
@@ -81,7 +117,7 @@ class AccountsWidget extends ConsumerWidget {
                     const AnimationStyle(curve: Curves.easeInOut),
                     menuPadding: const EdgeInsets.all(20),
                     color: theme.cardColor,
-                    icon: Icon(Icons.more_horiz, color: theme.iconTheme.color),
+                    icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
                     itemBuilder: (context) {
                       return [
                         PopupMenuItem(
@@ -94,6 +130,19 @@ class AccountsWidget extends ConsumerWidget {
                         ),
                       ];
                     },
+                  ),
+                ],
+              ),
+              SizedBox(height: 15.h,),
+              Row(
+                children: [
+                  Text(
+                    'Balance: ',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  SizedBox(width: 5.w,),
+                  Text(formattedBalance,
+                    style: theme.textTheme.titleSmall,
                   ),
                 ],
               ),

@@ -290,7 +290,7 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                   },
                   icon: Padding(
                     padding: const EdgeInsets.only(right: 5.0),
-                    child: Icon(Icons.search,color: theme.iconTheme.color,size: 30,),
+                    child: Icon(Icons.search,color: Colors.white,size: 30,),
                   )
               ),
             )
@@ -298,9 +298,9 @@ class _AllScreensState extends ConsumerState<AllScreens> {
       ),
      body: [
          RecordsScreen(key: _recordKey,),
-         AccountsScreen(),
-         BudgetScreen(),
          StatsScreen(),
+         BudgetScreen(),
+         AccountsScreen(),
          CategoryScreen()
        ][index],
 
@@ -328,9 +328,9 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                  label: 'Records'
              ),
              NavigationDestination(
-                 selectedIcon: Icon(Icons.account_balance_wallet,color: theme.colorScheme.primary,size: 25,),
-                 icon: Icon(Icons.account_balance_wallet_outlined,color: theme.iconTheme.color,size: 25,),
-                 label: 'Accounts'
+                 selectedIcon: Icon(Icons.analytics,color: theme.colorScheme.primary,size: 25,),
+                 icon: Icon(Icons.analytics_outlined,color: theme.iconTheme.color,size: 25,),
+                 label: 'Analysis'
              ),
              NavigationDestination(
                  selectedIcon: Icon(Icons.paid,color: theme.colorScheme.primary,size: 25,),
@@ -338,9 +338,9 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                  label: 'Budget'
              ),
              NavigationDestination(
-                 selectedIcon: Icon(Icons.analytics,color: theme.colorScheme.primary,size: 25,),
-                 icon: Icon(Icons.analytics_outlined,color: theme.iconTheme.color,size: 25,),
-                 label: 'Analysis'
+                 selectedIcon: Icon(Icons.account_balance_wallet,color: theme.colorScheme.primary,size: 25,),
+                 icon: Icon(Icons.account_balance_wallet_outlined,color: theme.iconTheme.color,size: 25,),
+                 label: 'Accounts'
              ),
              NavigationDestination(
                  selectedIcon: Icon(Icons.space_dashboard_rounded,color: theme.colorScheme.primary,size: 25,),
@@ -352,6 +352,7 @@ class _AllScreensState extends ConsumerState<AllScreens> {
      ),
       drawer: Drawer(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+
         child: ListView(
           children: [
             DrawerHeader(
@@ -376,6 +377,16 @@ class _AllScreensState extends ConsumerState<AllScreens> {
               tileColor: Colors.transparent,
               title: Text('Preferences',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary,fontSize: 18),),
             ),
+            ListTile(
+                onTap: (){
+
+                },
+                tileColor: Colors.transparent,
+                leading: Icon(Icons.color_lens_outlined,color: theme.iconTheme.color,),
+                title: Text('Accent color'),
+                trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+            ),
+            Divider(indent: 10,endIndent: 10,thickness: 1,color: theme.colorScheme.primary,),
             ListTile(
               onTap: chooseTheme,
               tileColor: Colors.transparent,

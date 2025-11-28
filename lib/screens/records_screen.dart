@@ -18,10 +18,11 @@ import 'package:intl/intl.dart';
 import 'package:overlay_support/overlay_support.dart';
 
 import '../riverpod/budget_riverpod/budget_riverpod.dart';
-import '../widgets/balace_dashboard.dart';
+import '../widgets/balance_dashboard.dart';
 
 enum MoneyType {expense, income}
 
+final isScrolledProvider = StateProvider<bool>((ref) => false);
 final categoryProvider = StateProvider<String>((ref)=>'Personal');
 final categorySelectionProvider = StateProvider<bool>((ref)=>false);
 final checkTypingProvider = StateProvider<bool>((ref)=>false);
@@ -69,6 +70,16 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
     _titleController.removeListener(()=>checkTyping(ref,));
     _amountController.removeListener(()=>checkTyping(ref));
     super.dispose();
+  }
+
+  bool _handleScrollNotification(ScrollNotification notification, WidgetRef ref) {
+    if (notification is ScrollUpdateNotification) {
+      final isScrolled = notification.metrics.pixels > 200;
+      if (ref.read(isScrolledProvider) != isScrolled) {
+        ref.read(isScrolledProvider.notifier).state = isScrolled;
+      }
+    }
+    return false;
   }
 
   void checkTyping(WidgetRef ref,{ExpenseModel? expense,CardModel? card}){
@@ -206,6 +217,63 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                       ),
                     ),
                     SizedBox(height: 15.h),
+                    Row(
+                      children: [
+                        Icon(Icons.date_range, color: theme.iconTheme.color),
+                        TextButton(
+                          onPressed: pickDate,
+                          child: Text(
+                            DateFormat('MMMM dd, yyyy')
+                                .format(ref.watch(selectedDateProvider)),
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Icon(Icons.more_time_outlined,
+                            color: theme.iconTheme.color),
+                        TextButton(
+                          onPressed: pickTime,
+                          child: Text(
+                            ref.watch(selectedTimeProvider).format(context),
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 15.h),
+                    Text('Select money type:',
+                        style: theme.textTheme.titleMedium),
+                    Row(
+                      children: MoneyType.values.map((type) {
+                        return Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Radio<MoneyType>(
+                              fillColor: WidgetStatePropertyAll(
+                                  theme.colorScheme.primary),
+                              value: type,
+                              groupValue: moneyTypeState,
+                              onChanged: (value) {
+                                moneyTypeNotifier.state = value!;
+                              },
+                            ),
+                            Text(
+                              type == MoneyType.expense
+                                  ? 'Expense'
+                                  : 'Income',
+                              style: theme.textTheme.titleMedium,
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                        );
+                      }).toList(),
+                    ),
+                    SizedBox(height: 15.h),
+                    Text('Select category',style: theme.textTheme.titleMedium,),
+                    SizedBox(height: 10.h,),
                     DropdownButtonFormField2(
                       isExpanded: true,
                       value: category,
@@ -266,61 +334,6 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                       ),
                     ),
                     SizedBox(height: 15.h),
-                    Row(
-                      children: [
-                        Icon(Icons.date_range, color: theme.iconTheme.color),
-                        TextButton(
-                          onPressed: pickDate,
-                          child: Text(
-                            DateFormat('MMMM dd, yyyy')
-                                .format(ref.watch(selectedDateProvider)),
-                            style: theme.textTheme.titleSmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Icon(Icons.more_time_outlined,
-                            color: theme.iconTheme.color),
-                        TextButton(
-                          onPressed: pickTime,
-                          child: Text(
-                            ref.watch(selectedTimeProvider).format(context),
-                            style: theme.textTheme.titleSmall,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 15.h),
-                    Text('Select money type:',
-                        style: theme.textTheme.titleMedium),
-                    Row(
-                      children: MoneyType.values.map((type) {
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Radio<MoneyType>(
-                              fillColor: WidgetStatePropertyAll(
-                                  theme.colorScheme.primary),
-                              value: type,
-                              groupValue: moneyTypeState,
-                              onChanged: (value) {
-                                moneyTypeNotifier.state = value!;
-                              },
-                            ),
-                            Text(
-                              type == MoneyType.expense
-                                  ? 'Expense'
-                                  : 'Income',
-                              style: theme.textTheme.titleMedium,
-                            ),
-                            const SizedBox(width: 10),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                    SizedBox(height: 10.h),
                     Text('Choose account',style: theme.textTheme.titleMedium,),
                     SizedBox(height: 10.h,),
                     DropdownButtonFormField2(
@@ -404,7 +417,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
 
                           ref.read(enteredAmountProvider.notifier).state = double.parse(_amountController.text);
                           final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==selectedAccountNotifier.state);
-                          
+
                           if((ref.read(enteredAmountProvider.notifier).state>selectedCard.amount || selectedCard.amount<=0) && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
                             toast('Not sufficient balance, please choose a different account or update the balance');
                             return;
@@ -533,21 +546,6 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                       ),
                     ),
                     SizedBox(height: 15.h),
-                    DropdownButtonFormField(
-                      value: category,
-                      items: categories.map((cat) {
-                        return DropdownMenuItem(
-                          value: cat,
-                          child: Text(cat),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        ref.read(categoryProvider.notifier).state = value!;
-                        ref.read(categorySelectionProvider.notifier).state = true;
-                        checkTyping(ref, expense: expense);
-                      },
-                    ),
-                    SizedBox(height: 15.h),
                     Row(
                       children: [
                         Icon(Icons.date_range, color: theme.iconTheme.color),
@@ -601,6 +599,23 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                           ],
                         );
                       }).toList(),
+                    ),
+                    SizedBox(height: 15.h),
+                    Text('Select category',style: theme.textTheme.titleMedium,),
+                    SizedBox(height: 10.h),
+                    DropdownButtonFormField(
+                      value: category,
+                      items: categories.map((cat) {
+                        return DropdownMenuItem(
+                          value: cat,
+                          child: Text(cat),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        ref.read(categoryProvider.notifier).state = value!;
+                        ref.read(categorySelectionProvider.notifier).state = true;
+                        checkTyping(ref, expense: expense);
+                      },
                     ),
                     SizedBox(height: 10.h),
                     Text('Choose account',style: theme.textTheme.titleMedium,),
@@ -809,120 +824,132 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
 
     final sortedDates = groupedExpenses.keys.toList()..sort((a,b)=>b.compareTo(a));
 
+
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: theme.colorScheme.primary,
       body: Center(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              SizedBox(height: 20.h,),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 15.w),
-                child: BalanceDashboard(
-                    theme: theme,
-                    dateNotifier: dateNotifier,
-                    timeNotifier: timeNotifier,
-                    dateState: dateState,
-                    timeState: timeState,
-                    selectedCurrency: selectedCurrency
-                ),
-              ),
-              SizedBox(height: 10.h,),
-              if(expenseList.isEmpty)
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(height: 50.h,),
-                    Icon(Icons.info_outlined,color: theme.colorScheme.primary,size: 100,),
-                    SizedBox(height: 10.h,),
-                    Text('No records in this month',style: theme.textTheme.titleMedium,),
-                    Text('Tap the + button to add a new record',style: theme.textTheme.titleMedium,),
-                  ],
-                ),
-              NotificationListener<ScrollNotification>(
-                  onNotification: (scrollInfo){
-                    if(scrollInfo.metrics.pixels>=scrollInfo.metrics.maxScrollExtent-100 && !expenseState.isLoading && expenseState.hasMore){
-                      expenseNotifier.getExpenses();
-                    }
-                    return false;
-                  },
-                  child: Expanded(
-                    child: ListView.builder(
-                      physics: const BouncingScrollPhysics(),
-                      shrinkWrap: true,
-                      itemCount: sortedDates.length,
-                      itemBuilder: (context, index) {
-
-                        final date = sortedDates[index];
-                        final expensesForDate = groupedExpenses[date]!;
-
-                        return Padding(
-                          padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 15.w),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    width: 14,
-                                    height: 14,
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.primary,
-                                      shape: BoxShape.circle,
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: theme.colorScheme.primary.withOpacity(0.4),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  SizedBox(width: 10.w),
-                                  Text(
-                                    DateFormat('MMMM dd, yyyy').format(date),
-                                    style: theme.textTheme.titleMedium!.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                               SizedBox(height: 5.h,),
-                              ...expensesForDate.map((expense) {
-                                final selectedCard = ref.watch(cardsProvider).cards.firstWhere(
-                                      (card) => card.id == expense.accountId,
-                                  orElse: () => CardModel(
-                                    id: -1,
-                                    cardName: 'Unknown',
-                                    icon: Icons.help_outline,
-                                    amount: 0,
-                                  ),
-                                );
-
-                                return ExpenseTile(
-                                  icon: icons(expense.category),
-                                  expenseModel: expense,
-                                  currency: selectedCurrency,
-                                  cardModel: selectedCard,
-                                  onEdit: () => editExpenseDialogue(expense),
-                                  onDelete: () => deleteAlert(expense),
-                                );
-                              }),
-                            ],
-                          ),
-                        );
-
-                      },
+          children: [
+            BalanceDashboard(
+                theme: theme,
+                dateNotifier: dateNotifier,
+                timeNotifier: timeNotifier,
+                dateState: dateState,
+                timeState: timeState,
+                selectedCurrency: selectedCurrency
+            ),
+            SizedBox(height: 10.h),
+            Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.cardColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20.r),
+                      topRight: Radius.circular(20.r),
                     ),
-                  )
+                  ),
+                  child: Column(
+                    children: [
+                      SizedBox(height: 10.h,),
+                      if(expenseList.isEmpty)
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SizedBox(height: 50.h,),
+                            Icon(Icons.info_outlined,color: theme.colorScheme.primary,size: 100,),
+                            SizedBox(height: 10.h,),
+                            Text('No records in this month',style: theme.textTheme.titleMedium,),
+                            Text('Tap the + button to add a new record',style: theme.textTheme.titleMedium,),
+                          ],
+                        ),
+                      NotificationListener<ScrollNotification>(
+                          onNotification: (scrollInfo){
+                            if(scrollInfo.metrics.pixels>=scrollInfo.metrics.maxScrollExtent-100 && !expenseState.isLoading && expenseState.hasMore){
+                              expenseNotifier.getExpenses();
+                            }
+                            return false;
+                          },
+                          child: Expanded(
+                            child: ListView.builder(
+                              physics: const BouncingScrollPhysics(),
+                              shrinkWrap: true,
+                              itemCount: sortedDates.length,
+                              itemBuilder: (context, index) {
 
-              ),
-            ],
-          ),
+                                final date = sortedDates[index];
+                                final expensesForDate = groupedExpenses[date]!;
+
+                                return Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 15.w),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        crossAxisAlignment: CrossAxisAlignment.center,
+                                        children: [
+                                          Container(
+                                            width: 14,
+                                            height: 14,
+                                            decoration: BoxDecoration(
+                                              color: theme.colorScheme.primary,
+                                              shape: BoxShape.circle,
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: theme.colorScheme.primary.withOpacity(0.4),
+                                                  blurRadius: 4,
+                                                  offset: const Offset(0, 2),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          SizedBox(width: 10.w),
+                                          Text(
+                                            DateFormat('MMMM dd, yyyy').format(date),
+                                            style: theme.textTheme.titleMedium!.copyWith(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      SizedBox(height: 5.h,),
+                                      ...expensesForDate.map((expense) {
+                                        final selectedCard = ref.watch(cardsProvider).cards.firstWhere(
+                                              (card) => card.id == expense.accountId,
+                                          orElse: () => CardModel(
+                                            id: -1,
+                                            cardName: 'Unknown',
+                                            icon: Icons.help_outline,
+                                            amount: 0,
+                                          ),
+                                        );
+
+                                        return ExpenseTile(
+                                          icon: icons(expense.category),
+                                          expenseModel: expense,
+                                          currency: selectedCurrency,
+                                          cardModel: selectedCard,
+                                          onEdit: () => editExpenseDialogue(expense),
+                                          onDelete: () => deleteAlert(expense),
+                                        );
+                                      }),
+                                    ],
+                                  ),
+                                );
+
+                              },
+                            ),
+                          )
+
+                      ),
+                    ],
+                  ),
+                )
+            )
+          ],
+        ),
       ),
-      drawer: Drawer(),
       floatingActionButton: Container(
         height: 64.h,
         width: 64.w,
@@ -974,6 +1001,165 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
       map[date]!.add(exp);
     }
     return map;
+  }
+
+  Widget _buildMinimizedHeader(ThemeData theme, String currency, WidgetRef ref) {
+    final totalMoney = ref.watch(totalMoneyProvider);
+    final totalExpense = ref.watch(totalExpenseProvider);
+    final totalIncome = ref.watch(totalIncomeProvider);
+
+    final formattedTotal = NumberFormat.currency(symbol: currency, decimalDigits: 2).format(totalMoney);
+    final formattedExpense = NumberFormat.currency(symbol: currency, decimalDigits: 2).format(totalExpense);
+    final formattedIncome = NumberFormat.currency(symbol: currency, decimalDigits: 2).format(totalIncome);
+
+    return AnimatedOpacity(
+      duration: Duration(milliseconds: 200),
+      opacity: 1.0,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+        child: Column(
+          children: [
+            Text(
+              DateFormat('MMM, yyyy').format(ref.watch(selectedDateProvider)),
+              style: TextStyle(color: Colors.white, fontSize: 16.sp),
+            ),
+            SizedBox(height: 5.h,),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.arrow_downward, color: Colors.white, size: 20),
+                      SizedBox(width: 8.w),
+                      Text(
+                        formattedExpense,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.arrow_upward, color: Colors.white, size: 20),
+                      SizedBox(width: 8.w),
+                      Text(
+                        formattedIncome,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 20),
+                      SizedBox(width: 8.w),
+                      Text(
+                        formattedTotal,
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(ThemeData theme) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        SizedBox(height: 50.h),
+        Icon(Icons.error_outline_outlined, color: theme.colorScheme.primary, size: 100),
+        SizedBox(height: 24.h),
+        Text('No records this month', style: theme.textTheme.titleLarge),
+        SizedBox(height: 8.h),
+        Text('Tap the + button to add a new record', style: theme.textTheme.bodyMedium),
+        SizedBox(height: 100.h),
+      ],
+    );
+  }
+
+  Widget _buildRecordsList(
+      BuildContext context,
+      WidgetRef ref,
+      ThemeData theme,
+      List<DateTime> sortedDates,
+      Map<DateTime, List<ExpenseModel>> groupedExpenses,
+      String selectedCurrency,
+      dynamic expenseNotifier,
+      dynamic expenseState,
+      ) {
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: NeverScrollableScrollPhysics(),
+      itemCount: sortedDates.length,
+      itemBuilder: (context, index) {
+        final date = sortedDates[index];
+        final expensesForDate = groupedExpenses[date]!;
+
+        return Padding(
+          padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 15.w),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 14,
+                    height: 14,
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary,
+                      shape: BoxShape.circle,
+                      boxShadow: [BoxShadow(color: theme.colorScheme.primary.withOpacity(0.4), blurRadius: 4, offset: Offset(0, 2))],
+                    ),
+                  ),
+                  SizedBox(width: 10.w),
+                  Text(
+                    DateFormat('MMMM dd, yyyy').format(date),
+                    style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+              SizedBox(height: 5.h),
+              ...expensesForDate.map((expense) {
+                final selectedCard = ref.watch(cardsProvider).cards.firstWhere(
+                      (card) => card.id == expense.accountId,
+                  orElse: () => CardModel(id: -1, cardName: 'Unknown', icon: Icons.help_outline, amount: 0),
+                );
+                return ExpenseTile(
+                  icon: icons(expense.category),
+                  expenseModel: expense,
+                  currency: selectedCurrency,
+                  cardModel: selectedCard,
+                  onEdit: () => editExpenseDialogue(expense),
+                  onDelete: () => deleteAlert(expense),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+    );
   }
 
 }

@@ -17,6 +17,7 @@ final totalMoneyProvider = StateProvider<double>((ref)=>0);
 final expenseProvider = StateNotifierProvider<ExpenseNotifier,ExpenseState>((ref)=>ExpenseNotifier(ref));
 
 class ExpenseState{
+
   final List<ExpenseModel> expenses;
   final List<ExpenseModel> filteredRecord;
   final List<ExpenseModel> searchRecords;
@@ -71,24 +72,20 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
 
   final _limit = 10;
 
-  Future<void> getExpenses()async{
-    if(state.isLoading || !state.hasMore){
-      return;
-    }
+  Future<void> getExpenses() async {
     state = state.copyWith(isLoading: true);
 
-    List<ExpenseModel> newExpenses = await databaseConnection.getAllExpenses(limit: _limit,offset: state.offset);
+    final allExpenses = await databaseConnection.getAllExpenses();
 
     state = state.copyWith(
-      expenses: [...state.expenses,...newExpenses],
-      offset: state.offset + _limit,
-      hasMore: newExpenses.length == _limit,
-      isLoading: false
+      expenses: allExpenses,
+      hasMore: false,
+      isLoading: false,
     );
 
     filterRecordsByMonth(state.selectedDate!, state.selectedTime!);
-
   }
+
 
   Future<void> insertExpense(ExpenseModel expense)async{
 
@@ -107,9 +104,10 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
 
     state = state.copyWith(expenses: [newExpense,...state.expenses]);
 
-    if (state.selectedDate != null && state.selectedTime!=null) {
-      filterRecordsByMonth(expense.date,expense.time);
+    if (state.selectedDate != null && state.selectedTime != null) {
+      filterRecordsByMonth(state.selectedDate!, state.selectedTime!);
     }
+
   }
 
 
@@ -119,9 +117,10 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     state = state.copyWith(
       expenses: state.expenses.map((e)=>e.id==expense.id? expense : e).toList()
     );
-    if (state.selectedDate != null && state.selectedTime!=null) {
-      filterRecordsByMonth(expense.date,expense.time);
+    if (state.selectedDate != null && state.selectedTime != null) {
+      filterRecordsByMonth(state.selectedDate!, state.selectedTime!);
     }
+
   }
 
   Future<void> deleteExpense(int id)async{
@@ -206,9 +205,12 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     state = state.copyWith(
       expenses: state.expenses.where((e)=>e.id!=id).toList()
     );
+
     if (state.selectedDate != null && state.selectedTime!=null) {
       filterRecordsByMonth(state.selectedDate!,state.selectedTime!);
     }
+
+    _calculateTotals();
   }
 
   void searchForRecords(String query){
@@ -248,13 +250,14 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
       switch(exp.moneyType){
         case MoneyType.expense:
           totalExpense+=exp.amount;
+          break;
         case MoneyType.income:
           totalIncome+=exp.amount;
+          break;
       }
     }
     _ref.read(totalExpenseProvider.notifier).state = totalExpense;
     _ref.read(totalIncomeProvider.notifier).state = totalIncome;
-
     _ref.read(totalMoneyProvider.notifier).state = (totalIncome-totalExpense);
   }
 
