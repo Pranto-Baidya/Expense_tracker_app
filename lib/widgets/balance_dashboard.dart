@@ -1,12 +1,13 @@
 import 'dart:ui';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
+import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
-class BalanceDashboard extends ConsumerWidget {
+class BalanceDashboard extends ConsumerStatefulWidget {
   final ThemeData theme;
   final StateController<DateTime> dateNotifier;
   final StateController<TimeOfDay>? timeNotifier;
@@ -25,89 +26,129 @@ class BalanceDashboard extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<BalanceDashboard> createState() => _BalanceDashboardState();
+}
+
+class _BalanceDashboardState extends ConsumerState<BalanceDashboard> with TickerProviderStateMixin {
+
+  late AnimationController _expenseController;
+  late AnimationController _incomeController;
+  late AnimationController _balanceController;
+
+  late Animation<Offset> _expenseAnimation;
+  late Animation<Offset> _incomeAnimation;
+  late Animation<Offset> _balanceAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+
+    _expenseController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 1000),
+    );
+
+    _incomeController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 1000),
+    );
+
+    _balanceController = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 1000),
+    );
+
+    _expenseAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _expenseController, curve: Curves.easeOut));
+
+    _incomeAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _incomeController, curve: Curves.easeOut));
+
+    _balanceAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset.zero,
+    ).animate(CurvedAnimation(parent: _balanceController, curve: Curves.easeOut));
+  }
+
+  void triggerExpenseAnimation() {
+    _expenseAnimation = Tween<Offset>(
+      begin: Offset(0, -1.5),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _expenseController, curve: Curves.fastOutSlowIn),
+    );
+    _expenseController.forward(from: 0);
+  }
+
+  void triggerIncomeAnimation() {
+    _incomeAnimation = Tween<Offset>(
+      begin: Offset(0, 1.5),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _incomeController, curve: Curves.fastOutSlowIn),
+    );
+    _incomeController.forward(from: 0);
+  }
+
+  void triggerBalanceAnimation() {
+    _balanceAnimation = Tween<Offset>(
+      begin: Offset(-1.5, 0),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _balanceController, curve: Curves.fastOutSlowIn),
+    );
+    _balanceController.forward(from: 0);
+  }
+
+  @override
+  void dispose() {
+    _expenseController.dispose();
+    _incomeController.dispose();
+    _balanceController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final totalExpenseState = ref.watch(totalExpenseProvider);
     final totalIncomeState = ref.watch(totalIncomeProvider);
     final totalMoneyState = ref.watch(totalMoneyProvider);
 
-    final formattedTotalAmount = NumberFormat.currency(
-        symbol: selectedCurrency,
-        decimalDigits: 2
+    ref.listen(recordAddedTriggerProvider, (prev, next) {
+      final moneyType = ref.read(moneyTypeProvider);
+      if (moneyType == MoneyType.expense) {
+        triggerExpenseAnimation();
+      }
+      else if (moneyType == MoneyType.income) {
+        triggerIncomeAnimation();
+      }
+      triggerBalanceAnimation();
+    });
+
+    final String formattedTotalAmount = NumberFormat.currency(
+      symbol: widget.selectedCurrency,
+      decimalDigits: 2,
     ).format(totalMoneyState);
 
-    final formattedTotalExpense = NumberFormat.currency(
-        symbol: selectedCurrency,
-        decimalDigits: 2
+    final String formattedTotalExpense = NumberFormat.currency(
+      symbol: widget.selectedCurrency,
+      decimalDigits: 2,
     ).format(totalExpenseState);
 
-    final formattedTotalIncome = NumberFormat.currency(
-        symbol: selectedCurrency,
-        decimalDigits: 2
+    final String formattedTotalIncome = NumberFormat.currency(
+      symbol: widget.selectedCurrency,
+      decimalDigits: 2,
     ).format(totalIncomeState);
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 15.h),
       child: Column(
         children: [
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 12.h),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20.r),
-              border: Border.all(
-                color: Colors.white.withOpacity(0.5),
-                width: 1.5,
-              ),
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  Colors.white.withOpacity(0.1),
-                  Colors.white.withOpacity(0.05),
-                ],
-              ),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildNavigationButton(
-                  icon: Icons.chevron_left_rounded,
-                  onPressed: () {
-                    dateNotifier.state = DateTime(
-                      dateNotifier.state.year,
-                      dateNotifier.state.month - 1,
-                    );
-                    ref.read(expenseProvider.notifier).filterRecordsByMonth(
-                      dateNotifier.state,
-                      timeNotifier?.state ?? TimeOfDay.now(),
-                    );
-                  },
-                ),
-                Text(
-                  DateFormat('MMMM yyyy').format(dateState),
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                _buildNavigationButton(
-                  icon: Icons.chevron_right_rounded,
-                  onPressed: () {
-                    dateNotifier.state = DateTime(
-                      dateNotifier.state.year,
-                      dateNotifier.state.month + 1,
-                    );
-                    ref.read(expenseProvider.notifier).filterRecordsByMonth(
-                      dateNotifier.state,
-                      timeNotifier?.state ?? TimeOfDay.now(),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
-
+          _buildMonthNavigation(),
           SizedBox(height: 20.h),
           Row(
             children: [
@@ -120,6 +161,7 @@ class BalanceDashboard extends ConsumerWidget {
                     Color(0xFFFF6B6B),
                     Color(0xFFFF8E8E),
                   ],
+                  animation: _expenseAnimation,
                 ),
               ),
               SizedBox(width: 12.w),
@@ -132,6 +174,7 @@ class BalanceDashboard extends ConsumerWidget {
                     Color(0xFF51CF66),
                     Color(0xFF69DB7C),
                   ],
+                  animation: _incomeAnimation,
                 ),
               ),
               SizedBox(width: 12.w),
@@ -144,9 +187,70 @@ class BalanceDashboard extends ConsumerWidget {
                     Color(0xFF748FFC),
                     Color(0xFF91A7FF),
                   ],
+                  animation: _balanceAnimation,
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthNavigation() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 12.h),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(
+          color: Colors.white.withOpacity(0.5),
+          width: 1.5,
+        ),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withOpacity(0.1),
+            Colors.white.withOpacity(0.05),
+          ],
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          _buildNavigationButton(
+            icon: Icons.chevron_left_rounded,
+            onPressed: () {
+              widget.dateNotifier.state = DateTime(
+                widget.dateNotifier.state.year,
+                widget.dateNotifier.state.month - 1,
+              );
+              ref.read(expenseProvider.notifier).filterRecordsByMonth(
+                widget.dateNotifier.state,
+                widget.timeNotifier?.state ?? TimeOfDay.now(),
+              );
+            },
+          ),
+          Text(
+            DateFormat('MMMM yyyy').format(widget.dateNotifier.state),
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20.sp,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          _buildNavigationButton(
+            icon: Icons.chevron_right_rounded,
+            onPressed: () {
+              widget.dateNotifier.state = DateTime(
+                widget.dateNotifier.state.year,
+                widget.dateNotifier.state.month + 1,
+              );
+              ref.read(expenseProvider.notifier).filterRecordsByMonth(
+                widget.dateNotifier.state,
+                widget.timeNotifier?.state ?? TimeOfDay.now(),
+              );
+            },
           ),
         ],
       ),
@@ -168,11 +272,7 @@ class BalanceDashboard extends ConsumerWidget {
             color: Colors.white.withOpacity(0.2),
             borderRadius: BorderRadius.circular(12.r),
           ),
-          child: Icon(
-            icon,
-            color: Colors.white,
-            size: 24,
-          ),
+          child: Icon(icon, color: Colors.white, size: 24),
         ),
       ),
     );
@@ -183,18 +283,15 @@ class BalanceDashboard extends ConsumerWidget {
     required String amount,
     required IconData icon,
     required List<Color> gradientColors,
+    required Animation<Offset> animation,
   }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOutCubic,
+    return Container(
       height: 130.h,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
           colors: [
             Colors.white.withOpacity(0.15),
-            Colors.white.withOpacity(0.05),
+            Colors.white.withOpacity(0.03),
           ],
         ),
         borderRadius: BorderRadius.circular(20.r),
@@ -202,87 +299,58 @@ class BalanceDashboard extends ConsumerWidget {
           color: Colors.white.withOpacity(0.5),
           width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: Offset(0, 10),
-            spreadRadius: -5,
-          ),
-        ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20.r),
-        child: Container(
-          padding: EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withOpacity(0.1),
-                Colors.white.withOpacity(0.05),
-              ],
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: gradientColors,
-                  ),
-                  borderRadius: BorderRadius.circular(12.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: gradientColors[0].withOpacity(0.4),
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
+      child: Container(
+        padding: EdgeInsets.all(14),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: gradientColors,
                 ),
-                child: Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 22,
-                ),
-              ),
-
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  SizedBox(height: 4.h),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      amount,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
+                borderRadius: BorderRadius.circular(12.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: gradientColors[0].withOpacity(0.4),
+                    blurRadius: 8,
+                    offset: Offset(0, 4),
                   ),
                 ],
               ),
-            ],
-          ),
+              child: SlideTransition(
+                position: animation,
+                child: Icon(icon, color: Colors.white, size: 22),
+              ),
+            ),
+
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.8),
+                    fontSize: 12.sp,
+                  ),
+                ),
+                SizedBox(height: 4.h),
+                FittedBox(
+                  child: Text(
+                    amount,
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

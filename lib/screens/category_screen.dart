@@ -1,4 +1,5 @@
 import 'package:expense_tracker_app/models/category_model.dart';
+import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/category_riverpod/category_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/premade_categories/premade_categories.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
@@ -44,11 +45,27 @@ class CategoryScreen extends ConsumerStatefulWidget {
   _CategoryScreenState createState() => _CategoryScreenState();
 }
 
-class _CategoryScreenState extends ConsumerState<CategoryScreen> {
+class _CategoryScreenState extends ConsumerState<CategoryScreen> with SingleTickerProviderStateMixin {
+
+  late AnimationController _animationController;
+
+  late Animation<Offset> _fabAnimation;
+
+  double _lastScrollPosition = 0;
+
+  bool _isFABVisible = true;
 
   @override
   void initState() {
-    
+
+    _animationController = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: 300)
+    );
+
+    _fabAnimation = Tween<Offset>(begin: Offset.zero,end: Offset(0, 1.5)).animate(CurvedAnimation(parent: _animationController, curve: Curves.fastOutSlowIn));
+
+
     _nameController.addListener(()=>checkTyping(ref));
     
     WidgetsBinding.instance.addPostFrameCallback((_)async{
@@ -60,6 +77,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _editNameController = TextEditingController();
+
 
   List<Color> colors = [
     Color(0xFFEF4444),
@@ -83,6 +101,26 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
     Color(0xFFFBCFE8),
     Color(0xFF94A3B8),
   ];
+
+  bool _handleFabButton(ScrollNotification scrollInfo){
+    if(scrollInfo is ScrollUpdateNotification){
+
+      final currentScrollPosition = scrollInfo.metrics.pixels;
+      final scrollDelta = currentScrollPosition - _lastScrollPosition;
+
+      if(scrollDelta>10 && _isFABVisible){
+        _animationController.forward();
+        _isFABVisible = false;
+      }
+      else if(scrollDelta<-10 && !_isFABVisible){
+        _animationController.reverse();
+        _isFABVisible = true;
+      }
+
+      _lastScrollPosition = currentScrollPosition;
+    }
+    return false;
+  }
 
   void checkTyping(WidgetRef ref,{CategoryModel? category}){
     final isTyping = ref.read(checkCategoryTypingProvider);
@@ -895,11 +933,19 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
 
     final categoryNotifier = ref.read(categoryProvider.notifier);
 
+    final cardState = ref.watch(cardsProvider);
+
+    final totalAccountBalance = cardState.cards.fold(0.0, (sum,value)=>sum+value.amount);
+
+    final averageUsage = cardState.cards.isEmpty?0.0:cardState.cards.fold(0.0, (sum,avg)=>(sum+avg.progress)/cardState.cards.length);
+
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
       body: Column(
         children: [
           AccountDashboard(
+              avgUsage: averageUsage,
+              totalBalance: totalAccountBalance,
               theme: theme,
               selectedCurrency: ref.watch(newCurrencyProvider).currency
           ),
@@ -913,303 +959,309 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
                   topRight: Radius.circular(20.r),
                 ),
               ),
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    SizedBox(height: 15.h,),
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 4,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              borderRadius: BorderRadius.circular(2),
+              child: NotificationListener(
+                onNotification: _handleFabButton,
+                child: SingleChildScrollView(
+                  physics: BouncingScrollPhysics(),
+                  child: Column(
+                    children: [
+                      SizedBox(height: 15.h,),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 4,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
-                          ),
-                          SizedBox(width: 12),
-                          Text(
-                            'Income categories',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 10.h),
-                    ...incomeCategoryState.map((data) => Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: theme.cardColor.withOpacity(0.92),
-                          borderRadius: BorderRadius.circular(18.r),
-                          border: Border.all(
-                            color: theme.dividerColor.withOpacity(0.15),
-                            width: 1,
-                          ),
-                          boxShadow: Theme.of(context).brightness == Brightness.dark
-                              ? [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                            BoxShadow(
-                              color: Colors.white.withOpacity(0.05),
-                              blurRadius: 4,
-                              offset: const Offset(0, -1),
-                            ),
-                          ] : [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.06),
-                              blurRadius: 18,
-                              offset: const Offset(0, 6),
-                            ),
-                            BoxShadow(
-                              color: Colors.white.withOpacity(0.4),
-                              blurRadius: 10,
-                              offset: const Offset(-2, -2),
+                            SizedBox(width: 12),
+                            Text(
+                              'Income categories',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
                         ),
-                        child: ListTile(
-                          tileColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          leading: Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14.r),
-                              gradient: LinearGradient(
-                                colors: [
-                                  data.color,
-                                  data.color.withOpacity(0.7),
+                      ),
+                      SizedBox(height: 10.h),
+                      ...incomeCategoryState.map((data) => Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: theme.cardColor.withOpacity(0.92),
+                            borderRadius: BorderRadius.circular(18.r),
+                            border: Border.all(
+                              color: theme.dividerColor.withOpacity(0.15),
+                              width: 1,
+                            ),
+                            boxShadow: Theme.of(context).brightness == Brightness.dark
+                                ? [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, -1),
+                              ),
+                            ] : [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.06),
+                                blurRadius: 18,
+                                offset: const Offset(0, 6),
+                              ),
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.4),
+                                blurRadius: 10,
+                                offset: const Offset(-2, -2),
+                              ),
+                            ],
+                          ),
+                          child: ListTile(
+                            tileColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            leading: Container(
+                              width: 45.w,
+                              height: 45.h,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14.r),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    data.color.withOpacity(0.9),
+                                    data.color.withOpacity(0.6),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: data.color.withOpacity(0.3),
+                                    blurRadius: 12,
+                                    spreadRadius: 1,
+                                    offset: const Offset(0, 4),
+                                  )
                                 ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
                               ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: data.color.withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: Offset(0, 4),
+                              child: Icon(data.icon, color: Colors.white, size: 24),
+                            ),
+                            title: Text(
+                              data.categoryName,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            trailing: Container(
+                              decoration: BoxDecoration(
+                                color: theme.cardColor.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: PopupMenuButton(
+                                color: theme.cardColor,
+                                elevation: 8,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
                                 ),
-                              ],
-                            ),
-                            child: Icon(data.icon, color: Colors.white, size: 24),
-                          ),
-                          title: Text(
-                            data.categoryName,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          trailing: Container(
-                            decoration: BoxDecoration(
-                              color: theme.cardColor.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: PopupMenuButton(
-                              color: theme.cardColor,
-                              elevation: 8,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              icon: Icon(Icons.more_horiz, size: 20),
-                              onSelected: (value) {
-                                if (value == "edit") {
-                                  editCategory(data);
-                                } else if (value == "delete") {
-                                  categoryNotifier.deleteCategory(data.categoryId!);
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                PopupMenuItem(
-                                  value: "edit",
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit_outlined, size: 18),
-                                      SizedBox(width: 12),
-                                      Text("Edit", style: theme.textTheme.titleSmall),
-                                    ],
+                                icon: Icon(Icons.more_horiz, size: 20),
+                                onSelected: (value) {
+                                  if (value == "edit") {
+                                    editCategory(data);
+                                  } else if (value == "delete") {
+                                    categoryNotifier.deleteCategory(data.categoryId!);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    value: "edit",
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.edit_outlined, size: 18),
+                                        SizedBox(width: 12),
+                                        Text("Edit", style: theme.textTheme.titleSmall),
+                                      ],
+                                    ),
                                   ),
-                                ),
-                                PopupMenuItem(
-                                  value: "delete",
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                      SizedBox(width: 12),
-                                      Text(
-                                        "Delete",
-                                        style: theme.textTheme.titleSmall?.copyWith(
-                                          color: Colors.red,
+                                  PopupMenuItem(
+                                    value: "delete",
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                        SizedBox(width: 12),
+                                        Text(
+                                          "Delete",
+                                          style: theme.textTheme.titleSmall?.copyWith(
+                                            color: Colors.red,
+                                          ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    )),
-                
-                    SizedBox(height: 30),
-                
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 4,
-                            height: 24,
-                            decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(2),
+                      )),
+
+                      SizedBox(height: 30),
+
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 4,
+                              height: 24,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
-                          ),
-                          SizedBox(width: 12),
-                          Text(
-                            'Expense categories',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 10.h),
-                
-                    ...expenseCategoryState.map((data) => Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: theme.cardColor.withOpacity(0.92),
-                          borderRadius: BorderRadius.circular(18.r),
-                          border: Border.all(
-                            color: theme.dividerColor.withOpacity(0.15),
-                            width: 1,
-                          ),
-                          boxShadow: Theme.of(context).brightness == Brightness.dark
-                              ? [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.4),
-                              blurRadius: 12,
-                              offset: const Offset(0, 4),
-                            ),
-                            BoxShadow(
-                              color: Colors.white.withOpacity(0.05),
-                              blurRadius: 4,
-                              offset: const Offset(0, -1),
-                            ),
-                          ] : [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.06),
-                              blurRadius: 18,
-                              offset: const Offset(0, 6),
-                            ),
-                            BoxShadow(
-                              color: Colors.white.withOpacity(0.4),
-                              blurRadius: 10,
-                              offset: const Offset(-2, -2),
+                            SizedBox(width: 12),
+                            Text(
+                              'Expense categories',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ],
-                
-                        ),
-                        child: ListTile(
-                          tileColor: Colors.transparent,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                          leading: Container(
-                            width: 50,
-                            height: 50,
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(14.r),
-                              gradient: LinearGradient(
-                                colors: [
-                                  data.color,
-                                  data.color.withOpacity(0.7),
-                                ],
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: data.color.withOpacity(0.3),
-                                  blurRadius: 8,
-                                  offset: Offset(0, 4),
-                                ),
-                              ],
-                            ),
-                            child: Icon(data.icon, color: Colors.white, size: 24),
-                          ),
-                          title: Text(
-                            data.categoryName,
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          trailing: Container(
-                            decoration: BoxDecoration(
-                              color: theme.cardColor.withOpacity(0.5),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: PopupMenuButton(
-                              color: theme.cardColor,
-                              elevation: 8,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              icon: Icon(Icons.more_horiz, size: 20),
-                              onSelected: (value) {
-                                if (value == "edit") {
-                                  editCategory(data);
-                                } else if (value == "delete") {
-                                  categoryNotifier.deleteCategory(data.categoryId!);
-                                }
-                              },
-                              itemBuilder: (context) => [
-                                PopupMenuItem(
-                                  value: "edit",
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.edit_outlined, size: 18),
-                                      SizedBox(width: 12),
-                                      Text("Edit", style: theme.textTheme.titleSmall),
-                                    ],
-                                  ),
-                                ),
-                                PopupMenuItem(
-                                  value: "delete",
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                      SizedBox(width: 12),
-                                      Text(
-                                        "Delete",
-                                        style: theme.textTheme.titleSmall?.copyWith(
-                                          color: Colors.red,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ),
                       ),
-                    )),
-                    SizedBox(height: 10.h,),
-                  ],
+                      SizedBox(height: 10.h),
+
+                      ...expenseCategoryState.map((data) => Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: theme.cardColor.withOpacity(0.92),
+                            borderRadius: BorderRadius.circular(18.r),
+                            border: Border.all(
+                              color: theme.dividerColor.withOpacity(0.15),
+                              width: 1,
+                            ),
+                            boxShadow: Theme.of(context).brightness == Brightness.dark
+                                ? [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.4),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, -1),
+                              ),
+                            ] : [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.06),
+                                blurRadius: 18,
+                                offset: const Offset(0, 6),
+                              ),
+                              BoxShadow(
+                                color: Colors.white.withOpacity(0.4),
+                                blurRadius: 10,
+                                offset: const Offset(-2, -2),
+                              ),
+                            ],
+
+                          ),
+                          child: ListTile(
+                            tileColor: Colors.transparent,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            leading: Container(
+                              width: 45.w,
+                              height: 45.h,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(14.r),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    data.color.withOpacity(0.9),
+                                    data.color.withOpacity(0.6),
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: data.color.withOpacity(0.3),
+                                    blurRadius: 12,
+                                    spreadRadius: 1,
+                                    offset: const Offset(0, 4),
+                                  )
+                                ],
+                              ),
+                              child: Icon(data.icon, color: Colors.white, size: 24),
+                            ),
+                            title: Text(
+                              data.categoryName,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            trailing: Container(
+                              decoration: BoxDecoration(
+                                color: theme.cardColor.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: PopupMenuButton(
+                                color: theme.cardColor,
+                                elevation: 8,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                icon: Icon(Icons.more_horiz, size: 20),
+                                onSelected: (value) {
+                                  if (value == "edit") {
+                                    editCategory(data);
+                                  } else if (value == "delete") {
+                                    categoryNotifier.deleteCategory(data.categoryId!);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    value: "edit",
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.edit_outlined, size: 18),
+                                        SizedBox(width: 12),
+                                        Text("Edit", style: theme.textTheme.titleSmall),
+                                      ],
+                                    ),
+                                  ),
+                                  PopupMenuItem(
+                                    value: "delete",
+                                    child: Row(
+                                      children: [
+                                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                        SizedBox(width: 12),
+                                        Text(
+                                          "Delete",
+                                          style: theme.textTheme.titleSmall?.copyWith(
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      )),
+                      SizedBox(height: 10.h,),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -1217,37 +1269,40 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> {
         ],
       ),
 
-      floatingActionButton: Container(
-        height: 64.h,
-        width: 64.w,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18.r),
-          gradient: LinearGradient(
-            colors: [
-              theme.colorScheme.primary,
-              theme.colorScheme.primary.withOpacity(0.8),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: theme.colorScheme.primary.withOpacity(0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 3),
+      floatingActionButton: SlideTransition(
+        position: _fabAnimation,
+        child: Container(
+          height: 64.h,
+          width: 64.w,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18.r),
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.primary.withOpacity(0.9),
+                theme.colorScheme.primary.withOpacity(0.6),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: addCategory,
-            borderRadius: BorderRadius.circular(18),
-            child: Center(
-              child: Icon(
-                Icons.new_label,
-                color: Colors.white,
-                size: 32,
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.primary.withOpacity(0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: addCategory,
+              borderRadius: BorderRadius.circular(18),
+              child: Center(
+                child: Icon(
+                  Icons.new_label,
+                  color: Colors.white,
+                  size: 32,
+                ),
               ),
             ),
           ),

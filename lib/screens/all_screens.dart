@@ -2,6 +2,7 @@
 
 import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:expense_tracker_app/notification/notification_service.dart';
+import 'package:expense_tracker_app/riverpod/accent_riverpod/accent_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/auth_riverpod/auth_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/prefs_riverpod/prefs_riverpod.dart';
@@ -85,23 +86,13 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                       onChanged: (val) {
                         if (val != null) {
                           selectedNotifier.saveTheme(val);
+                          Navigator.pop(context);
                         }
                       },
                     );
                   })
                 ],
               ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: Text(
-                    'Close',
-                    style: theme.textTheme.titleSmall,
-                  ),
-                ),
-              ],
             );
           },
         );
@@ -133,7 +124,7 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                   backgroundColor: theme.cardColor,
                   title: Row(
                     children: [
-                      Text('Choose currency',style: theme.textTheme.titleMedium?.copyWith(fontSize: 18,color: theme.colorScheme.primary),),
+                      Text('Choose currency',style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),),
                       Spacer(),
                       IconButton(
                           onPressed: (){
@@ -162,6 +153,7 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                           onChanged: (val){
                             if(val!=null){
                               selectedNotifier.saveCurrency(val);
+                              Navigator.pop(context);
                             }
                           },
                             
@@ -169,17 +161,6 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                       })
                     ],
                   ),
-                  actions: [
-                    TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                      },
-                      child: Text(
-                        'Close',
-                        style: theme.textTheme.titleSmall,
-                      ),
-                    ),
-                  ],
                 );
               }
           );
@@ -248,6 +229,108 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                             },
                             title: 'Set pin'
                         )
+                      ],
+                    ),
+                  ),
+                );
+              }
+          );
+        }
+    );
+  }
+
+  void pickAccentColor(){
+    showDialog(
+        context: context,
+        builder: (BuildContext context){
+          var theme = Theme.of(context);
+          return Consumer(
+              builder: (context,ref,_){
+                List<Color> accentColors = [
+                  Color(0xFF1476B8),
+                  Color(0xFF0F6F72),
+                  Color(0xFFC8A014),
+                  Color(0xFFC05A14),
+                  Color(0xFFB8143A),
+                  Color(0xFF7E57C2),
+                  Color(0xFFB81482),
+                  Color(0xFF6C5CE7),
+                  Color(0xFF16A085),
+                  Color(0xFFCDA866),
+                  Color(0xFF607D8B),
+                ];
+
+                List<String> colorName = [
+                  'Bright Azure',
+                  'Teal Blue',
+                  'Sunrise Gold',
+                  'Orange Rust',
+                  'Crimson Red',
+                  'Royal Amethyst',
+                  'Magenta Rose',
+                  'Cosmic Indigo',
+                  'Jade Pulse',
+                  'Caramel Delight',
+                  'Slate Grey'
+                ];
+
+                Map<String,Color> data = {};
+
+                for(var i=0; i<colorName.length;i++){
+                  data[colorName[i]] = accentColors[i];
+                }
+
+                final currentColor = ref.watch(accentColorProvider);
+                final currentColorNotifier = ref.read(accentColorProvider.notifier);
+
+                return AlertDialog(
+                  backgroundColor: theme.cardColor,
+                  title: Row(
+                    children: [
+                      Text('Select theme',style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),),
+                      Spacer(),
+                      IconButton(
+                          onPressed: (){
+                            Navigator.pop(context);
+                          },
+                          icon: Icon(Icons.close,color: theme.colorScheme.primary,size: 30,)
+                      )
+                    ],
+                  ),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ...data.entries.map((color){
+                          final name = color.key;
+                          final colorValue = color.value;
+                          return Row(
+
+                            children: [
+                              Checkbox(
+                                side: BorderSide.none,
+                                fillColor: WidgetStateProperty.resolveWith((states) {
+                                    if (states.contains(WidgetState.selected)) {
+                                      return theme.colorScheme.primary;
+                                    }
+                                    return theme.colorScheme.onSurface.withOpacity(0.1);
+                                  },
+                                ),
+                                  value: currentColor.value==colorValue.value,
+                                  onChanged: (val){
+                                    currentColorNotifier.saveAccentColor(colorValue);
+                                    Navigator.pop(context);
+                                  },
+                              ),
+                              Text(name,style: theme.textTheme.titleMedium,),
+                              Spacer(),
+                              CircleAvatar(
+                                radius: 15,
+                                backgroundColor: colorValue,
+                              )
+                            ],
+                          );
+                        })
                       ],
                     ),
                   ),
@@ -364,7 +447,8 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                 children: [
                   CircleAvatar(
                     radius: 35,
-                    backgroundImage: AssetImage('assets/icon.png'),
+                    backgroundImage: AssetImage('assets/transparent.png'),
+                    backgroundColor: ref.watch(accentColorProvider),
                   ),
                   SizedBox(height: 10.h,),
                   Text('MoneyMate',style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),),
@@ -378,12 +462,10 @@ class _AllScreensState extends ConsumerState<AllScreens> {
               title: Text('Preferences',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary,fontSize: 18),),
             ),
             ListTile(
-                onTap: (){
-
-                },
+                onTap: ()=>pickAccentColor(),
                 tileColor: Colors.transparent,
                 leading: Icon(Icons.color_lens_outlined,color: theme.iconTheme.color,),
-                title: Text('Accent color'),
+                title: Text('App theme'),
                 trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
             ),
             Divider(indent: 10,endIndent: 10,thickness: 1,color: theme.colorScheme.primary,),
@@ -427,9 +509,10 @@ class _AllScreensState extends ConsumerState<AllScreens> {
                 trailing: Switch(
                     value: ref.watch(prefsProvider),
                     onChanged: (val){
-                      if(val==true) {
+                      if(val==true){
                         ref.read(prefsProvider.notifier).savePref(val);
                         NotificationService.showImmediateNotification();
+                        NotificationService.sendNotificationAt();
                       }
                       else{
                         NotificationService.cancelNotification();

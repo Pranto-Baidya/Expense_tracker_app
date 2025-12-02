@@ -70,7 +70,6 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
 
   ExpenseNotifier(this._ref) : super(ExpenseState());
 
-  final _limit = 10;
 
   Future<void> getExpenses() async {
     state = state.copyWith(isLoading: true);
@@ -123,8 +122,7 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
 
   }
 
-  Future<void> deleteExpense(int id)async{
-
+  Future<void> deleteExpense(int id) async {
     final selectedRecord = state.filteredRecord.firstWhere(
           (data) => data.id == id,
       orElse: () => throw Exception('Record not found'),
@@ -138,24 +136,25 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     final budgetList = _ref.read(budgetProvider).budgets;
     BudgetModel? selectedBudget;
 
-    if(budgetList.any((budget)=>budget.categoryName==selectedRecord.category)){
-      selectedBudget = budgetList.firstWhere((cat)=>cat.categoryName==selectedRecord.category,orElse: ()=>throw Exception('Not found'));
+    if (budgetList.any((budget) => budget.categoryName == selectedRecord.category)) {
+      selectedBudget = budgetList.firstWhere(
+              (cat) => cat.categoryName == selectedRecord.category,
+          orElse: () => throw Exception('Not found')
+      );
     }
 
     double updatedAmount = selectedCard.amount;
-
     double updatedProgress = selectedCard.progress;
 
-    if(selectedRecord.moneyType==MoneyType.expense){
-      updatedAmount+= selectedRecord.amount;
-    }
-    else if(selectedRecord.moneyType==MoneyType.income){
-      updatedAmount-= selectedRecord.amount;
+    if (selectedRecord.moneyType == MoneyType.expense) {
+      updatedAmount += selectedRecord.amount;
+    } else if (selectedRecord.moneyType == MoneyType.income) {
+      updatedAmount -= selectedRecord.amount;
     }
 
-    if(selectedCard.amount>0){
+    if (selectedCard.amount > 0) {
       double spentAmount = selectedCard.amount * selectedCard.progress;
-      updatedProgress = (spentAmount/(updatedAmount==0 ? 1 : updatedAmount)).clamp(0.0, 1.0);
+      updatedProgress = (spentAmount / (updatedAmount == 0 ? 1 : updatedAmount)).clamp(0.0, 1.0);
     }
 
     final updatedCard = CardModel(
@@ -172,43 +171,38 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     final cardNotifier = _ref.read(cardsProvider.notifier);
 
     cardNotifier.state = cardNotifier.state.copyWith(
-      cards: cardNotifier.state.cards.map((card){
-        return card.id==updatedCard.id? updatedCard : card;
-      }).toList()
+        cards: cardNotifier.state.cards.map((card) {
+          return card.id == updatedCard.id ? updatedCard : card;
+        }).toList()
     );
 
-    if(selectedBudget!=null){
+    if (selectedBudget != null) {
+      double updatedSpent = selectedBudget.spent;
+      double updatedRemaining = selectedBudget.remaining;
 
-    double updatedSpent = selectedBudget.spent;
+      if (selectedRecord.moneyType == MoneyType.expense) {
+        updatedSpent -= selectedRecord.amount;
+        updatedRemaining += selectedRecord.amount;
+      }
 
-    double updatedRemaining = selectedBudget.remaining;
+      final updatedBudget = BudgetModel(
+          id: selectedBudget.id,
+          categoryName: selectedBudget.categoryName,
+          budget: selectedBudget.budget,
+          spent: updatedSpent,
+          remaining: updatedRemaining,
+          date: selectedBudget.date
+      );
 
-    if(selectedRecord.moneyType==MoneyType.expense){
-      updatedSpent -= selectedRecord.amount;
-      updatedRemaining += selectedRecord.amount;
-    }
-
-    final updatedBudget = BudgetModel(
-        id: selectedBudget.id,
-        categoryName: selectedBudget.categoryName,
-        budget: selectedBudget.budget,
-        spent: updatedSpent,
-        remaining: updatedRemaining,
-        date: selectedBudget.date
-    );
-
-    await _ref.read(budgetProvider.notifier).updateBudgetFromExpense(updatedBudget);
+      await _ref.read(budgetProvider.notifier).updateBudgetFromExpense(updatedBudget);
     }
 
     await databaseConnection.deleteExpenses(id);
 
     state = state.copyWith(
-      expenses: state.expenses.where((e)=>e.id!=id).toList()
+      expenses: state.expenses.where((e) => e.id != id).toList(),
+      filteredRecord: state.filteredRecord.where((e) => e.id != id).toList(),
     );
-
-    if (state.selectedDate != null && state.selectedTime!=null) {
-      filterRecordsByMonth(state.selectedDate!,state.selectedTime!);
-    }
 
     _calculateTotals();
   }

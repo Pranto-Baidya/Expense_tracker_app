@@ -78,15 +78,16 @@ class CardNotifier extends StateNotifier<CardState>{
     final existingCard = state.cards.firstWhere((c) => c.id == card.id);
 
     double newProgress = existingCard.progress;
-    if (existingCard.amount > 0) {
-      double spentRatio = existingCard.amount * existingCard.progress;
-      newProgress = (spentRatio / (card.amount == 0 ? 1 : card.amount)).clamp(0.0, 1.0);
+    if (existingCard.initialAmount > 0) {
+      double spent = existingCard.initialAmount - existingCard.amount;
+      newProgress = (spent / (card.initialAmount == 0 ? 1 : card.initialAmount)).clamp(0.0, 1.0);
     }
 
     final updatedCard = CardModel(
       id: card.id,
       cardName: card.cardName,
       amount: card.amount,
+      initialAmount: card.initialAmount,
       icon: card.icon,
       moneyType: card.moneyType,
       progress: newProgress,
@@ -135,23 +136,31 @@ class CardNotifier extends StateNotifier<CardState>{
       return;
     }
 
-    final selectedCard = state.cards.firstWhere((card)=>card.id==selectedAccountId,orElse: ()=>throw Exception('Invalid account'));
+    final selectedCard = state.cards.firstWhere(
+            (card)=>card.id==selectedAccountId,
+        orElse: ()=>throw Exception('Invalid account')
+    );
 
     double updatedAmount = selectedCard.amount;
-    double progress = selectedCard.progress;
+    double updatedInitialAmount = selectedCard.initialAmount;
+    double progress;
 
     if (moneyType == MoneyType.expense) {
       updatedAmount -= enteredAmount;
-      progress = (enteredAmount / (selectedCard.amount == 0 ? 1 : selectedCard.amount)).clamp(0.0, 1.0);
     } else if (moneyType == MoneyType.income) {
       updatedAmount += enteredAmount;
-      progress = (selectedCard.progress - (enteredAmount / (selectedCard.amount == 0 ? 1 : selectedCard.amount))).clamp(0.0, 1.0);
+      updatedInitialAmount += enteredAmount; // Increase initial amount too
     }
+
+    // Calculate progress: (initial - current) / initial
+    final spent = updatedInitialAmount - updatedAmount;
+    progress = (spent / updatedInitialAmount).clamp(0.0, 1.0);
 
     final newBalance = CardModel(
         id: selectedCard.id,
         cardName: selectedCard.cardName,
         amount: updatedAmount,
+        initialAmount: updatedInitialAmount,
         icon: selectedCard.icon,
         moneyType: selectedCard.moneyType,
         progress: progress

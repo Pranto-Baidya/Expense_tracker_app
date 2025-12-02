@@ -36,13 +36,13 @@ class PreMadeCategoryState {
         CategoryModel(
           categoryName: "Coupons",
           icon: Icons.percent,
-          color: Colors.brown,
+          color: Colors.orange,
           categoryType: CategoryType.income,
         ),
         CategoryModel(
           categoryName: "Grants",
           icon: Icons.card_giftcard,
-          color: Colors.blueGrey,
+          color: Colors.indigo,
           categoryType: CategoryType.income,
         ),
         CategoryModel(

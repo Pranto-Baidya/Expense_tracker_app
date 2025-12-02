@@ -115,18 +115,41 @@ class AccountsWidget extends ConsumerWidget {
                   PopupMenuButton(
                     popUpAnimationStyle:
                     const AnimationStyle(curve: Curves.easeInOut),
-                    menuPadding: const EdgeInsets.all(20),
                     color: theme.cardColor,
+                    elevation: 8,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
                     itemBuilder: (context) {
                       return [
                         PopupMenuItem(
                           onTap: onEdit,
-                          child: Text('Edit', style: theme.textTheme.titleMedium),
+                          child: Row(
+                            children: [
+                              Icon(Icons.mode_edit_outline_outlined, size: 18),
+                              SizedBox(width: 12),
+                              Text(
+                                "Edit",
+                                style: theme.textTheme.titleSmall
+                              ),
+                            ],
+                          ),
                         ),
                         PopupMenuItem(
                           onTap: onDelete,
-                          child: Text('Delete', style: theme.textTheme.titleMedium),
+                          child: Row(
+                            children: [
+                              Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                              SizedBox(width: 12),
+                              Text(
+                                "Delete",
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: Colors.red,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ];
                     },

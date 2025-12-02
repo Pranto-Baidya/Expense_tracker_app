@@ -23,4 +23,5 @@ class PrefsNotifier extends StateNotifier<bool>{
     await preferences.setBool('notification', value);
     state = value;
   }
+
 }

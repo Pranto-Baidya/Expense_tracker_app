@@ -96,6 +96,7 @@ class DatabaseConnection{
        id INTEGER PRIMARY KEY AUTOINCREMENT,
        cardName TEXT,
        amount REAL,
+       initialAmount REAL,
        iconCode INTEGER,
        progress REAL,
        moneyType TEXT

@@ -175,6 +175,7 @@ class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
                           SizedBox(height: 5.h,),
                           ...groupedSearches.map((data) {
                             return ExpenseTile(
+                                bgColor: Colors.grey,
                                 expenseModel: data,
                                 icon: icons(data.category),
                                 currency: ref.read(newCurrencyProvider).currency,

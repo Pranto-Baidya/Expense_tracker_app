@@ -143,7 +143,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> with TickerProviderStat
   @override
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
-    final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
 
     final _showSuccess = ref.watch(successProvider);
 

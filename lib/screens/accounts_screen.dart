@@ -24,7 +24,7 @@ class AccountsScreen extends ConsumerStatefulWidget {
   _StatsScreenState createState() => _StatsScreenState();
 }
 
-class _StatsScreenState extends ConsumerState<AccountsScreen> {
+class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerProviderStateMixin{
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
@@ -32,8 +32,23 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
   final TextEditingController _editNameController = TextEditingController();
   final TextEditingController _editAmountController = TextEditingController();
 
+  late AnimationController _animationController;
+
+  late Animation<Offset> _fabAnimation;
+
+  double _lastScrollPosition = 0;
+  bool _isFABVisible = true;
+
   @override
   void initState() {
+
+    _animationController = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: 300)
+    );
+
+    _fabAnimation = Tween<Offset>(begin: Offset.zero,end: Offset(0, 1.5)).animate(CurvedAnimation(parent: _animationController, curve: Curves.fastOutSlowIn));
+
     WidgetsBinding.instance.addPostFrameCallback((_){
       ref.read(cardsProvider.notifier).getCards();
     });
@@ -47,6 +62,26 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
     _nameController.removeListener(()=>checkTyping(ref));
     _amountController.removeListener(()=>checkTyping(ref));
     super.dispose();
+  }
+
+  bool _handleFabButton(ScrollNotification scrollInfo){
+    if(scrollInfo is ScrollUpdateNotification){
+
+      final currentScrollPosition = scrollInfo.metrics.pixels;
+      final scrollDelta = currentScrollPosition - _lastScrollPosition;
+
+      if(scrollDelta>10 && _isFABVisible){
+        _animationController.forward();
+        _isFABVisible = false;
+      }
+      else if(scrollDelta<-10 && !_isFABVisible){
+        _animationController.reverse();
+        _isFABVisible = true;
+      }
+
+      _lastScrollPosition = currentScrollPosition;
+    }
+    return false;
   }
 
   void checkTyping(WidgetRef ref,{CardModel? card}){
@@ -336,14 +371,20 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
   @override
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
-
     final cardState = ref.watch(cardsProvider);
+
+    final totalAccountBalance = cardState.cards.fold(0.0, (sum,value)=>sum+value.amount);
+
+    final averageUsage = cardState.cards.isEmpty?0.0:cardState.cards.fold(0.0, (sum,avg)=>(sum+avg.progress)/cardState.cards.length);
+
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AccountDashboard(
+              avgUsage: averageUsage,
+              totalBalance: totalAccountBalance,
               theme: theme,
               selectedCurrency: ref.watch(newCurrencyProvider).currency
           ),
@@ -385,35 +426,38 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
                                     ),
                                   );
                                 }
-                                return ListView.builder(
-                                    physics: const BouncingScrollPhysics(),
-                                    shrinkWrap: true,
-                                    itemCount: cardState.cards.length,
-                                    itemBuilder: (context,index){
+                                return NotificationListener(
+                                  onNotification: _handleFabButton,
+                                  child: ListView.builder(
+                                      physics: const BouncingScrollPhysics(),
+                                      shrinkWrap: true,
+                                      itemCount: cardState.cards.length,
+                                      itemBuilder: (context,index){
 
-                                      final data = cardState.cards[index];
-                                      double amount = 0;
+                                        final data = cardState.cards[index];
+                                        double amount = 0;
 
-                                      if(data.amount<=0 && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
-                                        amount = 0;
+                                        if(data.amount<=0 && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
+                                          amount = 0;
+                                        }
+                                        else{
+                                          amount = data.amount;
+                                        }
+
+                                        return AccountsWidget(
+                                            title: data.cardName,
+                                            amount: amount,
+                                            icon: data.icon,
+                                            value: data.progress,
+                                            onEdit: (){
+                                              editCardDialogue(data);
+                                            },
+                                            onDelete: (){
+                                              ref.read(cardsProvider.notifier).deleteCard(data.id!);
+                                            }
+                                        );
                                       }
-                                      else{
-                                        amount = data.amount;
-                                      }
-
-                                      return AccountsWidget(
-                                          title: data.cardName,
-                                          amount: amount,
-                                          icon: data.icon,
-                                          value: data.progress,
-                                          onEdit: (){
-                                            editCardDialogue(data);
-                                          },
-                                          onDelete: (){
-                                            ref.read(cardsProvider.notifier).deleteCard(data.id!);
-                                          }
-                                      );
-                                    }
+                                  ),
                                 );
                               }
                           )
@@ -425,37 +469,40 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> {
           )
         ],
       ),
-      floatingActionButton: Container(
-        height: 64.h,
-        width: 64.w,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              theme.colorScheme.primary,
-              theme.colorScheme.primary.withOpacity(0.8),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(18.r),
-          boxShadow: [
-            BoxShadow(
-              color: theme.colorScheme.primary.withOpacity(0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 3),
+      floatingActionButton: SlideTransition(
+        position: _fabAnimation,
+        child: Container(
+          height: 64.h,
+          width: 64.w,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.primary.withOpacity(0.9),
+                theme.colorScheme.primary.withOpacity(0.6),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: addCardDialogue,
-            borderRadius: BorderRadius.circular(18),
-            child: Center(
-              child: Icon(
-                Icons.add_card,
-                color: Colors.white,
-                size: 32,
+            borderRadius: BorderRadius.circular(18.r),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.primary.withOpacity(0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: addCardDialogue,
+              borderRadius: BorderRadius.circular(18),
+              child: Center(
+                child: Icon(
+                  Icons.add_card,
+                  color: Colors.white,
+                  size: 32,
+                ),
               ),
             ),
           ),

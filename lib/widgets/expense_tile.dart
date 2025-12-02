@@ -11,6 +11,7 @@ import '../screens/records_screen.dart';
 class ExpenseTile extends StatelessWidget {
   final ExpenseModel expenseModel;
   final String currency;
+  final Color bgColor;
   final IconData icon;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -19,6 +20,7 @@ class ExpenseTile extends StatelessWidget {
   const ExpenseTile({
     super.key,
     required this.expenseModel,
+    required this.bgColor,
     required this.icon,
     required this.currency,
     required this.onEdit,
@@ -115,15 +117,15 @@ class ExpenseTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(14.r),
                       gradient: LinearGradient(
                         colors: [
-                          theme.colorScheme.primary.withOpacity(0.9),
-                          theme.colorScheme.primary.withOpacity(0.6),
+                          bgColor.withOpacity(0.9),
+                          bgColor.withOpacity(0.6),
                         ],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: theme.colorScheme.primary.withOpacity(0.3),
+                          color: bgColor.withOpacity(0.3),
                           blurRadius: 12,
                           spreadRadius: 1,
                           offset: const Offset(0, 4),

@@ -117,17 +117,16 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
         return selectedDate.year==yearInBudgets && selectedDate.month==monthInBudgets;
       }).toList()
     );
-    calculateAmount();
   }
 
 
   void calculateAmount()async{
 
-    final selectedCategory = ref.read(categoryProvider);
+    final selectedCategory = ref.read(categoryPickerProvider);
     final enteredAmount = ref.read(enteredAmountProvider);
     final moneyType = ref.read(moneyTypeProvider);
 
-    final selectedCategoryForBudget = state.budgets.firstWhere((i)=>i.categoryName==selectedCategory,orElse: ()=>throw Exception('Not found'));
+    final selectedCategoryForBudget = state.filteredBudgets.firstWhere((i)=>i.categoryName==selectedCategory,orElse: ()=>throw Exception('Not found'));
 
     double currentAmount = selectedCategoryForBudget.budget;
     double spent = selectedCategoryForBudget.spent;

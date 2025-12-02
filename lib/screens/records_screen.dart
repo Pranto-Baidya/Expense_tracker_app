@@ -1,12 +1,13 @@
 import 'dart:math';
+import 'dart:ui';
 
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/category_riverpod/category_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
-import 'package:expense_tracker_app/screens/search_records_screen.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
 import 'package:expense_tracker_app/widgets/expense_tile.dart';
@@ -17,13 +18,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:overlay_support/overlay_support.dart';
 
+import '../models/category_model.dart';
 import '../riverpod/budget_riverpod/budget_riverpod.dart';
 import '../widgets/balance_dashboard.dart';
 
 enum MoneyType {expense, income}
 
-final isScrolledProvider = StateProvider<bool>((ref) => false);
-final categoryProvider = StateProvider<String>((ref)=>'Personal');
+final categoryPickerProvider = StateProvider<String>((ref)=>'Personal');
 final categorySelectionProvider = StateProvider<bool>((ref)=>false);
 final checkTypingProvider = StateProvider<bool>((ref)=>false);
 final editingProvider = StateProvider<bool>((ref)=>false);
@@ -32,6 +33,7 @@ final selectedTimeProvider = StateProvider<TimeOfDay>((ref)=>TimeOfDay.now());
 final moneyTypeProvider = StateProvider<MoneyType>((ref)=>MoneyType.expense);
 final selectedAccountProvider = StateProvider<int?>((ref)=>null);
 final enteredAmountProvider = StateProvider<double>((ref)=>0);
+final recordAddedTriggerProvider = StateProvider<int>((ref) => 0);
 
 class RecordsScreen extends ConsumerStatefulWidget {
   const RecordsScreen({super.key});
@@ -40,7 +42,11 @@ class RecordsScreen extends ConsumerStatefulWidget {
   RecordsScreenState createState() => RecordsScreenState();
 }
 
-class RecordsScreenState extends ConsumerState<RecordsScreen> {
+class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerProviderStateMixin{
+
+  late AnimationController _animationController;
+
+  late Animation<Offset> _disappearFABAnimation;
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
@@ -48,12 +54,25 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
   final TextEditingController _editTitleController = TextEditingController();
   final TextEditingController _editAmountController = TextEditingController();
 
+  double _lastScrollPosition = 0.0;
+  bool _isFabVisible = true;
+
+
   @override
   void initState() {
     super.initState();
+
+    _animationController = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: 300)
+    );
+
+    _disappearFABAnimation = Tween<Offset>(begin: Offset.zero,end: Offset(0,1.5)).animate(CurvedAnimation(parent: _animationController, curve: Curves.fastOutSlowIn));
+
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ref.read(expenseProvider.notifier).getExpenses();
       await ref.read(cardsProvider.notifier).getCards();
+      await ref.read(categoryProvider.notifier).getAllCategories();
 
       final selectedDate = ref.read(selectedDateProvider);
       final selectedTime = ref.read(selectedTimeProvider);
@@ -62,6 +81,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
 
     _titleController.addListener(()=>checkTyping(ref));
     _amountController.addListener(()=>checkTyping(ref));
+
   }
 
 
@@ -72,15 +92,25 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
     super.dispose();
   }
 
-  bool _handleScrollNotification(ScrollNotification notification, WidgetRef ref) {
-    if (notification is ScrollUpdateNotification) {
-      final isScrolled = notification.metrics.pixels > 200;
-      if (ref.read(isScrolledProvider) != isScrolled) {
-        ref.read(isScrolledProvider.notifier).state = isScrolled;
+  bool _handleScrollNotification(ScrollNotification scrollInfo){
+    if(scrollInfo is ScrollUpdateNotification){
+
+      final currentScroll = scrollInfo.metrics.pixels;
+      final scrollDelta = currentScroll-_lastScrollPosition;
+
+      if(scrollDelta>10 && _isFabVisible){
+        _animationController.forward();
+        _isFabVisible = false;
       }
+      else if(scrollDelta<-10 && !_isFabVisible){
+        _animationController.reverse();
+        _isFabVisible = true;
+      }
+      _lastScrollPosition = currentScroll;
     }
     return false;
   }
+
 
   void checkTyping(WidgetRef ref,{ExpenseModel? expense,CardModel? card}){
     final isEditing = ref.read(editingProvider);
@@ -94,7 +124,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
       }
     }
     else{
-      bool hasChanged = _editTitleController.text!=expense?.title || _editAmountController.text!=expense?.amount.toString() || ref.read(categoryProvider)!=expense?.category
+      bool hasChanged = _editTitleController.text!=expense?.title || _editAmountController.text!=expense?.amount.toString() || ref.read(categoryPickerProvider)!=expense?.category
       || ref.read(selectedDateProvider)!=expense?.date || ref.read(selectedTimeProvider)!=expense?.time || moneyTypeState!=expense?.moneyType || account!=card?.id;
 
       if(hasChanged!=ref.read(checkTypingProvider.notifier).state){
@@ -144,17 +174,6 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
       ),
       builder: (context) {
         var theme = Theme.of(context);
-        List<String> categories = [
-          'Personal',
-          'Family',
-          'Food',
-          'Shopping',
-          'Transport',
-          'Phone',
-          'Bills',
-          'Rent',
-          'Other'
-        ];
 
         return Padding(
           padding: EdgeInsets.only(
@@ -165,7 +184,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
           ),
           child: Consumer(
             builder: (context, ref, _) {
-              final category = ref.watch(categoryProvider);
+              final category = ref.watch(categoryPickerProvider);
               final isTyping = ref.watch(checkTypingProvider);
 
               final moneyTypeState = ref.watch(moneyTypeProvider);
@@ -173,6 +192,10 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
 
               final selectedAccountState = ref.watch(selectedAccountProvider);
               final selectedAccountNotifier = ref.read(selectedAccountProvider.notifier);
+
+              final incomeCategories = ref.watch(categoryProvider).allIncomeCategories;
+
+              final expenseCategories = ref.watch(categoryProvider).allExpenseCategories;
 
               return SingleChildScrollView(
                 child: Column(
@@ -258,6 +281,11 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                               groupValue: moneyTypeState,
                               onChanged: (value) {
                                 moneyTypeNotifier.state = value!;
+                                ref.read(categoryPickerProvider.notifier).state =
+                                value == MoneyType.expense
+                                    ? expenseCategories.first.categoryName
+                                    : incomeCategories.first.categoryName;
+                                ref.read(categorySelectionProvider.notifier).state = false;
                               },
                             ),
                             Text(
@@ -276,7 +304,8 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                     SizedBox(height: 10.h,),
                     DropdownButtonFormField2(
                       isExpanded: true,
-                      value: category,
+                      value: (moneyTypeState == MoneyType.expense ? expenseCategories : incomeCategories)
+                          .any((cat) => cat.categoryName == category) ? category : null,
                       decoration: InputDecoration(
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10.r),
@@ -291,18 +320,27 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                         style: theme.textTheme.labelLarge
                             ?.copyWith(color: AppColors.hintTextColor),
                       ),
-                      items: categories.map((item) {
+                      items: moneyTypeNotifier.state==MoneyType.expense?
+                      expenseCategories.map((item) {
                         return DropdownMenuItem<String>(
-                          value: item,
+                          value: item.categoryName,
                           child: Text(
-                            item,
+                            item.categoryName,
+                            style: theme.textTheme.titleSmall,
+                          ),
+                        );
+                      }).toList() : incomeCategories.map((item) {
+                        return DropdownMenuItem<String>(
+                          value: item.categoryName,
+                          child: Text(
+                            item.categoryName,
                             style: theme.textTheme.titleSmall,
                           ),
                         );
                       }).toList(),
                       onChanged: (value) {
                         if (value != null) {
-                          ref.read(categoryProvider.notifier).state = value;
+                         ref.read(categoryPickerProvider.notifier).state = value;
                           ref.read(categorySelectionProvider.notifier).state = true;
                           checkTyping(ref);
                         }
@@ -436,6 +474,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                           );
                           ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
                           ref.read(budgetProvider.notifier).calculateAmount();
+                          ref.read(recordAddedTriggerProvider.notifier).state++;
 
                           Navigator.pop(context);
                         },
@@ -453,7 +492,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
     ).then((_) {
       _titleController.clear();
       _amountController.clear();
-      ref.read(categoryProvider.notifier).state = 'Personal';
+      ref.read(categoryPickerProvider.notifier).state = 'Personal';
       ref.read(selectedDateProvider.notifier).state = DateTime.now();
       ref.read(selectedTimeProvider.notifier).state = TimeOfDay.now();
     });
@@ -464,7 +503,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
     int? id = expense.id;
     _editTitleController.text = expense.title;
     _editAmountController.text = expense.amount.toString();
-    ref.read(categoryProvider.notifier).state = expense.category;
+    ref.read(categoryPickerProvider.notifier).state = expense.category;
     ref.read(selectedDateProvider.notifier).state = expense.date;
     ref.read(selectedTimeProvider.notifier).state = expense.time;
     ref.read(moneyTypeProvider.notifier).state = expense.moneyType;
@@ -480,9 +519,6 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
       ),
       builder: (BuildContext context) {
         var theme = Theme.of(context);
-        List<String> categories = [
-          'Personal', 'Family', 'Food', 'Shopping', 'Transport', 'Phone', 'Bills', 'Rent', 'Other'
-        ];
 
         return Padding(
           padding: EdgeInsets.only(
@@ -493,7 +529,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
           ),
           child: Consumer(
             builder: (context, ref, _) {
-              final category = ref.watch(categoryProvider);
+              final category = ref.watch(categoryPickerProvider);
               final isTyping = ref.watch(checkTypingProvider);
 
               final moneyTypeState = ref.watch(moneyTypeProvider);
@@ -501,6 +537,10 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
 
               final selectedAccountState = ref.watch(selectedAccountProvider);
               final selectedAccountNotifier = ref.read(selectedAccountProvider.notifier);
+
+              final incomeCategories = ref.watch(categoryProvider).allIncomeCategories;
+
+              final expenseCategories = ref.watch(categoryProvider).allExpenseCategories;
 
               return SingleChildScrollView(
                 child: Column(
@@ -587,6 +627,8 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                               onChanged: (value) {
                                 moneyTypeNotifier.state = value!;
                                 checkTyping(ref);
+                                ref.read(categoryPickerProvider.notifier).state = value==MoneyType.expense? expenseCategories.first.categoryName
+                                    :incomeCategories.first.categoryName;
                               },
                             ),
                             Text(
@@ -605,14 +647,20 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                     SizedBox(height: 10.h),
                     DropdownButtonFormField(
                       value: category,
-                      items: categories.map((cat) {
+                      items: moneyTypeNotifier.state==MoneyType.expense?expenseCategories.map((cat) {
                         return DropdownMenuItem(
-                          value: cat,
-                          child: Text(cat),
+                          value: cat.categoryName,
+                          child: Text(cat.categoryName),
+                        );
+                      }).toList()
+                          :incomeCategories.map((cat) {
+                        return DropdownMenuItem(
+                          value: cat.categoryName,
+                          child: Text(cat.categoryName),
                         );
                       }).toList(),
                       onChanged: (value) {
-                        ref.read(categoryProvider.notifier).state = value!;
+                        ref.read(categoryPickerProvider.notifier).state = value!;
                         ref.read(categorySelectionProvider.notifier).state = true;
                         checkTyping(ref, expense: expense);
                       },
@@ -726,6 +774,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
 
                           ref.read(editingProvider.notifier).state = false;
                           ref.read(checkTypingProvider.notifier).state = false;
+                          ref.read(recordAddedTriggerProvider.notifier).state++;
 
                           Navigator.pop(context);
                         },
@@ -763,9 +812,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
               ),
               TextButton(
                   onPressed: (){
-                    ref.read(expenseProvider.notifier).deleteExpense(expense.id!).then((_){
-                      ref.read(totalExpenseProvider.notifier).state -= expense.amount;
-                    });
+                    ref.read(expenseProvider.notifier).deleteExpense(expense.id!);
                     Navigator.pop(context);
                   },
                   child: Text('Delete',style: Theme.of(context).textTheme.titleMedium,)
@@ -775,34 +822,6 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
         }
     );
   }
-
-
-
-  IconData icons(String category){
-    switch(category){
-      case 'Personal':
-        return Icons.person;
-      case 'Family':
-        return Icons.groups;
-      case 'Food':
-        return Icons.fastfood;
-      case 'Shopping':
-        return Icons.shopping_bag;
-      case 'Transport':
-        return Icons.directions_car;
-      case 'Phone':
-        return Icons.phone_android;
-      case 'Bills':
-        return Icons.receipt_long;
-      case 'Rent':
-        return Icons.maps_home_work;
-      case 'Other':
-        return Icons.control_point_duplicate;
-      default: return Icons.control_point_duplicate;
-
-    }
-  }
-
 
   @override
   Widget build(BuildContext context) {
@@ -851,98 +870,23 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                     ),
                   ),
                   child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       SizedBox(height: 10.h,),
+                      if(expenseState.isLoading)...[
+                        Center(child: CircularProgressIndicator(color: theme.colorScheme.primary,backgroundColor: Colors.transparent,),)
+                      ],
+                      if(!expenseState.isLoading)...[
+                        SizedBox(height: 10.h,),
                       if(expenseList.isEmpty)
-                        Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SizedBox(height: 50.h,),
-                            Icon(Icons.info_outlined,color: theme.colorScheme.primary,size: 100,),
-                            SizedBox(height: 10.h,),
-                            Text('No records in this month',style: theme.textTheme.titleMedium,),
-                            Text('Tap the + button to add a new record',style: theme.textTheme.titleMedium,),
-                          ],
-                        ),
-                      NotificationListener<ScrollNotification>(
-                          onNotification: (scrollInfo){
-                            if(scrollInfo.metrics.pixels>=scrollInfo.metrics.maxScrollExtent-100 && !expenseState.isLoading && expenseState.hasMore){
-                              expenseNotifier.getExpenses();
-                            }
-                            return false;
-                          },
-                          child: Expanded(
-                            child: ListView.builder(
-                              physics: const BouncingScrollPhysics(),
-                              shrinkWrap: true,
-                              itemCount: sortedDates.length,
-                              itemBuilder: (context, index) {
-
-                                final date = sortedDates[index];
-                                final expensesForDate = groupedExpenses[date]!;
-
-                                return Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 15.w),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            width: 14,
-                                            height: 14,
-                                            decoration: BoxDecoration(
-                                              color: theme.colorScheme.primary,
-                                              shape: BoxShape.circle,
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: theme.colorScheme.primary.withOpacity(0.4),
-                                                  blurRadius: 4,
-                                                  offset: const Offset(0, 2),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                          SizedBox(width: 10.w),
-                                          Text(
-                                            DateFormat('MMMM dd, yyyy').format(date),
-                                            style: theme.textTheme.titleMedium!.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      SizedBox(height: 5.h,),
-                                      ...expensesForDate.map((expense) {
-                                        final selectedCard = ref.watch(cardsProvider).cards.firstWhere(
-                                              (card) => card.id == expense.accountId,
-                                          orElse: () => CardModel(
-                                            id: -1,
-                                            cardName: 'Unknown',
-                                            icon: Icons.help_outline,
-                                            amount: 0,
-                                          ),
-                                        );
-
-                                        return ExpenseTile(
-                                          icon: icons(expense.category),
-                                          expenseModel: expense,
-                                          currency: selectedCurrency,
-                                          cardModel: selectedCard,
-                                          onEdit: () => editExpenseDialogue(expense),
-                                          onDelete: () => deleteAlert(expense),
-                                        );
-                                      }),
-                                    ],
-                                  ),
-                                );
-
-                              },
-                            ),
+                        _buildEmptyState(theme),
+                      Expanded(
+                          child: NotificationListener(
+                              onNotification: _handleScrollNotification,
+                              child: _buildRecordsList(context, ref, theme, sortedDates, groupedExpenses, selectedCurrency, expenseNotifier, expenseState)
                           )
-
-                      ),
+                      )
+                    ]
                     ],
                   ),
                 )
@@ -950,37 +894,40 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
           ],
         ),
       ),
-      floatingActionButton: Container(
-        height: 64.h,
-        width: 64.w,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              theme.colorScheme.primary,
-              theme.colorScheme.primary.withOpacity(0.8),
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(18.r),
-          boxShadow: [
-            BoxShadow(
-              color: theme.colorScheme.primary.withOpacity(0.4),
-              blurRadius: 16,
-              offset: const Offset(0, 3),
+      floatingActionButton: SlideTransition(
+        position: _disappearFABAnimation,
+        child: Container(
+          height: 64.h,
+          width: 64.w,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.primary.withOpacity(0.9),
+                theme.colorScheme.primary.withOpacity(0.6),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-          ],
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: addExpenseDialogue,
-            borderRadius: BorderRadius.circular(18),
-            child: Center(
-              child: Icon(
-                Icons.add,
-                color: Colors.white,
-                size: 32,
+            borderRadius: BorderRadius.circular(18.r),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.primary.withOpacity(0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: addExpenseDialogue,
+              borderRadius: BorderRadius.circular(18),
+              child: Center(
+                child: Icon(
+                  Icons.add,
+                  color: Colors.white,
+                  size: 32,
+                ),
               ),
             ),
           ),
@@ -1003,86 +950,6 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
     return map;
   }
 
-  Widget _buildMinimizedHeader(ThemeData theme, String currency, WidgetRef ref) {
-    final totalMoney = ref.watch(totalMoneyProvider);
-    final totalExpense = ref.watch(totalExpenseProvider);
-    final totalIncome = ref.watch(totalIncomeProvider);
-
-    final formattedTotal = NumberFormat.currency(symbol: currency, decimalDigits: 2).format(totalMoney);
-    final formattedExpense = NumberFormat.currency(symbol: currency, decimalDigits: 2).format(totalExpense);
-    final formattedIncome = NumberFormat.currency(symbol: currency, decimalDigits: 2).format(totalIncome);
-
-    return AnimatedOpacity(
-      duration: Duration(milliseconds: 200),
-      opacity: 1.0,
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
-        child: Column(
-          children: [
-            Text(
-              DateFormat('MMM, yyyy').format(ref.watch(selectedDateProvider)),
-              style: TextStyle(color: Colors.white, fontSize: 16.sp),
-            ),
-            SizedBox(height: 5.h,),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      Icon(Icons.arrow_downward, color: Colors.white, size: 20),
-                      SizedBox(width: 8.w),
-                      Text(
-                        formattedExpense,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Icon(Icons.arrow_upward, color: Colors.white, size: 20),
-                      SizedBox(width: 8.w),
-                      Text(
-                        formattedIncome,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Row(
-                    children: [
-                      Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 20),
-                      SizedBox(width: 8.w),
-                      Text(
-                        formattedTotal,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13.sp,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 
   Widget _buildEmptyState(ThemeData theme) {
     return Column(
@@ -1111,7 +978,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
       ) {
     return ListView.builder(
       shrinkWrap: true,
-      physics: NeverScrollableScrollPhysics(),
+      physics: BouncingScrollPhysics(),
       itemCount: sortedDates.length,
       itemBuilder: (context, index) {
         final date = sortedDates[index];
@@ -1146,8 +1013,17 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> {
                       (card) => card.id == expense.accountId,
                   orElse: () => CardModel(id: -1, cardName: 'Unknown', icon: Icons.help_outline, amount: 0),
                 );
+                
+                final selectedCategory = ref.watch(categoryProvider).allCategories.firstWhere((i)=>i.categoryName==expense.category,
+                  orElse: () => CategoryModel(
+                  categoryName: expense.category,
+                  icon: Icons.category,
+                  color: Colors.grey,
+                ),);
+                
                 return ExpenseTile(
-                  icon: icons(expense.category),
+                  bgColor: selectedCategory.color,
+                  icon: selectedCategory.icon,
                   expenseModel: expense,
                   currency: selectedCurrency,
                   cardModel: selectedCard,

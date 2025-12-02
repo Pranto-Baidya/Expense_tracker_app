@@ -15,6 +15,8 @@ import 'package:intl/intl.dart';
 final checkBudgetTyping = StateProvider<bool>((ref)=>false);
 final budgetEditingProvider = StateProvider<bool>((ref)=>false);
 final selectedDateProviderForBudgets = StateProvider<DateTime>((ref)=>DateTime.now());
+final budgetTrackProvider = StateProvider<int>((ref)=>0);
+
 
 class BudgetScreen extends ConsumerStatefulWidget {
   const BudgetScreen({super.key});
@@ -23,9 +25,10 @@ class BudgetScreen extends ConsumerStatefulWidget {
   _StatsScreenState createState() => _StatsScreenState();
 }
 
-class _StatsScreenState extends ConsumerState<BudgetScreen> {
+class _StatsScreenState extends ConsumerState<BudgetScreen>{
   final TextEditingController _budgetController = TextEditingController();
   final TextEditingController _editBudgetController = TextEditingController();
+
 
   List<String> categories = [
     'Personal',
@@ -76,30 +79,8 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
   }
 
 
-  IconData getIconForCategory(String category) {
-    switch (category) {
-      case 'Personal':
-        return Icons.person;
-      case 'Family':
-        return Icons.groups;
-      case 'Food':
-        return Icons.fastfood_rounded;
-      case 'Shopping':
-        return Icons.shopping_bag;
-      case 'Transport':
-        return Icons.directions_car;
-      case 'Phone':
-        return Icons.phone_iphone;
-      case 'Bills':
-        return Icons.receipt_long;
-      case 'Rent':
-        return Icons.maps_home_work;
-      default:
-        return Icons.control_point_duplicate;
-    }
-  }
-
   void addBudgetDialogue(CategoryModel category) {
+    _budgetController.clear();
     ref.read(checkBudgetTyping.notifier).state = false;
     var theme = Theme.of(context);
 
@@ -134,13 +115,29 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        radius: 25,
-                        backgroundColor: category.color,
-                        child: Icon(
-                          category.icon,
-                          color: Colors.white,
+                      Container(
+                        height: 45.w,
+                        width: 45.w,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14.r),
+                          gradient: LinearGradient(
+                            colors: [
+                              category.color.withOpacity(0.9),
+                              category.color.withOpacity(0.6),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: category.color.withOpacity(0.3),
+                              blurRadius: 12,
+                              spreadRadius: 1,
+                              offset: const Offset(0, 4),
+                            )
+                          ],
                         ),
+                        child: Icon(category.icon, color: Colors.white, size: 22),
                       ),
                       SizedBox(width: 15.w),
                       Text(
@@ -181,7 +178,7 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
                            date: DateTime.now()
                        );
                        ref.read(budgetProvider.notifier).addBudget(newBudget);
-
+                       ref.read(budgetTrackProvider.notifier).state++;
                        Navigator.pop(context);
                       },
                       title: 'Set'
@@ -198,12 +195,15 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
     });
   }
 
-  void editBudgetDialogue(BudgetModel budget){
+  void editBudgetDialogue(BudgetModel budget, CategoryModel model){
     ref.read(checkBudgetTyping.notifier).state = false;
     ref.read(budgetEditingProvider.notifier).state = true;
 
     _editBudgetController.text = budget.budget.toString();
     String category = budget.categoryName;
+
+    IconData icon = model.icon;
+    Color bgColor = model.color;
 
     showDialog(
         context: context,
@@ -231,10 +231,29 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
                     children: [
                       Row(
                         children: [
-                          CircleAvatar(
-                            radius: 20,
-                            backgroundColor: theme.colorScheme.primary,
-                            child: Icon(getIconForCategory(category),color: Colors.white,),
+                          Container(
+                            height: 45.w,
+                            width: 45.w,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(14.r),
+                              gradient: LinearGradient(
+                                colors: [
+                                  bgColor.withOpacity(0.9),
+                                  bgColor.withOpacity(0.6),
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: bgColor.withOpacity(0.3),
+                                  blurRadius: 12,
+                                  spreadRadius: 1,
+                                  offset: const Offset(0, 4),
+                                )
+                              ],
+                            ),
+                            child: Icon(icon, color: Colors.white, size: 22),
                           ),
                           SizedBox(width: 15.w),
                           Text(budget.categoryName,style: theme.textTheme.titleMedium,)
@@ -273,6 +292,7 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
                                 date: DateTime.now()
                             );
                             ref.read(budgetProvider.notifier).updateBudget(updatedBudget);
+                            ref.read(budgetTrackProvider.notifier).state++;
                             Navigator.pop(context);
                           },
                           title: 'Set'
@@ -301,14 +321,16 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
     final expenseCategories = ref.watch(categoryProvider);
     
     final unbudgetedCategories = expenseCategories.allExpenseCategories.where((i){
-      return !budgetedCategories.contains(i);
+      return !budgetedCategories.contains(i.categoryName);
     }).toList();
 
     final groupedBudgets = _groupByDate(budgetState.filteredBudgets);
 
     final sortedDates = groupedBudgets.keys.toList()..sort((a,b)=>b.compareTo(a));
 
-    final totalBudget = budgetState.filteredBudgets.fold(0,(a,b)=>(a+b.budget).toInt());
+    final totalBudget = budgetState.filteredBudgets.fold(0,(a,b){
+      return (a+b.budget).toInt();
+    });
 
     final totalSpent = budgetState.filteredBudgets.fold(0,(a,b)=>(a+b.spent).toInt());
 
@@ -340,6 +362,7 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
                 ),
               ),
               child: SingleChildScrollView(
+                physics: BouncingScrollPhysics(),
                 child: Column(
                   children: [
                     Padding(
@@ -414,10 +437,21 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
                                         ),
                                       ],
                                     ),
+                                    isPastMonth?SizedBox(height: 10.w):SizedBox.shrink(),
                                     ...budgetsForDates.map((budget) {
+                                      final matchedCategory = expenseCategories.allExpenseCategories.firstWhere(
+                                            (i) => i.categoryName == budget.categoryName,
+                                        orElse: () => CategoryModel(
+                                          categoryName: budget.categoryName,
+                                          icon: Icons.category,
+                                          color: Colors.grey,
+                                        ),
+                                      );
                                       return BudgetWidget(
+                                        bgColor: matchedCategory.color,
+                                        icon: matchedCategory.icon,
                                         budget: budget,
-                                        onEdit: () => editBudgetDialogue(budget),
+                                        onEdit: () => editBudgetDialogue(budget,matchedCategory),
                                         onDelete: () => budgetNotifier.deleteBudget(budget.id!),
                                       );
                                     }),
@@ -501,10 +535,29 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> {
                                           ),
                                           child: Row(
                                             children: [
-                                              CircleAvatar(
-                                                radius: 25,
-                                                backgroundColor: data.color,
-                                                child: Icon(data.icon, color: Colors.white),
+                                              Container(
+                                                height: 45.w,
+                                                width: 45.w,
+                                                decoration: BoxDecoration(
+                                                  borderRadius: BorderRadius.circular(14.r),
+                                                  gradient: LinearGradient(
+                                                    colors: [
+                                                      data.color.withOpacity(0.9),
+                                                      data.color.withOpacity(0.6),
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  ),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: data.color.withOpacity(0.3),
+                                                      blurRadius: 12,
+                                                      spreadRadius: 1,
+                                                      offset: const Offset(0, 4),
+                                                    )
+                                                  ],
+                                                ),
+                                                child: Icon(data.icon, color: Colors.white, size: 22),
                                               ),
                                               SizedBox(width: 20.w),
                                               Text(data.categoryName, style: theme.textTheme.titleMedium),

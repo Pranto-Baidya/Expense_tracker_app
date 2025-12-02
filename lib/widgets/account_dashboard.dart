@@ -1,4 +1,5 @@
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
+import 'package:expense_tracker_app/widgets/wave_animation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,9 +7,14 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 
 class AccountDashboard extends ConsumerStatefulWidget {
+  final double avgUsage;
+  final double totalBalance;
   final ThemeData theme;
   final String selectedCurrency;
+
   const AccountDashboard({
+    required this.avgUsage,
+    required this.totalBalance,
     required this.theme,
     required this.selectedCurrency, super.key
   });
@@ -24,15 +30,22 @@ class _AccountDashboardState extends ConsumerState<AccountDashboard> {
     final formattedTotal = NumberFormat.currency(
       symbol: widget.selectedCurrency,
       decimalDigits: 2
-    ).format(ref.watch(totalMoneyProvider));
+    ).format(widget.totalBalance);
+
     final formattedIncome = NumberFormat.currency(
         symbol: widget.selectedCurrency,
         decimalDigits: 2
     ).format(ref.watch(totalIncomeProvider));
+
     final formattedExpense = NumberFormat.currency(
         symbol: widget.selectedCurrency,
         decimalDigits: 2
     ).format(ref.watch(totalExpenseProvider));
+
+    final formattedUsage = NumberFormat.currency(
+        symbol: widget.selectedCurrency,
+        decimalDigits: 2
+    ).format(widget.avgUsage);
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 15.h),
@@ -80,26 +93,39 @@ class _AccountDashboardState extends ConsumerState<AccountDashboard> {
           Row(
             children: [
               Expanded(
-                  child: _buildBalanceCard(
-                      title: 'Expense so far',
-                      amount: formattedExpense,
-                      icon: Icons.arrow_downward,
-                      gradientColors: [
-                        Color(0xFFFF6B6B),
-                        Color(0xFFFF8E8E),
-                      ],
-                  ),
+                child: _buildBalanceCard(
+                  title: 'Spending',
+                  amount: formattedExpense,
+                  icon: Icons.arrow_downward,
+                  gradientColors: [
+                    Color(0xFFFF6B6B),
+                    Color(0xFFFF8E8E),
+                  ],
+                ),
               ),
-              SizedBox(width: 12.w,),
+              SizedBox(width: 12.w),
               Expanded(
                 child: _buildBalanceCard(
-                  title: 'Income so far',
+                  title: 'Earning',
                   amount: formattedIncome,
                   icon: Icons.arrow_upward,
                   gradientColors: [
                     Color(0xFF51CF66),
                     Color(0xFF69DB7C),
                   ],
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: _buildBalanceCard(
+                  title: 'Avg usage',
+                  amount: '${(widget.avgUsage * 100).toStringAsFixed(0)}%',
+                  icon: Icons.show_chart,
+                  gradientColors: [
+                    Color(0xFFE0B300),
+                    Color(0xFFEACA3B),
+                  ],
+                  percentage: widget.avgUsage,
                 ),
               ),
             ],
@@ -113,18 +139,15 @@ class _AccountDashboardState extends ConsumerState<AccountDashboard> {
     required String amount,
     required IconData icon,
     required List<Color> gradientColors,
+    double? percentage,
   }) {
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeOutCubic,
+    return Container(
       height: 135.h,
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
           colors: [
             Colors.white.withOpacity(0.15),
-            Colors.white.withOpacity(0.05),
+            Colors.white.withOpacity(0.03),
           ],
         ),
         borderRadius: BorderRadius.circular(20.r),
@@ -132,89 +155,79 @@ class _AccountDashboardState extends ConsumerState<AccountDashboard> {
           color: Colors.white.withOpacity(0.5),
           width: 1.5,
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 20,
-            offset: Offset(0, 10),
-            spreadRadius: -5,
-          ),
-        ],
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20.r),
-        child: Container(
-          padding: EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Colors.white.withOpacity(0.1),
-                Colors.white.withOpacity(0.05),
-              ],
-            ),
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                padding: EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: gradientColors,
-                  ),
-                  borderRadius: BorderRadius.circular(12.r),
-                  boxShadow: [
-                    BoxShadow(
-                      color: gradientColors[0].withOpacity(0.4),
-                      blurRadius: 8,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Icon(
-                  icon,
-                  color: Colors.white,
-                  size: 22,
-                ),
+        child: Stack(
+          children: [
+            if (percentage != null)
+              WaterWaveAnimation(
+                percentage: percentage,
+                gradientColors: gradientColors,
+                child: SizedBox.expand(),
               ),
-
-              Column(
+            Container(
+              padding: EdgeInsets.all(14),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: Colors.white.withOpacity(0.8),
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 0.5,
+                  Container(
+                    padding: EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: gradientColors,
+                      ),
+                      borderRadius: BorderRadius.circular(12.r),
+                      boxShadow: [
+                        BoxShadow(
+                          color: gradientColors[0].withOpacity(0.4),
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Icon(
+                      icon,
+                      color: Colors.white,
+                      size: 22,
                     ),
                   ),
-                  SizedBox(height: 4.h),
-                  FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      amount,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 0.5,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.8),
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w500,
+                          letterSpacing: 0.5,
+                        ),
                       ),
-                    ),
+                      SizedBox(height: 4.h),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          amount,
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15.sp,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
+
 }
