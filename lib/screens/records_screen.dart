@@ -8,6 +8,7 @@ import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/category_riverpod/category_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/prefs_riverpod/prefs_riverpod.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
 import 'package:expense_tracker_app/widgets/expense_tile.dart';
@@ -20,6 +21,7 @@ import 'package:overlay_support/overlay_support.dart';
 
 import '../models/category_model.dart';
 import '../riverpod/budget_riverpod/budget_riverpod.dart';
+import '../riverpod/save_record_filter/save_record_filter.dart';
 import '../widgets/balance_dashboard.dart';
 
 enum MoneyType {expense, income}
@@ -35,6 +37,7 @@ final selectedAccountProvider = StateProvider<int?>((ref)=>null);
 final enteredAmountProvider = StateProvider<double>((ref)=>0);
 final recordAddedTriggerProvider = StateProvider<int>((ref) => 0);
 
+
 class RecordsScreen extends ConsumerStatefulWidget {
   const RecordsScreen({super.key});
 
@@ -42,11 +45,15 @@ class RecordsScreen extends ConsumerStatefulWidget {
   RecordsScreenState createState() => RecordsScreenState();
 }
 
-class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerProviderStateMixin{
+class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProviderStateMixin{
 
   late AnimationController _animationController;
 
   late Animation<Offset> _disappearFABAnimation;
+
+  late AnimationController _bulkDeleteAnimationController;
+
+  late Animation<double> _bulkDeleteFabAnimation;
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
@@ -56,6 +63,9 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
 
   double _lastScrollPosition = 0.0;
   bool _isFabVisible = true;
+  
+  bool isSelectedForBulkDelete = false;
+  Set<int> selectedIds = {};
 
 
   @override
@@ -67,21 +77,50 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
         duration: Duration(milliseconds: 300)
     );
 
-    _disappearFABAnimation = Tween<Offset>(begin: Offset.zero,end: Offset(0,1.5)).animate(CurvedAnimation(parent: _animationController, curve: Curves.fastOutSlowIn));
+    _disappearFABAnimation = Tween<Offset>(begin: Offset.zero, end: Offset(0, 1.5))
+        .animate(CurvedAnimation(parent: _animationController, curve: Curves.fastOutSlowIn));
+
+    _bulkDeleteAnimationController = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: 500)
+    );
+
+    _bulkDeleteFabAnimation = Tween<double>(begin: 0, end: 1)
+        .animate(CurvedAnimation(parent: _bulkDeleteAnimationController, curve: Curves.fastOutSlowIn));
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await ref.read(expenseProvider.notifier).getExpenses();
       await ref.read(cardsProvider.notifier).getCards();
       await ref.read(categoryProvider.notifier).getAllCategories();
 
+
+      final savedFilter = ref.read(saveRecordFilterProvider);
       final selectedDate = ref.read(selectedDateProvider);
       final selectedTime = ref.read(selectedTimeProvider);
-      ref.read(expenseProvider.notifier).filterRecordsByMonth(selectedDate,selectedTime);
+      final expenseNotifier = ref.read(expenseProvider.notifier);
+
+      switch (savedFilter) {
+        case FilterRecordOptions.daily:
+          expenseNotifier.setActiveFilter('daily');
+          expenseNotifier.filterRecordsByDay(selectedDate);
+          break;
+        case FilterRecordOptions.weekly:
+          expenseNotifier.setActiveFilter('weekly');
+          expenseNotifier.filterRecordsByWeek(selectedDate);
+          break;
+        case FilterRecordOptions.yearly:
+          expenseNotifier.setActiveFilter('yearly');
+          expenseNotifier.filterRecordsByYear(selectedDate);
+          break;
+        default: // monthly
+          expenseNotifier.setActiveFilter('monthly');
+          expenseNotifier.filterRecordsByMonth(selectedDate, selectedTime);
+          break;
+      }
     });
 
-    _titleController.addListener(()=>checkTyping(ref));
-    _amountController.addListener(()=>checkTyping(ref));
-
+    _titleController.addListener(() => checkTyping(ref));
+    _amountController.addListener(() => checkTyping(ref));
   }
 
 
@@ -89,6 +128,8 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
   void dispose() {
     _titleController.removeListener(()=>checkTyping(ref,));
     _amountController.removeListener(()=>checkTyping(ref));
+    _bulkDeleteAnimationController.dispose();
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -98,11 +139,11 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
       final currentScroll = scrollInfo.metrics.pixels;
       final scrollDelta = currentScroll-_lastScrollPosition;
 
-      if(scrollDelta>10 && _isFabVisible){
+      if(scrollDelta>8 && _isFabVisible){
         _animationController.forward();
         _isFabVisible = false;
       }
-      else if(scrollDelta<-10 && !_isFabVisible){
+      else if(scrollDelta<-8 && !_isFabVisible){
         _animationController.reverse();
         _isFabVisible = true;
       }
@@ -507,6 +548,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
     ref.read(selectedDateProvider.notifier).state = expense.date;
     ref.read(selectedTimeProvider.notifier).state = expense.time;
     ref.read(moneyTypeProvider.notifier).state = expense.moneyType;
+    ref.read(selectedAccountProvider.notifier).state = expense.accountId;
 
     ref.read(editingProvider.notifier).state = true;
 
@@ -626,7 +668,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
                               groupValue: moneyTypeState,
                               onChanged: (value) {
                                 moneyTypeNotifier.state = value!;
-                                checkTyping(ref);
+                                checkTyping(ref, expense: expense);
                                 ref.read(categoryPickerProvider.notifier).state = value==MoneyType.expense? expenseCategories.first.categoryName
                                     :incomeCategories.first.categoryName;
                               },
@@ -645,18 +687,28 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
                     SizedBox(height: 15.h),
                     Text('Select category',style: theme.textTheme.titleMedium,),
                     SizedBox(height: 10.h),
-                    DropdownButtonFormField(
+                    DropdownButtonFormField2(
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(10.r),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        filled: true,
+                        fillColor: theme.colorScheme.surfaceVariant,
+                        contentPadding: EdgeInsets.zero,
+                      ),
                       value: category,
                       items: moneyTypeNotifier.state==MoneyType.expense?expenseCategories.map((cat) {
                         return DropdownMenuItem(
                           value: cat.categoryName,
-                          child: Text(cat.categoryName),
+                          child: Text(cat.categoryName,style: theme.textTheme.titleSmall,),
                         );
                       }).toList()
                           :incomeCategories.map((cat) {
                         return DropdownMenuItem(
                           value: cat.categoryName,
-                          child: Text(cat.categoryName),
+                          child: Text(cat.categoryName,style: theme.textTheme.titleSmall,),
                         );
                       }).toList(),
                       onChanged: (value) {
@@ -664,6 +716,31 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
                         ref.read(categorySelectionProvider.notifier).state = true;
                         checkTyping(ref, expense: expense);
                       },
+                      iconStyleData: const IconStyleData(
+                        icon: Icon(Icons.arrow_drop_down_rounded),
+                        iconSize: 28,
+                      ),
+                      buttonStyleData: ButtonStyleData(
+                        height: 55.h,
+                        padding: const EdgeInsets.symmetric(horizontal: 15),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                      ),
+                      dropdownStyleData: DropdownStyleData(
+                        maxHeight: 300,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10.r),
+                          color: theme.dropdownMenuTheme.menuStyle
+                              ?.backgroundColor
+                              ?.resolve({}) ??
+                              theme.colorScheme.surface,
+                        ),
+                      ),
+                      menuItemStyleData: const MenuItemStyleData(
+                        height: 48,
+                        padding: EdgeInsets.symmetric(horizontal: 15),
+                      ),
                     ),
                     SizedBox(height: 10.h),
                     Text('Choose account',style: theme.textTheme.titleMedium,),
@@ -702,7 +779,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
                       onChanged: (value) {
                         if (value != null) {
                           selectedAccountNotifier.state = value;
-                          checkTyping(ref);
+                          checkTyping(ref, expense: expense);
                         }
                       },
                       iconStyleData: const IconStyleData(
@@ -759,18 +836,19 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
 
                           ref.read(expenseProvider.notifier).updateExpense(
                             ExpenseModel(
-                              id: id,
-                              title: _editTitleController.text,
-                              amount: double.parse(_editAmountController.text),
-                              category: category,
-                              date: ref.read(selectedDateProvider.notifier).state,
-                              time: ref.read(selectedTimeProvider.notifier).state,
-                              moneyType: ref.read(moneyTypeProvider.notifier).state,
-                              accountId: ref.read(selectedAccountProvider)!
+                                id: id,
+                                title: _editTitleController.text,
+                                amount: double.parse(_editAmountController.text),
+                                category: category,
+                                date: ref.read(selectedDateProvider.notifier).state,
+                                time: ref.read(selectedTimeProvider.notifier).state,
+                                moneyType: ref.read(moneyTypeProvider.notifier).state,
+                                accountId: ref.read(selectedAccountProvider)!
                             ),
                           );
 
                           ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
+                          ref.read(budgetProvider.notifier).calculateAmount();
 
                           ref.read(editingProvider.notifier).state = false;
                           ref.read(checkTypingProvider.notifier).state = false;
@@ -823,6 +901,39 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
     );
   }
 
+  void bulkDeleteAlert(){
+    showDialog(
+        context: context,
+        builder: (BuildContext context){
+          return AlertDialog(
+            backgroundColor: Theme.of(context).cardColor,
+            title: Text('Delete selected records?',style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18),),
+            content: Text('This can not be undone.',style: Theme.of(context).textTheme.titleSmall,),
+            actions: [
+              TextButton(
+                  onPressed: (){
+                    Navigator.pop(context);
+                  },
+                  child: Text('Cancel',style: Theme.of(context).textTheme.titleMedium,)
+              ),
+              TextButton(
+                  onPressed: (){
+                    ref.read(expenseProvider.notifier).bulkDeleteSelectedRecords(selectedIds.toList());
+                    setState(() {
+                      isSelectedForBulkDelete = false;
+                      selectedIds.clear();
+                    });
+                    Navigator.pop(context);
+                  },
+                  child: Text('Delete',style: Theme.of(context).textTheme.titleMedium,)
+              ),
+            ],
+          );
+        }
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     final expenseState = ref.watch(expenseProvider);
@@ -838,11 +949,6 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
     final timeNotifier = ref.read(selectedTimeProvider.notifier);
 
     final expenseList = expenseState.filteredRecord;
-
-    final groupedExpenses = _groupByDate(expenseList);
-
-    final sortedDates = groupedExpenses.keys.toList()..sort((a,b)=>b.compareTo(a));
-
 
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
@@ -880,12 +986,30 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
                         SizedBox(height: 10.h,),
                       if(expenseList.isEmpty)
                         _buildEmptyState(theme),
-                      Expanded(
-                          child: NotificationListener(
-                              onNotification: _handleScrollNotification,
-                              child: _buildRecordsList(context, ref, theme, sortedDates, groupedExpenses, selectedCurrency, expenseNotifier, expenseState)
-                          )
-                      )
+                        Expanded(
+                            child: NotificationListener(
+                                onNotification: _handleScrollNotification,
+                                child: Builder(
+                                    builder: (context) {
+
+                                      final expenseList = ref.watch(expenseProvider).filteredRecord;
+                                      final groupedExpenses = _groupByDate(expenseList);
+                                      final sortedDates = groupedExpenses.keys.toList()..sort((a,b)=>b.compareTo(a));
+
+                                      return _buildRecordsList(
+                                          context,
+                                          ref,
+                                          theme,
+                                          sortedDates,
+                                          groupedExpenses,
+                                          selectedCurrency,
+                                          expenseNotifier,
+                                          expenseState
+                                      );
+                                    }
+                                )
+                            )
+                        )
                     ]
                     ],
                   ),
@@ -894,7 +1018,47 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
           ],
         ),
       ),
-      floatingActionButton: SlideTransition(
+      floatingActionButton: isSelectedForBulkDelete?
+      ScaleTransition(
+        scale: _bulkDeleteFabAnimation,
+        child: Container(
+          height: 64.h,
+          width: 64.w,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.red.withOpacity(0.9),
+                Colors.red.withOpacity(0.6),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(18.r),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.red.withOpacity(0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: bulkDeleteAlert,
+              borderRadius: BorderRadius.circular(18),
+              child: Center(
+                child: Icon(
+                  Icons.delete,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+      :SlideTransition(
         position: _disappearFABAnimation,
         child: Container(
           height: 64.h,
@@ -984,55 +1148,164 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with SingleTickerP
         final date = sortedDates[index];
         final expensesForDate = groupedExpenses[date]!;
 
-        return Padding(
-          padding: EdgeInsets.symmetric(vertical: 10.h, horizontal: 15.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 14,
-                    height: 14,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary,
-                      shape: BoxShape.circle,
-                      boxShadow: [BoxShadow(color: theme.colorScheme.primary.withOpacity(0.4), blurRadius: 4, offset: Offset(0, 2))],
+        final showBanner = ref.watch(tipPrefProvider);
+
+        return Column(
+          children: [
+            if(expensesForDate.isNotEmpty && showBanner)...[
+              Container(
+                width: double.infinity.w,
+                height: 140.h,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: 5.h,),
+                    Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          IconButton(
+                              onPressed: (){
+                                ref.read(tipPrefProvider.notifier).save(false);
+                              },
+                              icon: Icon(Icons.close,color: theme.colorScheme.primary,size: 30,)
+                          )
+                        ],
+                      ),
                     ),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 10.0),
+                      child: Text('Quick Tip: ',style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),),
+                    ),
+                    SizedBox(height: 10.h,),
+                    Padding(
+                      padding: const EdgeInsets.only(left: 10.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          Icon(Icons.lightbulb_rounded,color: theme.colorScheme.primary,),
+                          SizedBox(width: 10.h,),
+                          Text('Long press on a record to perform bulk delete.',style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),)
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+        showBanner? SizedBox(height: 10.h,) : SizedBox.shrink(),
+            Padding(
+              padding: EdgeInsets.symmetric(vertical: 5.h, horizontal: 15.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          shape: BoxShape.circle,
+                          boxShadow: [BoxShadow(color: theme.colorScheme.primary.withOpacity(0.4), blurRadius: 4, offset: Offset(0, 2))],
+                        ),
+                      ),
+                      SizedBox(width: 10.w),
+                      Text(
+                        DateFormat('MMMM dd, yyyy').format(date),
+                        style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 10.w),
-                  Text(
-                    DateFormat('MMMM dd, yyyy').format(date),
-                    style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
-                  ),
+                  SizedBox(height: 5.h),
+                  ...expensesForDate.map((expense) {
+                    final selectedCard = ref.watch(cardsProvider).cards.firstWhere(
+                          (card) => card.id == expense.accountId,
+                      orElse: () => CardModel(id: -1, cardName: 'Unknown', icon: Icons.help_outline, amount: 0),
+                    );
+
+                    final selectedCategory = ref.watch(categoryProvider).allCategories.firstWhere((i)=>i.categoryName==expense.category,
+                      orElse: () => CategoryModel(
+                      categoryName: expense.category,
+                      icon: Icons.category,
+                      color: Colors.grey,
+                    ),);
+
+                    return GestureDetector(
+                      onLongPress: (){
+                       setState(() {
+                         isSelectedForBulkDelete = true;
+                         selectedIds.add(expense.id!);
+                         if(selectedIds.length==1) {
+                           _bulkDeleteAnimationController.forward(from: 0);
+                         }
+                       });
+                      },
+                      onTap: (){
+                        setState(() {
+                          if(selectedIds.contains(expense.id)){
+                            selectedIds.remove(expense.id);
+                            if(selectedIds.isEmpty){
+                              isSelectedForBulkDelete = false;
+                              _bulkDeleteAnimationController.reverse();
+                            }
+                          }
+                          else{
+                            selectedIds.add(expense.id!);
+                          }
+                        });
+                      },
+                      child: Column(
+                        children: [
+                          if(isSelectedForBulkDelete)...[
+                            Row(
+                              children: [
+                                Center(
+                                      child: Icon(
+                                        selectedIds.contains(expense.id!)?
+                                        Icons.check_box : Icons.check_box_outline_blank,
+                                        color: selectedIds.contains(expense.id!)? theme.colorScheme.primary : Colors.grey,
+                                      ),
+                                    ),
+                                  SizedBox(width: 15.w,),
+                                  Expanded(
+                                    child: ExpenseTile(
+                                      bgColor: selectedCategory.color,
+                                      icon: selectedCategory.icon,
+                                      expenseModel: expense,
+                                      currency: selectedCurrency,
+                                      cardModel: selectedCard,
+                                      onEdit: () => editExpenseDialogue(expense),
+                                      onDelete: () => deleteAlert(expense),
+                                    ),
+                                )
+                              ],
+                            )
+                          ],
+                          if(!isSelectedForBulkDelete)...[
+
+                            ExpenseTile(
+                              bgColor: selectedCategory.color,
+                              icon: selectedCategory.icon,
+                              expenseModel: expense,
+                              currency: selectedCurrency,
+                              cardModel: selectedCard,
+                              onEdit: () => editExpenseDialogue(expense),
+                              onDelete: () => deleteAlert(expense),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  }),
                 ],
               ),
-              SizedBox(height: 5.h),
-              ...expensesForDate.map((expense) {
-                final selectedCard = ref.watch(cardsProvider).cards.firstWhere(
-                      (card) => card.id == expense.accountId,
-                  orElse: () => CardModel(id: -1, cardName: 'Unknown', icon: Icons.help_outline, amount: 0),
-                );
-                
-                final selectedCategory = ref.watch(categoryProvider).allCategories.firstWhere((i)=>i.categoryName==expense.category,
-                  orElse: () => CategoryModel(
-                  categoryName: expense.category,
-                  icon: Icons.category,
-                  color: Colors.grey,
-                ),);
-                
-                return ExpenseTile(
-                  bgColor: selectedCategory.color,
-                  icon: selectedCategory.icon,
-                  expenseModel: expense,
-                  currency: selectedCurrency,
-                  cardModel: selectedCard,
-                  onEdit: () => editExpenseDialogue(expense),
-                  onDelete: () => deleteAlert(expense),
-                );
-              }),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );

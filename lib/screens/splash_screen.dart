@@ -97,12 +97,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
               height: 150.h,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.white,
+                color: accentColor,
                 boxShadow: customShadow(isDark,ref)
               ),
               child: SlideTransition(
                   position: _slideAnimation,
-                  child: Image.asset('assets/transparent.png',color: accentColor,)
+                  child: Image.asset('assets/transparent.png')
               ),
             ),
             SizedBox(height: 30.h,),

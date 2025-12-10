@@ -1,6 +1,8 @@
+import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/models/category_model.dart';
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/category_riverpod/category_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/premade_categories/premade_categories.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
@@ -38,6 +40,10 @@ final checkCategoryTypingProvider = StateProvider<bool>((ref)=>false);
 
 final editCategoryProvider = StateProvider<bool>((ref)=>false);
 
+final selectedCategoryIdsProvider = StateProvider<Set<int>>((ref)=>{});
+
+final isCategoryIdsSelectedForBulkDeleteProvider = StateProvider<bool>((ref)=>false);
+
 class CategoryScreen extends ConsumerStatefulWidget {
   const CategoryScreen({super.key});
 
@@ -45,11 +51,15 @@ class CategoryScreen extends ConsumerStatefulWidget {
   _CategoryScreenState createState() => _CategoryScreenState();
 }
 
-class _CategoryScreenState extends ConsumerState<CategoryScreen> with SingleTickerProviderStateMixin {
+class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProviderStateMixin {
 
   late AnimationController _animationController;
 
   late Animation<Offset> _fabAnimation;
+
+  late AnimationController _bulkDeleteFABController;
+
+  late Animation<double> _bulkDeleteFABAnimation;
 
   double _lastScrollPosition = 0;
 
@@ -65,6 +75,12 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with SingleTick
 
     _fabAnimation = Tween<Offset>(begin: Offset.zero,end: Offset(0, 1.5)).animate(CurvedAnimation(parent: _animationController, curve: Curves.fastOutSlowIn));
 
+    _bulkDeleteFABController = AnimationController(
+        vsync: this,
+        duration: const Duration(milliseconds: 500)
+    );
+
+    _bulkDeleteFABAnimation = Tween<double>(begin: 0,end: 1).animate(CurvedAnimation(parent: _bulkDeleteFABController, curve: Curves.fastOutSlowIn));
 
     _nameController.addListener(()=>checkTyping(ref));
     
@@ -108,11 +124,11 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with SingleTick
       final currentScrollPosition = scrollInfo.metrics.pixels;
       final scrollDelta = currentScrollPosition - _lastScrollPosition;
 
-      if(scrollDelta>10 && _isFABVisible){
+      if(scrollDelta>8 && _isFABVisible){
         _animationController.forward();
         _isFABVisible = false;
       }
-      else if(scrollDelta<-10 && !_isFABVisible){
+      else if(scrollDelta<-8 && !_isFABVisible){
         _animationController.reverse();
         _isFABVisible = true;
       }
@@ -120,6 +136,14 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with SingleTick
       _lastScrollPosition = currentScrollPosition;
     }
     return false;
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _nameController.dispose();
+    _editNameController.dispose();
+    super.dispose();
   }
 
   void checkTyping(WidgetRef ref,{CategoryModel? category}){
@@ -300,6 +324,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with SingleTick
                           Text('Add new category',style: theme.textTheme.titleLarge,),
                           SizedBox(height: 15.h,),
                           TextField(
+                            autofocus: true,
                             controller: _nameController,
                             decoration: InputDecoration(
                               hintText: 'Enter a category name',
@@ -697,6 +722,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with SingleTick
                           Text('Edit category',style: theme.textTheme.titleLarge,),
                           SizedBox(height: 15.h,),
                           TextField(
+                            autofocus: true,
                             controller: _editNameController,
                             decoration: InputDecoration(
                                 hintText: 'Enter a category name',
@@ -923,12 +949,405 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with SingleTick
     });
   }
 
+  void categoryDetailsSheet(CategoryModel category) {
+    showModalBottomSheet(
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        final allRecords = ref.read(expenseProvider).expenses.where((i) => i.category == category.categoryName).toList();
+
+        var theme = Theme.of(context);
+
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(28.r),
+              topRight: Radius.circular(28.r),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  margin: EdgeInsets.only(top: 12.h, bottom: 8.h),
+                  width: 40.w,
+                  height: 4.h,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(2.r),
+                  ),
+                ),
+              ),
+
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+                child: Row(
+                  children: [
+                    Text(
+                      'Category Details',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    Spacer(),
+                    Container(
+                      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20.r),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.access_time_rounded,
+                            size: 14.sp,
+                            color: theme.colorScheme.primary,
+                          ),
+                          SizedBox(width: 4.w),
+                          Text(
+                            'All time',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              SizedBox(height: 16.h),
+
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                child: Container(
+                  padding: EdgeInsets.all(20.w),
+                  decoration: BoxDecoration(
+                    color: category.color.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: Border.all(
+                      color: category.color.withOpacity(0.3),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 56.w,
+                        height: 56.h,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16.r),
+                          gradient: LinearGradient(
+                            colors: [
+                              category.color.withOpacity(0.9),
+                              category.color.withOpacity(0.7),
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: Icon(
+                          category.icon,
+                          color: Colors.white,
+                          size: 28.sp,
+                        ),
+                      ),
+
+                      SizedBox(width: 16.w),
+
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              category.categoryName,
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 4.h),
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 10.w,
+                                vertical: 4.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: category.color.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(8.r),
+                              ),
+                              child: Text(
+                                '${category.categoryType.name[0].toUpperCase()}${category.categoryType.name.substring(1)} Category',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: category.color,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 20.h),
+
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 20.w),
+                child: Container(
+                  padding: EdgeInsets.all(16.w),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(16.r),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(10.w),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        child: Icon(
+                          Icons.receipt_long_rounded,
+                          color: theme.colorScheme.primary,
+                          size: 20.sp,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              allRecords.isEmpty ? 'No records yet' : allRecords.length == 1 ? '1 Record'
+                                  : '${allRecords.length} Records',
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Text(
+                              allRecords.isEmpty ? 'Start adding transactions' : 'Total transactions in this category',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (allRecords.length > 1)
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            onTap: () {
+                              allRecords.sort((a, b) => b.date.compareTo(a.date));
+                            },
+                            borderRadius: BorderRadius.circular(12.r),
+                            child: Container(
+                              padding: EdgeInsets.all(8.w),
+                              child: Icon(
+                                Icons.sort_rounded,
+                                color: theme.colorScheme.primary,
+                                size: 24.sp,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+
+              SizedBox(height: 16.h),
+
+              if (allRecords.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+                  child: Text(
+                    'Recent Transactions',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: theme.textTheme.bodySmall?.color?.withOpacity(0.7),
+                    ),
+                  ),
+                ),
+
+              Expanded(
+                child: allRecords.isEmpty
+                    ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(24.w),
+                        decoration: BoxDecoration(
+                          color: category.color.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.inbox_rounded,
+                          size: 48.sp,
+                          color: category.color.withOpacity(0.5),
+                        ),
+                      ),
+                      SizedBox(height: 16.h),
+                      Text(
+                        'No transactions yet',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 8.h),
+                      Text(
+                        'Transactions will appear here',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                        ),
+                      ),
+                    ],
+                  ),
+                )
+                    : ListView.builder(
+                  physics: BouncingScrollPhysics(),
+                  padding: EdgeInsets.symmetric(horizontal: 20.w),
+                  itemCount: allRecords.length,
+                  itemBuilder: (context, index) {
+                    final data = allRecords[index];
+                    final accountName = ref.read(cardsProvider).cards.firstWhere(
+                          (i) => i.id == data.accountId,
+                      orElse: () => CardModel(
+                        cardName: 'Unknown',
+                        amount: 0.0,
+                        icon: Icons.error_outline,
+                      ),
+                    );
+
+                    return Container(
+                      margin: EdgeInsets.only(bottom: 12.h),
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: BorderRadius.circular(16.r),
+                        border: Border.all(
+                          color: category.color.withOpacity(0.3),
+                        ),
+                      ),
+                      child: ListTile(
+                        contentPadding: EdgeInsets.symmetric(
+                          horizontal: 16.w,
+                          vertical: 8.h,
+                        ),
+                        leading: Container(
+                          width: 44.w,
+                          height: 44.h,
+                          decoration: BoxDecoration(
+                            color: category.color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12.r),
+                          ),
+                          child: Icon(
+                            category.icon,
+                            color: category.color,
+                            size: 22.sp,
+                          ),
+                        ),
+                        title: Text(
+                          data.title,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Row(
+                          children: [
+                            Icon(
+                              accountName.icon,
+                              size: 14.sp,
+                              color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                            ),
+                            SizedBox(width: 4.w),
+                            Text(
+                              accountName.cardName,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                              ),
+                            ),
+                          ],
+                        ),
+                        trailing: Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 12.w,
+                            vertical: 6.h,
+                          ),
+                          decoration: BoxDecoration(
+                            color: category.categoryType == CategoryType.expense ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8.r),
+                          ),
+                          child: Text(
+                            '${category.categoryType == CategoryType.expense ? '-' : '+'}${data.amount.toStringAsFixed(2)}',
+                            style: theme.textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: category.categoryType == CategoryType.expense
+                                  ? Colors.red
+                                  : Colors.green,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void bulkDeleteAlert(){
+    showDialog(
+        context: context,
+        builder: (BuildContext context){
+          return AlertDialog(
+            backgroundColor: Theme.of(context).cardColor,
+            title: Text('Delete selected records?',style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18),),
+            content: Text('This can not be undone.',style: Theme.of(context).textTheme.titleSmall,),
+            actions: [
+              TextButton(
+                  onPressed: (){
+                    Navigator.pop(context);
+                  },
+                  child: Text('Cancel',style: Theme.of(context).textTheme.titleMedium,)
+              ),
+              TextButton(
+                  onPressed: (){
+                    ref.read(categoryProvider.notifier).bulkDeleteCategories(ref.read(selectedCategoryIdsProvider).toList());
+                    ref.read(selectedCategoryIdsProvider).clear();
+                    ref.read(isCategoryIdsSelectedForBulkDeleteProvider.notifier).state = false;
+                    Navigator.pop(context);
+                  },
+                  child: Text('Delete',style: Theme.of(context).textTheme.titleMedium,)
+              ),
+            ],
+          );
+        }
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
 
     final incomeCategoryState = ref.watch(categoryProvider).allIncomeCategories;
+
     final expenseCategoryState = ref.watch(categoryProvider).allExpenseCategories;
 
     final categoryNotifier = ref.read(categoryProvider.notifier);
@@ -938,6 +1357,14 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with SingleTick
     final totalAccountBalance = cardState.cards.fold(0.0, (sum,value)=>sum+value.amount);
 
     final averageUsage = cardState.cards.isEmpty?0.0:cardState.cards.fold(0.0, (sum,avg)=>(sum+avg.progress)/cardState.cards.length);
+
+    final isSelectedForBulkDelete = ref.watch(isCategoryIdsSelectedForBulkDeleteProvider);
+
+    final isSelectedForBulkDeleteNotifier = ref.read(isCategoryIdsSelectedForBulkDeleteProvider.notifier);
+
+    final selectedIdsState = ref.watch(selectedCategoryIdsProvider);
+
+    final selectedIdsNotifier = ref.read(selectedCategoryIdsProvider.notifier);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
@@ -964,299 +1391,559 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with SingleTick
                 child: SingleChildScrollView(
                   physics: BouncingScrollPhysics(),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SizedBox(height: 15.h,),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                        child: Row(
+
+                      if(incomeCategoryState.isEmpty && expenseCategoryState.isEmpty)...[
+                        Column(
                           children: [
-                            Container(
-                              width: 4,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: Colors.green,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Income categories',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+                            SizedBox(height: 80.h),
+                            Icon(Icons.folder_off_outlined, color: theme.colorScheme.primary, size: 100),
+                            SizedBox(height: 24.h),
+                            Text('No categories available', style: theme.textTheme.titleLarge),
+                            SizedBox(height: 8.h),
+                            Text('Add a category from the button below', style: theme.textTheme.bodyMedium),
                           ],
                         ),
-                      ),
-                      SizedBox(height: 10.h),
-                      ...incomeCategoryState.map((data) => Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: theme.cardColor.withOpacity(0.92),
-                            borderRadius: BorderRadius.circular(18.r),
-                            border: Border.all(
-                              color: theme.dividerColor.withOpacity(0.15),
-                              width: 1,
-                            ),
-                            boxShadow: Theme.of(context).brightness == Brightness.dark
-                                ? [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.4),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
+                      ],
+
+                      SizedBox(height: 15.h,),
+                      Visibility(
+                        visible: incomeCategoryState.isNotEmpty,
+                        replacement: SizedBox.shrink(),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 4,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: Colors.green,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
                               ),
-                              BoxShadow(
-                                color: Colors.white.withOpacity(0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, -1),
-                              ),
-                            ] : [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 18,
-                                offset: const Offset(0, 6),
-                              ),
-                              BoxShadow(
-                                color: Colors.white.withOpacity(0.4),
-                                blurRadius: 10,
-                                offset: const Offset(-2, -2),
+                              SizedBox(width: 12),
+                              Text(
+                                'Income categories',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
-                          child: ListTile(
-                            tileColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            leading: Container(
-                              width: 45.w,
-                              height: 45.h,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(14.r),
-                                gradient: LinearGradient(
-                                  colors: [
-                                    data.color.withOpacity(0.9),
-                                    data.color.withOpacity(0.6),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: data.color.withOpacity(0.3),
-                                    blurRadius: 12,
-                                    spreadRadius: 1,
-                                    offset: const Offset(0, 4),
-                                  )
-                                ],
-                              ),
-                              child: Icon(data.icon, color: Colors.white, size: 24),
-                            ),
-                            title: Text(
-                              data.categoryName,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            trailing: Container(
-                              decoration: BoxDecoration(
-                                color: theme.cardColor.withOpacity(0.5),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: PopupMenuButton(
-                                color: theme.cardColor,
-                                elevation: 8,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                icon: Icon(Icons.more_horiz, size: 20),
-                                onSelected: (value) {
-                                  if (value == "edit") {
-                                    editCategory(data);
-                                  } else if (value == "delete") {
-                                    categoryNotifier.deleteCategory(data.categoryId!);
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  PopupMenuItem(
-                                    value: "edit",
-                                    child: Row(
+                        ),
+                      ),
+                      SizedBox(height: 10.h),
+
+                      ...incomeCategoryState.map((data) =>
+                          GestureDetector(
+                            onLongPress: (){
+                              isSelectedForBulkDeleteNotifier.state = true;
+                              selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..add(data.categoryId!);
+                              if(selectedIdsNotifier.state.length==1) {
+                                _bulkDeleteFABController.forward(from: 0);
+                              }
+                            },
+                            onTap: (){
+                              if(selectedIdsNotifier.state.contains(data.categoryId)){
+                                selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..remove(data.categoryId!);
+                                if(selectedIdsNotifier.state.isEmpty){
+                                  isSelectedForBulkDeleteNotifier.state = false;
+                                  _bulkDeleteFABController.reverse();
+                                }
+                              }
+                              else{
+                                selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..add(data.categoryId!);
+                              }
+                            },
+                            child: Column(
+                                children: [
+                                  if(isSelectedForBulkDelete)...[
+                                    Padding(
+                                      padding: EdgeInsets.only(left: 20.w),
+                                      child: Row(
                                       children: [
-                                        Icon(Icons.edit_outlined, size: 18),
-                                        SizedBox(width: 12),
-                                        Text("Edit", style: theme.textTheme.titleSmall),
-                                      ],
-                                    ),
-                                  ),
-                                  PopupMenuItem(
-                                    value: "delete",
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                        SizedBox(width: 12),
-                                        Text(
-                                          "Delete",
-                                          style: theme.textTheme.titleSmall?.copyWith(
-                                            color: Colors.red,
+                                        Icon(
+                                          selectedIdsState.contains(data.categoryId)?Icons.check_box:Icons.check_box_outline_blank,
+                                          color: selectedIdsState.contains(data.categoryId)? theme.colorScheme.primary:Colors.grey,
+                                        ),
+                                        SizedBox(width: 10.w,),
+                                        Expanded(
+                                          child: Padding(
+                                            padding: EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: theme.cardColor.withOpacity(0.92),
+                                                borderRadius: BorderRadius.circular(18.r),
+                                                border: Border.all(
+                                                  color: theme.dividerColor.withOpacity(0.15),
+                                                  width: 1,
+                                                ),
+                                                boxShadow: Theme.of(context).brightness == Brightness.dark
+                                                    ? [
+                                                  BoxShadow(
+                                                    color: Colors.black.withOpacity(0.4),
+                                                    blurRadius: 12,
+                                                    offset: const Offset(0, 4),
+                                                  ),
+                                                  BoxShadow(
+                                                    color: Colors.white.withOpacity(0.05),
+                                                    blurRadius: 4,
+                                                    offset: const Offset(0, -1),
+                                                  ),
+                                                ] : [
+                                                  BoxShadow(
+                                                    color: Colors.black.withOpacity(0.06),
+                                                    blurRadius: 18,
+                                                    offset: const Offset(0, 6),
+                                                  ),
+                                                  BoxShadow(
+                                                    color: Colors.white.withOpacity(0.4),
+                                                    blurRadius: 10,
+                                                    offset: const Offset(-2, -2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: ListTile(
+                                                tileColor: Colors.transparent,
+                                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),),
+                                                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                                leading: Container(
+                                                  width: 45.w,
+                                                  height: 45.h,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(14.r),
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        data.color.withOpacity(0.9),
+                                                        data.color.withOpacity(0.6),
+                                                      ],
+                                                      begin: Alignment.topLeft,
+                                                      end: Alignment.bottomRight,
+                                                    ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: data.color.withOpacity(0.3),
+                                                        blurRadius: 12,
+                                                        spreadRadius: 1,
+                                                        offset: const Offset(0, 4),
+                                                      )
+                                                    ],
+                                                  ),
+                                                  child: Icon(data.icon, color: Colors.white, size: 24),
+                                                ),
+                                                title: Text(
+                                                  data.categoryName,
+                                                  style: theme.textTheme.titleMedium?.copyWith(
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
                                           ),
                                         ),
                                       ],
-                                    ),
-                                  ),
+                                                                        ),
+                                    ),],
+                                  if(!isSelectedForBulkDelete)...[
+                                    Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+                                      child: GestureDetector(
+                                        onTap: ()=>categoryDetailsSheet(data),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: theme.cardColor.withOpacity(0.92),
+                                            borderRadius: BorderRadius.circular(18.r),
+                                            border: Border.all(
+                                              color: theme.dividerColor.withOpacity(0.15),
+                                              width: 1,
+                                            ),
+                                            boxShadow: Theme.of(context).brightness == Brightness.dark
+                                                ? [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.4),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(0.05),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, -1),
+                                              ),
+                                            ] : [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.06),
+                                                blurRadius: 18,
+                                                offset: const Offset(0, 6),
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(0.4),
+                                                blurRadius: 10,
+                                                offset: const Offset(-2, -2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: ListTile(
+                                            tileColor: Colors.transparent,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),),
+                                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                            leading: Container(
+                                              width: 45.w,
+                                              height: 45.h,
+                                              decoration: BoxDecoration(
+                                                borderRadius: BorderRadius.circular(14.r),
+                                                gradient: LinearGradient(
+                                                  colors: [
+                                                    data.color.withOpacity(0.9),
+                                                    data.color.withOpacity(0.6),
+                                                  ],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: data.color.withOpacity(0.3),
+                                                    blurRadius: 12,
+                                                    spreadRadius: 1,
+                                                    offset: const Offset(0, 4),
+                                                  )
+                                                ],
+                                              ),
+                                              child: Icon(data.icon, color: Colors.white, size: 24),
+                                            ),
+                                            title: Text(
+                                              data.categoryName,
+                                              style: theme.textTheme.titleMedium?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            trailing: Container(
+                                              decoration: BoxDecoration(
+                                                color: theme.cardColor.withOpacity(0.5),
+                                                borderRadius: BorderRadius.circular(8),
+                                              ),
+                                              child: PopupMenuButton(
+                                                color: theme.cardColor,
+                                                elevation: 8,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius: BorderRadius.circular(12),
+                                                ),
+                                                icon: Icon(Icons.more_horiz, size: 20),
+                                                onSelected: (value) {
+                                                  if (value == "edit") {
+                                                    editCategory(data);
+                                                  } else if (value == "delete") {
+                                                    categoryNotifier.deleteCategory(data.categoryId!);
+                                                  }
+                                                },
+                                                itemBuilder: (context) => [
+                                                  PopupMenuItem(
+                                                    value: "edit",
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(Icons.edit_outlined, size: 18),
+                                                        SizedBox(width: 12),
+                                                        Text("Edit", style: theme.textTheme.titleSmall),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  PopupMenuItem(
+                                                    value: "delete",
+                                                    child: Row(
+                                                      children: [
+                                                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                                        SizedBox(width: 12),
+                                                        Text(
+                                                          "Delete",
+                                                          style: theme.textTheme.titleSmall?.copyWith(
+                                                            color: Colors.red,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  ],
                                 ],
                               ),
-                            ),
-                          ),
-                        ),
-                      )),
+                      )
+                      ),
+
 
                       SizedBox(height: 30),
 
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 4,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(2),
+                      Visibility(
+                        visible: expenseCategoryState.isNotEmpty,
+                        replacement: SizedBox.shrink(),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 4,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
                               ),
-                            ),
-                            SizedBox(width: 12),
-                            Text(
-                              'Expense categories',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                              SizedBox(width: 12),
+                              Text(
+                                'Expense categories',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                       SizedBox(height: 10.h),
 
-                      ...expenseCategoryState.map((data) => Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 6),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: theme.cardColor.withOpacity(0.92),
-                            borderRadius: BorderRadius.circular(18.r),
-                            border: Border.all(
-                              color: theme.dividerColor.withOpacity(0.15),
-                              width: 1,
-                            ),
-                            boxShadow: Theme.of(context).brightness == Brightness.dark
-                                ? [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.4),
-                                blurRadius: 12,
-                                offset: const Offset(0, 4),
-                              ),
-                              BoxShadow(
-                                color: Colors.white.withOpacity(0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, -1),
-                              ),
-                            ] : [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.06),
-                                blurRadius: 18,
-                                offset: const Offset(0, 6),
-                              ),
-                              BoxShadow(
-                                color: Colors.white.withOpacity(0.4),
-                                blurRadius: 10,
-                                offset: const Offset(-2, -2),
-                              ),
-                            ],
-
-                          ),
-                          child: ListTile(
-                            tileColor: Colors.transparent,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),),
-                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            leading: Container(
-                              width: 45.w,
-                              height: 45.h,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(14.r),
-                                gradient: LinearGradient(
-                                  colors: [
-                                    data.color.withOpacity(0.9),
-                                    data.color.withOpacity(0.6),
-                                  ],
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: data.color.withOpacity(0.3),
-                                    blurRadius: 12,
-                                    spreadRadius: 1,
-                                    offset: const Offset(0, 4),
-                                  )
-                                ],
-                              ),
-                              child: Icon(data.icon, color: Colors.white, size: 24),
-                            ),
-                            title: Text(
-                              data.categoryName,
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            trailing: Container(
-                              decoration: BoxDecoration(
-                                color: theme.cardColor.withOpacity(0.5),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: PopupMenuButton(
-                                color: theme.cardColor,
-                                elevation: 8,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                icon: Icon(Icons.more_horiz, size: 20),
-                                onSelected: (value) {
-                                  if (value == "edit") {
-                                    editCategory(data);
-                                  } else if (value == "delete") {
-                                    categoryNotifier.deleteCategory(data.categoryId!);
-                                  }
-                                },
-                                itemBuilder: (context) => [
-                                  PopupMenuItem(
-                                    value: "edit",
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.edit_outlined, size: 18),
-                                        SizedBox(width: 12),
-                                        Text("Edit", style: theme.textTheme.titleSmall),
-                                      ],
+                      ...expenseCategoryState.map((data) => GestureDetector(
+                        onLongPress: (){
+                          isSelectedForBulkDeleteNotifier.state = true;
+                          selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..add(data.categoryId!);
+                          if(selectedIdsNotifier.state.length==1) {
+                            _bulkDeleteFABController.forward(from: 0);
+                          }
+                        },
+                        onTap: (){
+                          if(selectedIdsNotifier.state.contains(data.categoryId)){
+                            selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..remove(data.categoryId!);
+                            if(selectedIdsNotifier.state.isEmpty){
+                              isSelectedForBulkDeleteNotifier.state = false;
+                              _bulkDeleteFABController.reverse();
+                            }
+                          }
+                          else{
+                            selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..add(data.categoryId!);
+                          }
+                        },
+                        child: Column(
+                          children: [
+                            if(isSelectedForBulkDelete)...[
+                              Padding(
+                                padding: EdgeInsets.only(left: 20.w),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      selectedIdsState.contains(data.categoryId)?Icons.check_box:Icons.check_box_outline_blank,
+                                      color: selectedIdsState.contains(data.categoryId)? theme.colorScheme.primary:Colors.grey,
                                     ),
-                                  ),
-                                  PopupMenuItem(
-                                    value: "delete",
-                                    child: Row(
-                                      children: [
-                                        Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                        SizedBox(width: 12),
-                                        Text(
-                                          "Delete",
-                                          style: theme.textTheme.titleSmall?.copyWith(
-                                            color: Colors.red,
+                                    SizedBox(width: 10.w,),
+                                    Expanded(
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            color: theme.cardColor.withOpacity(0.92),
+                                            borderRadius: BorderRadius.circular(18.r),
+                                            border: Border.all(
+                                              color: theme.dividerColor.withOpacity(0.15),
+                                              width: 1,
+                                            ),
+                                            boxShadow: Theme.of(context).brightness == Brightness.dark
+                                                ? [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.4),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(0.05),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, -1),
+                                              ),
+                                            ] : [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.06),
+                                                blurRadius: 18,
+                                                offset: const Offset(0, 6),
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(0.4),
+                                                blurRadius: 10,
+                                                offset: const Offset(-2, -2),
+                                              ),
+                                            ],
                                           ),
+                                          child: ListTile(
+                                            tileColor: Colors.transparent,
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),),
+                                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                            leading: Container(
+                                              width: 45.w,
+                                              height: 45.h,
+                                              decoration: BoxDecoration(
+                                                borderRadius: BorderRadius.circular(14.r),
+                                                gradient: LinearGradient(
+                                                  colors: [
+                                                    data.color.withOpacity(0.9),
+                                                    data.color.withOpacity(0.6),
+                                                  ],
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: data.color.withOpacity(0.3),
+                                                    blurRadius: 12,
+                                                    spreadRadius: 1,
+                                                    offset: const Offset(0, 4),
+                                                  )
+                                                ],
+                                              ),
+                                              child: Icon(data.icon, color: Colors.white, size: 24),
+                                            ),
+                                            title: Text(
+                                              data.categoryName,
+                                              style: theme.textTheme.titleMedium?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),],
+                            if(!isSelectedForBulkDelete)...[
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 15, vertical: 6),
+                                child: GestureDetector(
+                                  onTap: ()=>categoryDetailsSheet(data),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: theme.cardColor.withOpacity(0.92),
+                                      borderRadius: BorderRadius.circular(18.r),
+                                      border: Border.all(
+                                        color: theme.dividerColor.withOpacity(0.15),
+                                        width: 1,
+                                      ),
+                                      boxShadow: Theme.of(context).brightness == Brightness.dark
+                                          ? [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.4),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                        BoxShadow(
+                                          color: Colors.white.withOpacity(0.05),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, -1),
+                                        ),
+                                      ] : [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.06),
+                                          blurRadius: 18,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                        BoxShadow(
+                                          color: Colors.white.withOpacity(0.4),
+                                          blurRadius: 10,
+                                          offset: const Offset(-2, -2),
                                         ),
                                       ],
                                     ),
+                                    child: ListTile(
+                                      tileColor: Colors.transparent,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14),),
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      leading: Container(
+                                        width: 45.w,
+                                        height: 45.h,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(14.r),
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              data.color.withOpacity(0.9),
+                                              data.color.withOpacity(0.6),
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: data.color.withOpacity(0.3),
+                                              blurRadius: 12,
+                                              spreadRadius: 1,
+                                              offset: const Offset(0, 4),
+                                            )
+                                          ],
+                                        ),
+                                        child: Icon(data.icon, color: Colors.white, size: 24),
+                                      ),
+                                      title: Text(
+                                        data.categoryName,
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      trailing: Container(
+                                        decoration: BoxDecoration(
+                                          color: theme.cardColor.withOpacity(0.5),
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: PopupMenuButton(
+                                          color: theme.cardColor,
+                                          elevation: 8,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(12),
+                                          ),
+                                          icon: Icon(Icons.more_horiz, size: 20),
+                                          onSelected: (value) {
+                                            if (value == "edit") {
+                                              editCategory(data);
+                                            } else if (value == "delete") {
+                                              categoryNotifier.deleteCategory(data.categoryId!);
+                                            }
+                                          },
+                                          itemBuilder: (context) => [
+                                            PopupMenuItem(
+                                              value: "edit",
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.edit_outlined, size: 18),
+                                                  SizedBox(width: 12),
+                                                  Text("Edit", style: theme.textTheme.titleSmall),
+                                                ],
+                                              ),
+                                            ),
+                                            PopupMenuItem(
+                                              value: "delete",
+                                              child: Row(
+                                                children: [
+                                                  Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                                  SizedBox(width: 12),
+                                                  Text(
+                                                    "Delete",
+                                                    style: theme.textTheme.titleSmall?.copyWith(
+                                                      color: Colors.red,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                ],
-                              ),
-                            ),
-                          ),
+                                ),
+                              )
+                            ],
+                          ],
                         ),
                       )),
                       SizedBox(height: 10.h,),
@@ -1269,7 +1956,47 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with SingleTick
         ],
       ),
 
-      floatingActionButton: SlideTransition(
+      floatingActionButton: isSelectedForBulkDelete?
+      ScaleTransition(
+        scale: _bulkDeleteFABAnimation,
+        child: Container(
+          height: 64.h,
+          width: 64.w,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18.r),
+            gradient: LinearGradient(
+              colors: [
+                Colors.red.withOpacity(0.9),
+                Colors.red.withOpacity(0.6),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.red.withOpacity(0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: bulkDeleteAlert,
+              borderRadius: BorderRadius.circular(18),
+              child: Center(
+                child: Icon(
+                  Icons.delete,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+      :SlideTransition(
         position: _fabAnimation,
         child: Container(
           height: 64.h,
@@ -1299,7 +2026,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with SingleTick
               borderRadius: BorderRadius.circular(18),
               child: Center(
                 child: Icon(
-                  Icons.new_label,
+                  Icons.sell,
                   color: Colors.white,
                   size: 32,
                 ),

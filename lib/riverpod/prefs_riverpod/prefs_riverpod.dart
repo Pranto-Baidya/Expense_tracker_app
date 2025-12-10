@@ -23,5 +23,25 @@ class PrefsNotifier extends StateNotifier<bool>{
     await preferences.setBool('notification', value);
     state = value;
   }
+}
 
+final tipPrefProvider = StateNotifierProvider<TipPrefNotifier, bool>((ref) {
+  return TipPrefNotifier();
+});
+
+class TipPrefNotifier extends StateNotifier<bool> {
+  TipPrefNotifier() : super(true) {
+    _loadTip();
+  }
+
+  Future<void> _loadTip() async {
+    final prefs = await SharedPreferences.getInstance();
+    state = prefs.getBool('save') ?? true;
+  }
+
+  Future<void> save(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('save', value);
+    state = value;
+  }
 }

@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/save_record_filter/save_record_filter.dart';
+import 'package:expense_tracker_app/screens/all_screens.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -114,6 +116,7 @@ class _BalanceDashboardState extends ConsumerState<BalanceDashboard> with Ticker
 
   @override
   Widget build(BuildContext context) {
+
     final totalExpenseState = ref.watch(totalExpenseProvider);
     final totalIncomeState = ref.watch(totalIncomeProvider);
     final totalMoneyState = ref.watch(totalMoneyProvider);
@@ -198,6 +201,10 @@ class _BalanceDashboardState extends ConsumerState<BalanceDashboard> with Ticker
   }
 
   Widget _buildMonthNavigation() {
+
+    final activeFilterOption = ref.watch(saveRecordFilterProvider);
+    final recordState = ref.watch(expenseProvider);
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 12.h),
       decoration: BoxDecoration(
@@ -221,18 +228,40 @@ class _BalanceDashboardState extends ConsumerState<BalanceDashboard> with Ticker
           _buildNavigationButton(
             icon: Icons.chevron_left_rounded,
             onPressed: () {
-              widget.dateNotifier.state = DateTime(
-                widget.dateNotifier.state.year,
-                widget.dateNotifier.state.month - 1,
-              );
-              ref.read(expenseProvider.notifier).filterRecordsByMonth(
-                widget.dateNotifier.state,
-                widget.timeNotifier?.state ?? TimeOfDay.now(),
-              );
+              if(activeFilterOption==FilterRecordOptions.daily){
+                widget.dateNotifier.state = widget.dateNotifier.state.subtract(Duration(days: 1));
+                ref.read(expenseProvider.notifier).filterRecordsByDay(widget.dateNotifier.state);
+              }
+              else if(activeFilterOption==FilterRecordOptions.weekly){
+                final newDate = widget.dateNotifier.state.subtract(const Duration(days: 7));
+                widget.dateNotifier.state = newDate;
+                ref.read(expenseProvider.notifier).setActiveFilter('weekly');
+                ref.read(expenseProvider.notifier).filterRecordsByWeek(newDate);
+              }
+              else if(activeFilterOption==FilterRecordOptions.yearly){
+                widget.dateNotifier.state = DateTime(widget.dateNotifier.state.year-1,widget.dateNotifier.state.month, widget.dateNotifier.state.day,);
+                ref.read(expenseProvider.notifier).filterRecordsByYear(widget.dateNotifier.state);
+              }
+              else{
+                widget.dateNotifier.state = DateTime(
+                  widget.dateNotifier.state.year,
+                  widget.dateNotifier.state.month - 1,
+                );
+                ref.read(expenseProvider.notifier).filterRecordsByMonth(
+                  widget.dateNotifier.state,
+                  widget.timeNotifier?.state ?? TimeOfDay.now(),
+                );
+              }
             },
           ),
           Text(
-            DateFormat('MMMM yyyy').format(widget.dateNotifier.state),
+            activeFilterOption==FilterRecordOptions.daily
+                ? DateFormat('MMM, dd').format(widget.dateNotifier.state)
+                : activeFilterOption==FilterRecordOptions.weekly
+                ? "${DateFormat('MMM dd').format(recordState.weekStart)} - ${DateFormat('MMM dd').format(recordState.weekEnd)}"
+                : activeFilterOption==FilterRecordOptions.yearly
+                ? DateFormat('yyyy').format(widget.dateNotifier.state)
+                : DateFormat('MMMM, yyyy').format(widget.dateNotifier.state),
             style: TextStyle(
               color: Colors.white,
               fontSize: 20.sp,
@@ -242,14 +271,31 @@ class _BalanceDashboardState extends ConsumerState<BalanceDashboard> with Ticker
           _buildNavigationButton(
             icon: Icons.chevron_right_rounded,
             onPressed: () {
-              widget.dateNotifier.state = DateTime(
-                widget.dateNotifier.state.year,
-                widget.dateNotifier.state.month + 1,
-              );
-              ref.read(expenseProvider.notifier).filterRecordsByMonth(
-                widget.dateNotifier.state,
-                widget.timeNotifier?.state ?? TimeOfDay.now(),
-              );
+              if(activeFilterOption==FilterRecordOptions.daily){
+                widget.dateNotifier.state = widget.dateNotifier.state.add(Duration(days: 1));
+                ref.read(expenseProvider.notifier).filterRecordsByDay(widget.dateNotifier.state);
+              }
+              else if(activeFilterOption==FilterRecordOptions.weekly){
+                final newDate = widget.dateNotifier.state.add(const Duration(days: 7));
+                widget.dateNotifier.state = newDate;
+                ref.read(expenseProvider.notifier).setActiveFilter('weekly');
+                ref.read(expenseProvider.notifier).filterRecordsByWeek(newDate);
+              }
+              else if(activeFilterOption==FilterRecordOptions.yearly){
+                widget.dateNotifier.state = DateTime(widget.dateNotifier.state.year+1,widget.dateNotifier.state.month,widget.dateNotifier.state.day);
+                ref.read(expenseProvider.notifier).filterRecordsByYear(widget.dateNotifier.state);
+
+              }
+              else{
+                widget.dateNotifier.state = DateTime(
+                  widget.dateNotifier.state.year,
+                  widget.dateNotifier.state.month + 1,
+                );
+                ref.read(expenseProvider.notifier).filterRecordsByMonth(
+                  widget.dateNotifier.state,
+                  widget.timeNotifier?.state ?? TimeOfDay.now(),
+                );
+              }
             },
           ),
         ],

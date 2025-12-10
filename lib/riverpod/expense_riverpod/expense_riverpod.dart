@@ -9,6 +9,7 @@ import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import 'package:intl/intl.dart';
 
 final totalExpenseProvider = StateProvider<double>((ref)=>0);
 final totalIncomeProvider = StateProvider<double>((ref)=>0);
@@ -24,8 +25,11 @@ class ExpenseState{
   final bool isLoading;
   final bool hasMore;
   final int offset;
-  final DateTime? selectedDate;
-  final TimeOfDay? selectedTime;
+  final DateTime selectedDate;
+  final TimeOfDay selectedTime;
+  final DateTime weekStart; 
+  final DateTime weekEnd;
+  final String activeFilter;
 
   ExpenseState({
     this.expenses = const [],
@@ -35,9 +39,26 @@ class ExpenseState{
     this.hasMore = true,
     this.offset = 0,
     DateTime? selectedDate,
-    TimeOfDay? selectedTime
+    TimeOfDay? selectedTime,
+    DateTime? weekStart,  
+    DateTime? weekEnd,
+    this.activeFilter = 'monthly'
   }):selectedDate = selectedDate ?? DateTime.now(),
-     selectedTime = selectedTime ?? TimeOfDay.now();
+        selectedTime = selectedTime ?? TimeOfDay.now(),
+        weekStart = weekStart ?? _getWeekStart(selectedDate),
+        weekEnd = weekEnd ??_getWeekEnd(selectedDate);     
+
+  
+  static DateTime _getWeekStart(DateTime? date) {
+    final currentDate = date ?? DateTime.now();
+    final int dayNo = currentDate.weekday;
+    return currentDate.subtract(Duration(days: dayNo - 1));
+  }
+
+  static DateTime _getWeekEnd(DateTime? date) {
+    final weekStart = _getWeekStart(date);
+    return weekStart.add(Duration(days: 6));
+  }
 
   ExpenseState copyWith({
     List<ExpenseModel>? expenses,
@@ -47,8 +68,14 @@ class ExpenseState{
     bool? hasMore,
     int? offset,
     DateTime? selectedDate,
-    TimeOfDay? selectedTime
-  }){
+    TimeOfDay? selectedTime,
+    DateTime? weekStart,
+    DateTime? weekEnd,
+    String? activeFilter,
+  }) {
+
+    final newSelectedDate = selectedDate ?? this.selectedDate;
+
     return ExpenseState(
       expenses: expenses ?? this.expenses,
       filteredRecord: filteredRecord ?? this.filteredRecord,
@@ -56,10 +83,14 @@ class ExpenseState{
       isLoading: isLoading ?? this.isLoading,
       hasMore: hasMore ?? this.hasMore,
       offset: offset ?? this.offset,
-      selectedDate: selectedDate ?? this.selectedDate,
-      selectedTime: selectedTime ?? this.selectedTime
+      selectedDate: newSelectedDate,
+      selectedTime: selectedTime ?? this.selectedTime,
+      weekStart: weekStart ?? this.weekStart,
+      weekEnd:   weekEnd ?? this.weekEnd,
+      activeFilter: activeFilter ?? this.activeFilter,
     );
   }
+
 }
 
 class ExpenseNotifier extends StateNotifier<ExpenseState>{
@@ -82,9 +113,8 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
       isLoading: false,
     );
 
-    filterRecordsByMonth(state.selectedDate!, state.selectedTime!);
+    filterRecordsByMonth(state.selectedDate, state.selectedTime);
   }
-
 
   Future<void> insertExpense(ExpenseModel expense)async{
 
@@ -103,23 +133,47 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
 
     state = state.copyWith(expenses: [newExpense,...state.expenses]);
 
-    if (state.selectedDate != null && state.selectedTime != null) {
-      filterRecordsByMonth(state.selectedDate!, state.selectedTime!);
+    // Apply the current active filter instead of always monthly
+    switch(state.activeFilter) {
+      case 'daily':
+        filterRecordsByDay(state.selectedDate);
+        break;
+      case 'weekly':
+        filterRecordsByWeek(state.selectedDate);
+        break;
+      case 'yearly':
+        filterRecordsByYear(state.selectedDate);
+        break;
+      default:
+        filterRecordsByMonth(state.selectedDate, state.selectedTime);
+        break;
     }
-
   }
+
 
 
   Future<void> updateExpense(ExpenseModel expense)async{
     await databaseConnection.updateExpenses(expense);
 
     state = state.copyWith(
-      expenses: state.expenses.map((e)=>e.id==expense.id? expense : e).toList()
+        expenses: state.expenses.map((e)=>e.id==expense.id? expense : e).toList()
     );
-    if (state.selectedDate != null && state.selectedTime != null) {
-      filterRecordsByMonth(state.selectedDate!, state.selectedTime!);
-    }
 
+    // Apply the current active filter instead of always monthly
+    switch(state.activeFilter) {
+      case 'daily':
+        filterRecordsByDay(state.selectedDate);
+        break;
+      case 'weekly':
+        filterRecordsByWeek(state.selectedDate);
+        break;
+      case 'yearly':
+        filterRecordsByYear(state.selectedDate);
+        break;
+      default:
+        filterRecordsByMonth(state.selectedDate, state.selectedTime);
+        break;
+    }
   }
 
   Future<void> deleteExpense(int id) async {
@@ -207,6 +261,41 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     _calculateTotals();
   }
 
+  void setActiveFilter(String currentFilter){
+    state = state.copyWith(activeFilter: currentFilter);
+  }
+
+  Future<void> bulkDeleteSelectedRecords(List<int> allIds) async {
+    if (allIds.isEmpty) {
+      return;
+    }
+
+    final idsToDelete = List<int>.from(allIds);
+
+    for (var id in idsToDelete) {
+      try {
+        await deleteExpense(id);
+      } catch (e) {
+        debugPrint("Failed to delete record $id: $e");
+      }
+    }
+
+    switch(state.activeFilter) {
+      case 'daily':
+        filterRecordsByDay(state.selectedDate);
+        break;
+      case 'weekly':
+        filterRecordsByWeek(state.selectedDate);
+        break;
+      case 'yearly':
+        filterRecordsByYear(state.selectedDate);
+        break;
+      default:
+        filterRecordsByMonth(state.selectedDate, state.selectedTime);
+        break;
+    }
+  }
+
   void searchForRecords(String query){
     if(query.isEmpty){
       state = state.copyWith(
@@ -235,6 +324,56 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     );
     _calculateTotals();
   }
+
+  void filterRecordsByDay(DateTime selectedDay){
+    final filtered = state.expenses.where((date){
+      return date.date.year==selectedDay.year && date.date.day == selectedDay.day;
+    }).toList();
+    state = state.copyWith(
+      selectedDate: selectedDay,
+      filteredRecord: filtered
+    );
+    _calculateTotals();
+  }
+
+  void filterRecordsByYear(DateTime selectedYear){
+    final filtered = state.expenses.where((date)=>date.date.year==selectedYear.year).toList();
+    state = state.copyWith(
+      selectedDate: selectedYear,
+      filteredRecord: filtered
+    );
+    _calculateTotals();
+  }
+
+  void filterRecordsByWeek(DateTime selectedWeek) {
+    final int dayNo = selectedWeek.weekday;
+
+    final DateTime weekStart = selectedWeek.subtract(Duration(days: dayNo - 1));
+    final DateTime weekEnd = weekStart.add(Duration(days: 6));
+
+    final normalizedWeekStart = DateTime(weekStart.year, weekStart.month, weekStart.day);
+    final normalizedWeekEnd = DateTime(weekEnd.year, weekEnd.month, weekEnd.day, 23, 59, 59);
+
+    final filtered = state.expenses.where((exp) {
+      final normalizedExpDate = DateTime(exp.date.year, exp.date.month, exp.date.day);
+
+      final isInRange = normalizedExpDate.compareTo(normalizedWeekStart) >= 0 && normalizedExpDate.compareTo(normalizedWeekEnd) <= 0;
+
+      return isInRange;
+    }).toList();
+
+
+    state = state.copyWith(
+      selectedDate: selectedWeek,
+      weekStart: weekStart,
+      weekEnd: weekEnd,
+      filteredRecord: filtered,
+    );
+
+    _calculateTotals();
+  }
+
+
 
   void _calculateTotals(){
     double totalExpense = 0;

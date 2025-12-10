@@ -4,6 +4,7 @@ import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
@@ -77,17 +78,19 @@ class CardNotifier extends StateNotifier<CardState>{
 
     final existingCard = state.cards.firstWhere((c) => c.id == card.id);
 
-    double newProgress = existingCard.progress;
-    if (existingCard.initialAmount > 0) {
-      double spent = existingCard.initialAmount - existingCard.amount;
-      newProgress = (spent / (card.initialAmount == 0 ? 1 : card.initialAmount)).clamp(0.0, 1.0);
+    final initialAmount = card.initialAmount > 0 ? card.initialAmount : existingCard.initialAmount;
+
+    double newProgress = 0.0;
+    if (initialAmount > 0) {
+      double spent = initialAmount - card.amount;
+      newProgress = (spent / initialAmount).clamp(0.0, 1.0);
     }
 
     final updatedCard = CardModel(
       id: card.id,
       cardName: card.cardName,
       amount: card.amount,
-      initialAmount: card.initialAmount,
+      initialAmount: initialAmount,
       icon: card.icon,
       moneyType: card.moneyType,
       progress: newProgress,
@@ -101,6 +104,7 @@ class CardNotifier extends StateNotifier<CardState>{
 
     state = state.copyWith(cards: updatedCards, isLoading: false);
   }
+
 
   Future<void> deleteCard(int id)async{
 
@@ -126,6 +130,21 @@ class CardNotifier extends StateNotifier<CardState>{
     );
   }
 
+  Future<void> bulkDeleteCards(List<int> allAccIds)async{
+    if(allAccIds.isEmpty) return;
+
+    final idsToDelete = List<int>.from(allAccIds);
+
+    for(var id in idsToDelete){
+      try{
+        await deleteCard(id);
+      }
+      catch(e){
+        debugPrint('Error: $id: ${e.toString()}');
+      }
+    }
+  }
+
   void calculateTotalAmountInAccount() async {
 
     final selectedAccountId = _ref.read(selectedAccountProvider);
@@ -149,10 +168,9 @@ class CardNotifier extends StateNotifier<CardState>{
       updatedAmount -= enteredAmount;
     } else if (moneyType == MoneyType.income) {
       updatedAmount += enteredAmount;
-      updatedInitialAmount += enteredAmount; // Increase initial amount too
+      updatedInitialAmount += enteredAmount;
     }
 
-    // Calculate progress: (initial - current) / initial
     final spent = updatedInitialAmount - updatedAmount;
     progress = (spent / updatedInitialAmount).clamp(0.0, 1.0);
 

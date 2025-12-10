@@ -120,23 +120,34 @@ class PreMadeCategoryNotifier extends StateNotifier<PreMadeCategoryState>{
 
   PreMadeCategoryNotifier() : super(PreMadeCategoryState.defaultCategories());
 
-  Future<void> initializePreMadeCategories(WidgetRef ref)async{
+  Future<void> initializePreMadeCategories(WidgetRef ref) async {
+
     SharedPreferences preferences = await SharedPreferences.getInstance();
-    
-    bool hasInserted = preferences.getBool('hasInsertedDefaultCategories') ?? false;
 
-    if(!hasInserted){
-      final categoryNotifier = ref.read(categoryProvider.notifier);
+    final categoryNotifier = ref.read(categoryProvider.notifier);
 
-      for(var c in state.preMadeIncomeCategories){
+    await categoryNotifier.getAllCategories();
+
+    final existingCategories = ref.read(categoryProvider).allCategories;
+
+    if (existingCategories.isNotEmpty) {
+      await preferences.setBool("hasInsertedDefaultCategories", true);
+      return;
+    }
+
+    bool hasInserted = preferences.getBool("hasInsertedDefaultCategories") ?? false;
+
+    if (!hasInserted) {
+      for (var c in state.preMadeIncomeCategories) {
         await categoryNotifier.addCategory(c);
       }
 
-      for(var c in state.preMadeExpenseCategories){
+      for (var c in state.preMadeExpenseCategories) {
         await categoryNotifier.addCategory(c);
       }
 
       await preferences.setBool("hasInsertedDefaultCategories", true);
     }
   }
+
 }

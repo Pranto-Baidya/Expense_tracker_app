@@ -15,6 +15,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 final selectedIconProvider = StateProvider<IconData>((ref)=>Icons.credit_card);
 final typingProvider = StateProvider<bool>((ref)=>false);
 final accountEditingProvider = StateProvider<bool>((ref)=>false);
+final isIdSelectedForBulkDeleteProvider = StateProvider<bool>((ref)=>false);
+final selectedIdsProvider = StateProvider<Set<int>>((ref)=>{});
 
 
 class AccountsScreen extends ConsumerStatefulWidget {
@@ -24,7 +26,7 @@ class AccountsScreen extends ConsumerStatefulWidget {
   _StatsScreenState createState() => _StatsScreenState();
 }
 
-class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerProviderStateMixin{
+class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProviderStateMixin{
 
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
@@ -35,6 +37,10 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
   late AnimationController _animationController;
 
   late Animation<Offset> _fabAnimation;
+
+  late AnimationController _bulkDeleteFABController;
+
+  late Animation<double> _bulkDeleteFABAnimation;
 
   double _lastScrollPosition = 0;
   bool _isFABVisible = true;
@@ -49,6 +55,13 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
 
     _fabAnimation = Tween<Offset>(begin: Offset.zero,end: Offset(0, 1.5)).animate(CurvedAnimation(parent: _animationController, curve: Curves.fastOutSlowIn));
 
+    _bulkDeleteFABController = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: 500)
+    );
+
+    _bulkDeleteFABAnimation = Tween<double>(begin: 0,end: 1).animate(CurvedAnimation(parent: _bulkDeleteFABController, curve: Curves.fastOutSlowIn));
+
     WidgetsBinding.instance.addPostFrameCallback((_){
       ref.read(cardsProvider.notifier).getCards();
     });
@@ -59,6 +72,8 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
 
   @override
   void dispose() {
+    _animationController.dispose();
+    _bulkDeleteFABController.dispose();
     _nameController.removeListener(()=>checkTyping(ref));
     _amountController.removeListener(()=>checkTyping(ref));
     super.dispose();
@@ -70,11 +85,11 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
       final currentScrollPosition = scrollInfo.metrics.pixels;
       final scrollDelta = currentScrollPosition - _lastScrollPosition;
 
-      if(scrollDelta>10 && _isFABVisible){
+      if(scrollDelta>8 && _isFABVisible){
         _animationController.forward();
         _isFABVisible = false;
       }
-      else if(scrollDelta<-10 && !_isFABVisible){
+      else if(scrollDelta<-8 && !_isFABVisible){
         _animationController.reverse();
         _isFABVisible = true;
       }
@@ -123,7 +138,47 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
             Icons.savings_outlined,
             Icons.money,
             Icons.wallet_outlined,
-            Icons.phone_iphone_sharp
+            Icons.phone_iphone_sharp,
+            Icons.payment,
+            Icons.account_balance_wallet,
+            Icons.card_membership,
+            Icons.card_giftcard,
+            Icons.card_travel,
+            Icons.attach_money,
+            Icons.monetization_on,
+            Icons.point_of_sale,
+            Icons.receipt_long,
+            Icons.account_balance,
+            Icons.savings,
+            Icons.account_tree,
+            Icons.account_box,
+            Icons.trending_up,
+            Icons.trending_down,
+            Icons.currency_exchange,
+            Icons.price_check,
+            Icons.request_page,
+            Icons.fact_check,
+            Icons.money_off_csred_rounded,
+            Icons.local_atm,
+            Icons.wallet,
+            Icons.currency_bitcoin,
+            Icons.phone_android,
+            Icons.smartphone,
+            Icons.phonelink_setup,
+            Icons.devices,
+            Icons.contact_phone,
+            Icons.mobile_friendly,
+            Icons.qr_code,
+            Icons.qr_code_scanner,
+            Icons.nfc,
+            Icons.receipt,
+            Icons.shopping_bag,
+            Icons.shopping_cart,
+            Icons.store,
+            Icons.storefront,
+            Icons.shopping_basket,
+            Icons.add_shopping_cart,
+            Icons.sell,
           ];
           return Consumer(
               builder: (context,ref,_){
@@ -234,18 +289,18 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
       ref.read(selectedIconProvider.notifier).state=Icons.credit_card;
     });
   }
-  
+
   void editCardDialogue(CardModel card){
 
     ref.read(typingProvider.notifier).state = false;
     ref.read(accountEditingProvider.notifier).state = true;
-    
+
     _editNameController.text = card.cardName;
     _editAmountController.text = card.amount.toString();
     ref.read(selectedIconProvider.notifier).state = card.icon;
-    
+
     showDialog(
-        context: context, 
+        context: context,
         builder: (context){
           var theme = Theme.of(context);
 
@@ -254,7 +309,47 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
             Icons.savings_outlined,
             Icons.money,
             Icons.wallet_outlined,
-            Icons.phone_iphone_sharp
+            Icons.phone_iphone_sharp,
+            Icons.payment,
+            Icons.account_balance_wallet,
+            Icons.card_membership,
+            Icons.card_giftcard,
+            Icons.card_travel,
+            Icons.attach_money,
+            Icons.monetization_on,
+            Icons.point_of_sale,
+            Icons.receipt_long,
+            Icons.account_balance,
+            Icons.savings,
+            Icons.account_tree,
+            Icons.account_box,
+            Icons.trending_up,
+            Icons.trending_down,
+            Icons.currency_exchange,
+            Icons.price_check,
+            Icons.request_page,
+            Icons.fact_check,
+            Icons.money_off_csred_rounded,
+            Icons.local_atm,
+            Icons.wallet,
+            Icons.currency_bitcoin,
+            Icons.phone_android,
+            Icons.smartphone,
+            Icons.phonelink_setup,
+            Icons.devices,
+            Icons.contact_phone,
+            Icons.mobile_friendly,
+            Icons.qr_code,
+            Icons.qr_code_scanner,
+            Icons.nfc,
+            Icons.receipt,
+            Icons.shopping_bag,
+            Icons.shopping_cart,
+            Icons.store,
+            Icons.storefront,
+            Icons.shopping_basket,
+            Icons.add_shopping_cart,
+            Icons.sell,
           ];
 
           return Consumer(
@@ -269,7 +364,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
                       IconButton(
                           onPressed: (){
                             Navigator.pop(context);
-                          }, 
+                          },
                           icon: Icon(Icons.close,color: theme.colorScheme.primary,size: 30,)
                       )
                     ],
@@ -292,7 +387,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
                         controller: _editAmountController,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
-                            hintText: 'Initial amount',
+                            hintText: 'Current balance',
                             hintStyle: theme.textTheme.titleSmall?.copyWith(color: AppColors.hintTextColor)
                         ),
                         onChanged: (_)=>checkTyping(ref,card: card),
@@ -317,7 +412,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
                                   selectedColor: theme.colorScheme.primary,
                                   onSelected: (selected){
                                     selectedIconNotifier.state = icon;
-                                    checkTyping(ref);
+                                    checkTyping(ref, card: card);
                                   },
                                 ),
                               );
@@ -346,7 +441,10 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
                                 id: card.id,
                                 cardName: _editNameController.text,
                                 amount: double.parse(_editAmountController.text),
-                                icon: ref.read(selectedIconProvider.notifier).state
+                                initialAmount: card.initialAmount,
+                                icon: ref.read(selectedIconProvider.notifier).state,
+                                moneyType: card.moneyType,
+                                progress: card.progress
                             );
                             ref.read(cardsProvider.notifier).updateCard(newData);
                             Navigator.pop(context);
@@ -364,8 +462,39 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
       ref.read(accountEditingProvider.notifier).state = false;
       ref.read(typingProvider.notifier).state = false;
     });
-    
+
   }
+
+  void bulkDeleteAlert(){
+    showDialog(
+        context: context,
+        builder: (BuildContext context){
+          return AlertDialog(
+            backgroundColor: Theme.of(context).cardColor,
+            title: Text('Delete selected records?',style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18),),
+            content: Text('This can not be undone.',style: Theme.of(context).textTheme.titleSmall,),
+            actions: [
+              TextButton(
+                  onPressed: (){
+                    Navigator.pop(context);
+                  },
+                  child: Text('Cancel',style: Theme.of(context).textTheme.titleMedium,)
+              ),
+              TextButton(
+                  onPressed: (){
+                    ref.read(cardsProvider.notifier).bulkDeleteCards(ref.read(selectedIdsProvider).toList());
+                    ref.read(selectedIdsProvider).clear();
+                    ref.read(isIdSelectedForBulkDeleteProvider.notifier).state = false;
+                    Navigator.pop(context);
+                  },
+                  child: Text('Delete',style: Theme.of(context).textTheme.titleMedium,)
+              ),
+            ],
+          );
+        }
+    );
+  }
+
 
 
   @override
@@ -415,8 +544,8 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
                                 if(cardState.cards.isEmpty){
                                   return Center(
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
+                                        SizedBox(height: 80.h,),
                                         Icon(Icons.credit_card_off_outlined,color: theme.colorScheme.primary,size: 100,),
                                         SizedBox(height: 24.h,),
                                         Text('No accounts yet',style: theme.textTheme.titleLarge,),
@@ -444,17 +573,75 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
                                           amount = data.amount;
                                         }
 
-                                        return AccountsWidget(
-                                            title: data.cardName,
-                                            amount: amount,
-                                            icon: data.icon,
-                                            value: data.progress,
-                                            onEdit: (){
-                                              editCardDialogue(data);
-                                            },
-                                            onDelete: (){
-                                              ref.read(cardsProvider.notifier).deleteCard(data.id!);
+                                        return GestureDetector(
+                                          onLongPress: (){
+                                            ref.read(isIdSelectedForBulkDeleteProvider.notifier).state = true;
+                                            final val = ref.read(selectedIdsProvider);
+                                            ref.read(selectedIdsProvider.notifier).state = Set<int>.from(val)..add(data.id!);
+                                            if(ref.read(selectedIdsProvider.notifier).state.length==1) {
+                                              _bulkDeleteFABController.forward(from: 0);
                                             }
+                                          },
+                                          onTap: (){
+                                            final val = ref.read(selectedIdsProvider);
+                                            if(val.contains(data.id)){
+                                              final newSet = Set<int>.from(val)..remove(data.id);
+                                              ref.read(selectedIdsProvider.notifier).state = newSet;
+                                              if(ref.read(selectedIdsProvider.notifier).state.isEmpty){
+                                                ref.read(isIdSelectedForBulkDeleteProvider.notifier).state = false;
+                                                _bulkDeleteFABController.reverse();
+                                              }
+                                            }
+                                            else{
+                                              final val = ref.read(selectedIdsProvider);
+                                              ref.read(selectedIdsProvider.notifier).state = Set<int>.from(val)..add(data.id!);
+                                            }
+                                          },
+                                          child: Column(
+                                            children: [
+                                              if(ref.watch(isIdSelectedForBulkDeleteProvider))...[
+                                                Row(
+                                                  children: [
+                                                    Center(
+                                                      child: Icon(
+                                                          ref.watch(selectedIdsProvider).contains(data.id!)?Icons.check_box:Icons.check_box_outline_blank,
+                                                          color: ref.watch(selectedIdsProvider).contains(data.id)?theme.colorScheme.primary:Colors.grey,
+                                                      )
+                                                    ),
+                                                    SizedBox(width: 15.w,),
+                                                    Expanded(
+                                                      child: AccountsWidget(
+                                                          title: data.cardName,
+                                                          amount: amount,
+                                                          icon: data.icon,
+                                                          value: data.progress,
+                                                          onEdit: (){
+                                                            editCardDialogue(data);
+                                                          },
+                                                          onDelete: (){
+                                                            ref.read(cardsProvider.notifier).deleteCard(data.id!);
+                                                          }
+                                                      ),
+                                                    ),
+                                                  ],
+                                                )
+                                              ],
+                                              if(!ref.watch(isIdSelectedForBulkDeleteProvider))...[
+                                                AccountsWidget(
+                                                    title: data.cardName,
+                                                    amount: amount,
+                                                    icon: data.icon,
+                                                    value: data.progress,
+                                                    onEdit: (){
+                                                      editCardDialogue(data);
+                                                    },
+                                                    onDelete: (){
+                                                      ref.read(cardsProvider.notifier).deleteCard(data.id!);
+                                                    }
+                                                ),
+                                              ]
+                                            ],
+                                          ),
                                         );
                                       }
                                   ),
@@ -469,7 +656,47 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with SingleTickerP
           )
         ],
       ),
-      floatingActionButton: SlideTransition(
+      floatingActionButton: ref.read(isIdSelectedForBulkDeleteProvider)?
+      ScaleTransition(
+        scale: _bulkDeleteFABAnimation,
+        child: Container(
+          height: 64.h,
+          width: 64.w,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                Colors.red.withOpacity(0.9),
+                Colors.red.withOpacity(0.6),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(18.r),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.red.withOpacity(0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: bulkDeleteAlert,
+              borderRadius: BorderRadius.circular(18),
+              child: Center(
+                child: Icon(
+                  Icons.delete,
+                  color: Colors.white,
+                  size: 32,
+                ),
+              ),
+            ),
+          ),
+        ),
+      )
+      :SlideTransition(
         position: _fabAnimation,
         child: Container(
           height: 64.h,

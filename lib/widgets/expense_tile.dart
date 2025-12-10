@@ -157,6 +157,51 @@ class ExpenseTile extends StatelessWidget {
                 ],
               ),
 
+              //SizedBox(height: 12.h),
+              
+              /*Padding(
+                padding: const EdgeInsets.only(left: 55),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 100.w,
+                      padding: EdgeInsets.only(left: 5,right: 5,top: 3,bottom: 3),
+                      decoration: BoxDecoration(
+                        color: bgColor.withOpacity(0.07),
+                        border: Border.all(color: bgColor),
+                        borderRadius: BorderRadius.circular(20.r)
+                      ),
+                      child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                          Icon(icon,size: 18,color: bgColor,),
+                          Text(expenseModel.category,style: theme.textTheme.titleSmall?.copyWith(color: bgColor),),
+                        ],
+                      )),
+                    ),
+                    SizedBox(width: 10.w,),
+                    Container(
+                      width: 100.w,
+                      padding: EdgeInsets.only(left: 5,right: 5,top: 3,bottom: 3),
+                      decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.07),
+                          border: Border.all(color: theme.colorScheme.primary,),
+                          borderRadius: BorderRadius.circular(20.r)
+                      ),
+                      child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Icon(cardModel.icon,size: 18,color: theme.colorScheme.primary,),
+                              Text(cardModel.cardName,style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary,),),
+                            ],
+                          )),
+                    )
+                  ],
+                ),
+              ),*/
+
               SizedBox(height: 18.h),
 
               Container(

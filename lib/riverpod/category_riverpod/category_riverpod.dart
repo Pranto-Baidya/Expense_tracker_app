@@ -1,6 +1,7 @@
 
 import 'package:expense_tracker_app/database/db_connection.dart';
 import 'package:expense_tracker_app/models/category_model.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
 import '../../screens/category_screen.dart';
@@ -125,6 +126,20 @@ class CategoryNotifier extends StateNotifier<CategoryState>{
       );
     } catch (e) {
       state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> bulkDeleteCategories(List<int> allCatIds)async{
+    if(allCatIds.isEmpty) return;
+
+    List<int> idsToDelete = List<int>.from(allCatIds);
+
+    for(var id in idsToDelete){
+      try{
+        await deleteCategory(id);
+      }catch(e){
+        debugPrint('Error: $id : ${e.toString()}');
+      }
     }
   }
 

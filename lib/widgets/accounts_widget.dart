@@ -179,7 +179,7 @@ class AccountsWidget extends ConsumerWidget {
                       value: value,
                       borderRadius: BorderRadius.circular(10),
                       backgroundColor: Colors.grey.shade200,
-                      color: value==1?Colors.redAccent:(value!>=0.8&&value!<1)?Colors.amber:theme.colorScheme.primary,
+                      color: value==1?Colors.redAccent:(value!>=0.8&&value!<1)?Colors.orange:theme.colorScheme.primary,
                     ),
                   ),
                   SizedBox(width: 15.w,),

@@ -1,6 +1,7 @@
 
 
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/category_riverpod/category_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
@@ -28,30 +29,6 @@ class SearchRecordsScreen extends ConsumerStatefulWidget {
 class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
   final TextEditingController _searchController = TextEditingController();
 
-  IconData icons(String category){
-    switch(category){
-      case 'Personal':
-        return Icons.person_outline;
-      case 'Family':
-        return Icons.groups_outlined;
-      case 'Food':
-        return Icons.fastfood_outlined;
-      case 'Shopping':
-        return Icons.shopping_bag_outlined;
-      case 'Transport':
-        return Icons.directions_car_outlined;
-      case 'Phone':
-        return Icons.phone_android_outlined;
-      case 'Bills':
-        return Icons.receipt_long_outlined;
-      case 'Rent':
-        return Icons.maps_home_work_outlined;
-      case 'Other':
-        return Icons.control_point_duplicate;
-      default: return Icons.control_point_duplicate;
-
-    }
-  }
 
   @override
   void dispose() {
@@ -174,10 +151,13 @@ class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
                           ),
                           SizedBox(height: 5.h,),
                           ...groupedSearches.map((data) {
+
+                            final matchedCategory = ref.watch(categoryProvider).allCategories.firstWhere((i)=>i.categoryName==data.category);
+
                             return ExpenseTile(
-                                bgColor: Colors.grey,
+                                bgColor: matchedCategory.color,
                                 expenseModel: data,
-                                icon: icons(data.category),
+                                icon: matchedCategory.icon,
                                 currency: ref.read(newCurrencyProvider).currency,
                                 onEdit: (){
                                   Navigator.pop(context,{
