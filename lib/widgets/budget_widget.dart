@@ -128,46 +128,50 @@ class _BudgetWidgetState extends ConsumerState<BudgetWidget>{
                     style: theme.textTheme.titleMedium?.copyWith(fontSize: 20),
                   ),
                 ),
-                PopupMenuButton(
-                  popUpAnimationStyle:
-                  const AnimationStyle(curve: Curves.easeInOut),
-                  color: theme.cardColor,
-                  elevation: 8,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
-                  itemBuilder: (context) {
-                    return [
-                      if(!isPastBudget)...[
+                Visibility(
+                  visible: !ref.watch(isSelectedBudgetForBulkDeleteProvider),
+                  replacement: SizedBox.shrink(),
+                  child: PopupMenuButton(
+                    popUpAnimationStyle:
+                    const AnimationStyle(curve: Curves.easeInOut),
+                    color: theme.cardColor,
+                    elevation: 8,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
+                    itemBuilder: (context) {
+                      return [
+                        if(!isPastBudget)...[
+                          PopupMenuItem(
+                            onTap: widget.onEdit,
+                            child: Row(
+                              children: [
+                                Icon(Icons.edit_outlined, size: 18),
+                                SizedBox(width: 12),
+                                Text("Edit", style: theme.textTheme.titleSmall),
+                              ],
+                            ),
+                          ),
+                        ],
                         PopupMenuItem(
-                          onTap: widget.onEdit,
+                          onTap: widget.onDelete,
                           child: Row(
                             children: [
-                              Icon(Icons.edit_outlined, size: 18),
+                              Icon(Icons.delete_outline, size: 18, color: Colors.red),
                               SizedBox(width: 12),
-                              Text("Edit", style: theme.textTheme.titleSmall),
+                              Text(
+                                "Delete",
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: Colors.red,
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                      ],
-                      PopupMenuItem(
-                        onTap: widget.onDelete,
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                            SizedBox(width: 12),
-                            Text(
-                              "Delete",
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                color: Colors.red,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ];
-                  },
+                      ];
+                    },
+                  ),
                 ),
               ],
             ),

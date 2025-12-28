@@ -2,15 +2,19 @@ import 'package:expense_tracker_app/models/budget_model.dart';
 import 'package:expense_tracker_app/models/category_model.dart';
 import 'package:expense_tracker_app/riverpod/budget_riverpod/budget_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/category_riverpod/category_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/budget_dashboard.dart';
 import 'package:expense_tracker_app/widgets/budget_widget.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
+import 'package:expense_tracker_app/widgets/listAnimation_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+
+import '../riverpod/prefs_riverpod/prefs_riverpod.dart';
 
 final checkBudgetTyping = StateProvider<bool>((ref)=>false);
 final budgetEditingProvider = StateProvider<bool>((ref)=>false);
@@ -18,6 +22,7 @@ final selectedDateProviderForBudgets = StateProvider<DateTime>((ref)=>DateTime.n
 final budgetTrackProvider = StateProvider<int>((ref)=>0);
 final selectedIdsForBulkDeleteProvider = StateProvider<Set<int>>((ref)=>{});
 final isSelectedBudgetForBulkDeleteProvider = StateProvider<bool>((ref)=>false);
+final budgetDashboardCollapsedProvider = StateProvider<bool>((ref)=>false);
 
 
 class BudgetScreen extends ConsumerStatefulWidget {
@@ -28,9 +33,12 @@ class BudgetScreen extends ConsumerStatefulWidget {
 }
 
 class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerProviderStateMixin{
+
   final TextEditingController _budgetController = TextEditingController();
+
   final TextEditingController _editBudgetController = TextEditingController();
 
+  final ScrollController _scrollController = ScrollController();
 
   List<String> categories = [
     'Personal',
@@ -48,12 +56,18 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
 
   late Animation<double> _bulkDeleteFABAnimation;
 
+  final double _expandedHeight = 244.0.h;
+
+  final double _collapsedHeight = 60.0.h;
+
   @override
   void initState() {
 
+    _scrollController.addListener(_onScroll);
+
     _bulkDeleteFABController = AnimationController(
         vsync: this,
-        duration: const Duration(milliseconds: 400)
+        duration: const Duration(milliseconds: 500)
     );
 
     _bulkDeleteFABAnimation = Tween<double>(begin: 0,end: 1).animate(CurvedAnimation(parent: _bulkDeleteFABController, curve: Curves.fastOutSlowIn));
@@ -69,11 +83,24 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _budgetController.removeListener(()=>checkForBudgetTyping(ref));
     _editBudgetController.removeListener(()=>checkForBudgetTyping(ref));
     _budgetController.dispose();
     _editBudgetController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll(){
+    final collapseState = ref.read(budgetDashboardCollapsedProvider);
+    final collapseNotifier = ref.read(budgetDashboardCollapsedProvider.notifier);
+
+    final isCollapsed = _scrollController.offset > 50;
+
+    if(isCollapsed!=collapseState){
+      collapseNotifier.state = isCollapsed;
+    }
   }
 
   void checkForBudgetTyping(WidgetRef ref,{BudgetModel? budget}){
@@ -325,31 +352,205 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
     });
   }
 
+  void deleteAlert(BudgetModel budget){
+    showDialog(
+        context: context,
+        builder: (BuildContext context){
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            backgroundColor: Theme.of(context).cardColor,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Delete budget',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Are you sure you want to delete this budget?\nThis action cannot be undone.',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: (){
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: (){
+                            ref.read(budgetProvider.notifier).deleteBudget(budget.id!);
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Delete',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+    );
+  }
+
   void bulkDeleteAlert(){
     showDialog(
         context: context,
         builder: (BuildContext context){
-          return AlertDialog(
+          final selectedIds = ref.read(selectedIdsForBulkDeleteProvider);
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             backgroundColor: Theme.of(context).cardColor,
-            title: Text('Delete selected records?',style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18),),
-            content: Text('This can not be undone.',style: Theme.of(context).textTheme.titleSmall,),
-            actions: [
-              TextButton(
-                  onPressed: (){
-                    Navigator.pop(context);
-                  },
-                  child: Text('Cancel',style: Theme.of(context).textTheme.titleMedium,)
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: selectedIds.length==1?Text(
+                          'Delete ${selectedIds.length} budget?',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontSize: 17,fontWeight: FontWeight.bold),
+                        ):Text(
+                          'Delete ${selectedIds.length} budgets?',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontSize: 17,fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'This action cannot be undone.',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: (){
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: (){
+                            ref.read(budgetProvider.notifier).bulkDeleteBudgets(selectedIds.toList());
+                            selectedIds.clear();
+                            ref.read(isSelectedBudgetForBulkDeleteProvider.notifier).state = false;
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Delete',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              TextButton(
-                  onPressed: (){
-                    ref.read(budgetProvider.notifier).bulkDeleteBudgets(ref.read(selectedIdsForBulkDeleteProvider).toList());
-                    ref.read(selectedIdsForBulkDeleteProvider).clear();
-                    ref.read(isSelectedBudgetForBulkDeleteProvider.notifier).state = false;
-                    Navigator.pop(context);
-                  },
-                  child: Text('Delete',style: Theme.of(context).textTheme.titleMedium,)
-              ),
-            ],
+            ),
           );
         }
     );
@@ -366,7 +567,7 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
     final budgetedCategories = budgetState.filteredBudgets.map((i)=>i.categoryName).toSet();
 
     final expenseCategories = ref.watch(categoryProvider);
-    
+
     final unbudgetedCategories = expenseCategories.allExpenseCategories.where((i){
       return !budgetedCategories.contains(i.categoryName);
     }).toList();
@@ -395,9 +596,514 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
 
     final selectedIdsNotifier = ref.read(selectedIdsForBulkDeleteProvider.notifier);
 
+    final isCollapseModeActivated = ref.watch(collapseDashboardPrefProvider);
+
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
-      body: Column(
+
+      body: isCollapseModeActivated? CustomScrollView(
+        controller: _scrollController,
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          SliverAppBar(
+            expandedHeight: _expandedHeight,
+            collapsedHeight: _collapsedHeight,
+            backgroundColor: theme.colorScheme.primary,
+            elevation: 0,
+            pinned: true,
+            automaticallyImplyLeading: false,
+            flexibleSpace: LayoutBuilder(
+              builder: (context, constraints) {
+
+                final double maxHeight = _expandedHeight;
+                final double minHeight = _collapsedHeight;
+                final double currentHeight = constraints.maxHeight;
+
+                final double collapseThreshold = minHeight + ((maxHeight - minHeight) * 0.3);
+                final bool isCurrentlyCollapsed = currentHeight <= collapseThreshold;
+
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  final currentState = ref.read(budgetDashboardCollapsedProvider);
+                  if (isCurrentlyCollapsed != currentState) {
+                    ref.read(budgetDashboardCollapsedProvider.notifier).state = isCurrentlyCollapsed;
+                  }
+                });
+
+                return AnimatedBudgetDashboard(
+                  isCollapsed: isCurrentlyCollapsed,
+                );
+              },
+            ),
+          ),
+
+          // Loading State
+          if (budgetState.isLoading && budgetState.filteredBudgets.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Container(
+                color: theme.cardColor,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+              ),
+            )
+
+          else if (isPastMonth && budgetedCategories.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Container(
+                width: double.infinity.w,
+                decoration: BoxDecoration(
+                  color: theme.cardColor,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(20.r),
+                    topRight: Radius.circular(20.r),
+                  ),
+                ),
+                child: Center(
+                  child: Column(
+                    children: [
+                      SizedBox(height: 80.h),
+                      Icon(Icons.event_busy, color: theme.colorScheme.primary, size: 100),
+                      SizedBox(height: 24.h),
+                      Text('Month expired', style: theme.textTheme.titleLarge),
+                      SizedBox(height: 8.h),
+                      Text('View past budget limits for comparison', style: theme.textTheme.bodyMedium),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          // In the CustomScrollView slivers section, replace the empty state conditions with this:
+
+          else if (budgetedCategories.isEmpty && !isPastMonth)...[
+              SliverToBoxAdapter(
+                child: SizedBox(height: 12.h),
+              ),
+              SliverFillRemaining(
+                child: Container(
+                  width: double.infinity.w,
+                  decoration: BoxDecoration(
+                    color: theme.cardColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20.r),
+                      topRight: Radius.circular(20.r),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 8.h),
+                    child: Column(
+                      children: [
+                        SizedBox(height: unbudgetedCategories.isEmpty ? 80.h : 20.h),
+                        Icon(Icons.note_add_outlined, color: theme.colorScheme.primary, size: 100),
+                        SizedBox(height: 24.h),
+                        Text('No budgets this month', style: theme.textTheme.titleLarge),
+                        SizedBox(height: 8.h),
+                        Text('Set a budget from the list below', style: theme.textTheme.bodyMedium),
+
+                        // Add unbudgeted categories here
+                        if (unbudgetedCategories.isNotEmpty) ...[
+                          SizedBox(height: 20.h),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              Container(
+                                width: 14,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.primary,
+                                  shape: BoxShape.circle,
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: theme.colorScheme.primary.withOpacity(0.4),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(width: 10.w),
+                              Text(
+                                'Not budgeted this month',
+                                style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                          SizedBox(height: 10.h),
+                          ...unbudgetedCategories.map((data) {
+                            final index = unbudgetedCategories.indexOf(data);
+                            return Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8.0),
+                              child: Container(
+                                padding: EdgeInsets.all(15),
+                                decoration: BoxDecoration(
+                                  color: theme.cardColor.withOpacity(0.92),
+                                  borderRadius: BorderRadius.circular(18.r),
+                                  border: Border.all(
+                                    color: theme.dividerColor.withOpacity(0.15),
+                                    width: 1,
+                                  ),
+                                  boxShadow: Theme.of(context).brightness == Brightness.dark
+                                      ? [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.4),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                    BoxShadow(
+                                      color: Colors.white.withOpacity(0.05),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, -1),
+                                    ),
+                                  ]
+                                      : [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.06),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                    BoxShadow(
+                                      color: Colors.white.withOpacity(0.4),
+                                      blurRadius: 10,
+                                      offset: const Offset(-2, -2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    ListAnimationWidget(
+                                      offset: const Offset(0, 0.3),
+                                      index: index,
+                                      child: Container(
+                                        height: 45.w,
+                                        width: 45.w,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(14.r),
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              data.color.withOpacity(0.9),
+                                              data.color.withOpacity(0.6),
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: data.color.withOpacity(0.3),
+                                              blurRadius: 12,
+                                              spreadRadius: 1,
+                                              offset: const Offset(0, 4),
+                                            )
+                                          ],
+                                        ),
+                                        child: Icon(data.icon, color: Colors.white, size: 22),
+                                      ),
+                                    ),
+                                    SizedBox(width: 20.w),
+                                    Text(data.categoryName, style: theme.textTheme.titleMedium),
+                                    const Spacer(),
+                                    ElevatedButton(
+                                      onPressed: () => addBudgetDialogue(data),
+                                      style: ElevatedButton.styleFrom(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(15.r),
+                                          side: BorderSide(color: theme.colorScheme.primary),
+                                        ),
+                                        backgroundColor: theme.cardColor,
+                                        minimumSize: const Size(100, 50),
+                                        elevation: 0,
+                                      ),
+                                      child: Text(
+                                        'Set budget',
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ]
+
+           else
+            SliverList(
+              delegate: SliverChildListDelegate([
+                SizedBox(height: 12.h),
+                Container(
+                  width: double.infinity.w,
+                  decoration: BoxDecoration(
+                    color: theme.cardColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20.r),
+                      topRight: Radius.circular(20.r),
+                    ),
+                  ),
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 15.w,vertical: 8.h),
+                    child: Column(
+                      children: [
+
+                        SizedBox(height: 10.h),
+
+                        // Budgeted Categories List
+                        if (budgetedCategories.isNotEmpty)
+                          ...sortedDates.expand((date) {
+                            final budgetsForDates = groupedBudgets[date]!;
+                            return [
+                              SizedBox(height: 10.h),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Container(
+                                    width: 14,
+                                    height: 14,
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primary,
+                                      shape: BoxShape.circle,
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: theme.colorScheme.primary.withOpacity(0.4),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(width: 10.w),
+                                  Text(
+                                    'Budgeted categories: ',
+                                    style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                  SizedBox(width: 5.w),
+                                  Text(
+                                    DateFormat('MMM, yyyy').format(date),
+                                    style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                              if (isPastMonth) SizedBox(height: 10.h),
+                              ...budgetsForDates.map((budget) {
+                                final matchedCategory = expenseCategories.allExpenseCategories.firstWhere(
+                                      (i) => i.categoryName == budget.categoryName,
+                                  orElse: () => CategoryModel(
+                                    categoryName: budget.categoryName,
+                                    icon: Icons.category,
+                                    color: Colors.grey,
+                                  ),
+                                );
+                                return GestureDetector(
+                                  onLongPress: () {
+                                    isSelectedForBulkDeleteNotifier.state = true;
+                                    selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..add(budget.id!);
+                                    if (selectedIdsNotifier.state.length == 1) {
+                                      _bulkDeleteFABController.forward(from: 0);
+                                    }
+                                  },
+                                  onTap: () {
+                                    if (isSelectedForBulkDelete) {
+                                      if (selectedIdsNotifier.state.contains(budget.id)) {
+                                        selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..remove(budget.id!);
+                                        if (selectedIdsNotifier.state.isEmpty) {
+                                          isSelectedForBulkDeleteNotifier.state = false;
+                                          _bulkDeleteFABController.reverse();
+                                        }
+                                      } else {
+                                        selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..add(budget.id!);
+                                      }
+                                    }
+                                  },
+                                  child: Column(
+                                    children: [
+                                      if (isSelectedForBulkDelete) ...[
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              selectedIdsState.contains(budget.id)
+                                                  ? Icons.check_box
+                                                  : Icons.check_box_outline_blank,
+                                              color: selectedIdsState.contains(budget.id)
+                                                  ? theme.colorScheme.primary
+                                                  : Colors.grey,
+                                            ),
+                                            SizedBox(width: 15.w),
+                                            Expanded(
+                                              child: BudgetWidget(
+                                                bgColor: matchedCategory.color,
+                                                icon: matchedCategory.icon,
+                                                budget: budget,
+                                                onEdit: () => editBudgetDialogue(budget, matchedCategory),
+                                                onDelete: () => deleteAlert(budget),
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      ],
+                                      if (!isSelectedForBulkDelete) ...[
+                                        ListAnimationWidget(
+                                          offset: const Offset(0, 0.3),
+                                          index: budgetsForDates.indexOf(budget),
+                                          child: BudgetWidget(
+                                            bgColor: matchedCategory.color,
+                                            icon: matchedCategory.icon,
+                                            budget: budget,
+                                            onEdit: () => editBudgetDialogue(budget, matchedCategory),
+                                            onDelete: () =>  deleteAlert(budget),
+                                          ),
+                                        ),
+                                      ]
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ];
+                          }),
+
+                        // Not Budgeted Categories Section
+                        if (!isPastMonth) ...[
+                          SizedBox(height: 20.h),
+                          if (unbudgetedCategories.isNotEmpty)
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: theme.colorScheme.primary.withOpacity(0.4),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                SizedBox(width: 10.w),
+                                Text(
+                                  'Not budgeted this month',
+                                  style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                          SizedBox(height: 10.h),
+                          ...unbudgetedCategories.map((data) {
+                            final index = unbudgetedCategories.indexOf(data);
+                            return Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8.0),
+                              child: Container(
+                                padding: EdgeInsets.all(15),
+                                decoration: BoxDecoration(
+                                  color: theme.cardColor.withOpacity(0.92),
+                                  borderRadius: BorderRadius.circular(18.r),
+                                  border: Border.all(
+                                    color: theme.dividerColor.withOpacity(0.15),
+                                    width: 1,
+                                  ),
+                                  boxShadow: Theme.of(context).brightness == Brightness.dark
+                                      ? [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.4),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                    BoxShadow(
+                                      color: Colors.white.withOpacity(0.05),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, -1),
+                                    ),
+                                  ]
+                                      : [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.06),
+                                      blurRadius: 18,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                    BoxShadow(
+                                      color: Colors.white.withOpacity(0.4),
+                                      blurRadius: 10,
+                                      offset: const Offset(-2, -2),
+                                    ),
+                                  ],
+                                ),
+                                child: Row(
+                                  children: [
+                                    ListAnimationWidget(
+                                      offset: const Offset(0, 0.3),
+                                      index: index,
+                                      child: Container(
+                                        height: 45.w,
+                                        width: 45.w,
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(14.r),
+                                          gradient: LinearGradient(
+                                            colors: [
+                                              data.color.withOpacity(0.9),
+                                              data.color.withOpacity(0.6),
+                                            ],
+                                            begin: Alignment.topLeft,
+                                            end: Alignment.bottomRight,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: data.color.withOpacity(0.3),
+                                              blurRadius: 12,
+                                              spreadRadius: 1,
+                                              offset: const Offset(0, 4),
+                                            )
+                                          ],
+                                        ),
+                                        child: Icon(data.icon, color: Colors.white, size: 22),
+                                      ),
+                                    ),
+                                    SizedBox(width: 20.w),
+                                    Text(data.categoryName, style: theme.textTheme.titleMedium),
+                                    const Spacer(),
+                                    ElevatedButton(
+                                      onPressed: () => addBudgetDialogue(data),
+                                      style: ElevatedButton.styleFrom(
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(15.r),
+                                          side: BorderSide(color: theme.colorScheme.primary),
+                                        ),
+                                        backgroundColor: theme.cardColor,
+                                        minimumSize: const Size(100, 50),
+                                        elevation: 0,
+                                      ),
+                                      child: Text(
+                                        'Set budget',
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
+                        ],
+
+                      ],
+                    ),
+                  ),
+                )
+              ]),
+            ),
+        ],
+      )
+      :Column(
         children: [
           SizedBox(height: 10.h),
           BudgetDashboard(
@@ -417,7 +1123,7 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                 ),
               ),
               child: SingleChildScrollView(
-                physics: BouncingScrollPhysics(),
+                physics: const AlwaysScrollableScrollPhysics(),
                 child: Column(
                   children: [
                     Padding(
@@ -433,9 +1139,10 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                               if (isPastMonth && budgetedCategories.isEmpty)
                                 SizedBox(
                                   width: double.infinity.w,
+                                  height: 300.h,
                                   child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      SizedBox(height: 80.h),
                                       Icon(Icons.event_busy, color: theme.colorScheme.primary, size: 100),
                                       SizedBox(height: 24.h),
                                       Text('Month expired', style: theme.textTheme.titleLarge),
@@ -445,15 +1152,18 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                                   ),
                                 ),
                               if (budgetedCategories.isEmpty && !isPastMonth)
-                                Column(
-                                  children: [
-                                    unbudgetedCategories.isEmpty?SizedBox(height: 80.h,):SizedBox(height: 20.h),
-                                    Icon(Icons.note_add_outlined, color: theme.colorScheme.primary, size: 100),
-                                    SizedBox(height: 24.h),
-                                    Text('No budgets this month', style: theme.textTheme.titleLarge),
-                                    SizedBox(height: 8.h),
-                                    Text('Set a budget from the list below', style: theme.textTheme.bodyMedium),
-                                  ],
+                                SizedBox(
+                                  height: 300.h,
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.note_add_outlined, color: theme.colorScheme.primary, size: 100),
+                                      SizedBox(height: 24.h),
+                                      Text('No budgets this month', style: theme.textTheme.titleLarge),
+                                      SizedBox(height: 8.h),
+                                      Text('Set a budget from the list below', style: theme.textTheme.bodyMedium),
+                                    ],
+                                  ),
                                 ),
                               SizedBox(height: 10.h),
                               if (budgetedCategories.isNotEmpty)
@@ -551,12 +1261,16 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                                                   )
                                                 ],
                                                 if(!isSelectedForBulkDelete)...[
-                                                  BudgetWidget(
-                                                    bgColor: matchedCategory.color,
-                                                    icon: matchedCategory.icon,
-                                                    budget: budget,
-                                                    onEdit: () => editBudgetDialogue(budget,matchedCategory),
-                                                    onDelete: () => budgetNotifier.deleteBudget(budget.id!),
+                                                  ListAnimationWidget(
+                                                    offset: Offset(0, 0.3),
+                                                    index: budgetsForDates.indexOf(budget),
+                                                    child: BudgetWidget(
+                                                      bgColor: matchedCategory.color,
+                                                      icon: matchedCategory.icon,
+                                                      budget: budget,
+                                                      onEdit: () => editBudgetDialogue(budget,matchedCategory),
+                                                      onDelete: () => deleteAlert(budget),
+                                                    ),
                                                   ),
                                                 ]
                                               ],
@@ -647,29 +1361,33 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                                               ),
                                               child: Row(
                                                 children: [
-                                                  Container(
-                                                    height: 45.w,
-                                                    width: 45.w,
-                                                    decoration: BoxDecoration(
-                                                      borderRadius: BorderRadius.circular(14.r),
-                                                      gradient: LinearGradient(
-                                                        colors: [
-                                                          data.color.withOpacity(0.9),
-                                                          data.color.withOpacity(0.6),
+                                                  ListAnimationWidget(
+                                                    offset: Offset(0, 0.3),
+                                                    index: index,
+                                                    child: Container(
+                                                      height: 45.w,
+                                                      width: 45.w,
+                                                      decoration: BoxDecoration(
+                                                        borderRadius: BorderRadius.circular(14.r),
+                                                        gradient: LinearGradient(
+                                                          colors: [
+                                                            data.color.withOpacity(0.9),
+                                                            data.color.withOpacity(0.6),
+                                                          ],
+                                                          begin: Alignment.topLeft,
+                                                          end: Alignment.bottomRight,
+                                                        ),
+                                                        boxShadow: [
+                                                          BoxShadow(
+                                                            color: data.color.withOpacity(0.3),
+                                                            blurRadius: 12,
+                                                            spreadRadius: 1,
+                                                            offset: const Offset(0, 4),
+                                                          )
                                                         ],
-                                                        begin: Alignment.topLeft,
-                                                        end: Alignment.bottomRight,
                                                       ),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                          color: data.color.withOpacity(0.3),
-                                                          blurRadius: 12,
-                                                          spreadRadius: 1,
-                                                          offset: const Offset(0, 4),
-                                                        )
-                                                      ],
+                                                      child: Icon(data.icon, color: Colors.white, size: 22),
                                                     ),
-                                                    child: Icon(data.icon, color: Colors.white, size: 22),
                                                   ),
                                                   SizedBox(width: 20.w),
                                                   Text(data.categoryName, style: theme.textTheme.titleMedium),
@@ -713,9 +1431,10 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
           ),
         ],
       ),
+
       floatingActionButton: isSelectedForBulkDelete?
       ScaleTransition(
-        scale: _bulkDeleteFABController,
+        scale: _bulkDeleteFABAnimation,
         child: Container(
           height: 64.h,
           width: 64.w,
@@ -756,7 +1475,7 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
       :SizedBox.shrink(),
     );
   }
-  
+
   Map<DateTime,List<BudgetModel>> _groupByDate(List<BudgetModel> budget){
     Map<DateTime,List<BudgetModel>> map = {};
     
@@ -771,3 +1490,137 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
     return map;
   }
 }
+
+
+class AnimatedBudgetDashboard extends ConsumerWidget {
+  final bool isCollapsed;
+
+  const AnimatedBudgetDashboard({super.key, required this.isCollapsed});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    var theme = Theme.of(context);
+    final totalBudget = ref.watch(budgetProvider).filteredBudgets.fold(0, (a, b) => a + b.budget.toInt());
+    final totalSpent = ref.watch(budgetProvider).filteredBudgets.fold(0, (a, b) => a + b.spent.toInt());
+
+    return Container(
+      color: theme.colorScheme.primary,
+      child: ClipRect(
+        child: AnimatedCrossFade(
+          duration: const Duration(milliseconds: 250),
+          crossFadeState: isCollapsed ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          firstChild: SingleChildScrollView(
+            physics: const NeverScrollableScrollPhysics(),
+            child: BudgetDashboard(
+              totalBudget: totalBudget,
+              totalSpent: totalSpent,
+              dateNotifier: ref.read(selectedDateProviderForBudgets.notifier),
+              dateState: ref.watch(selectedDateProviderForBudgets),
+            ),
+          ),
+          secondChild: _buildMinimizedHeader(
+            context: context,
+            currency: ref.watch(newCurrencyProvider).currency,
+            ref: ref,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMinimizedHeader({
+    required BuildContext context,
+    required String currency,
+    required WidgetRef ref,
+  }) {
+    var theme = Theme.of(context);
+
+    final totalBudget = ref.watch(budgetProvider).filteredBudgets.fold(0, (a, b) => a + b.budget.toInt());
+    final formattedBudget = NumberFormat.compactCurrency(
+      decimalDigits: 0,
+      symbol: currency,
+    ).format(totalBudget);
+
+    final totalSpent = ref.watch(budgetProvider).filteredBudgets.fold(0, (a, b) => a + b.spent.toInt());
+    final formattedSpent = NumberFormat.compactCurrency(
+      decimalDigits: 0,
+      symbol: currency,
+    ).format(totalSpent);
+
+    return Container(
+      height: 60.h,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primary,
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.paid_outlined,
+                    color: Colors.green.shade300,
+                    size: 18.sp,
+                  ),
+                  SizedBox(height: 4.h),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      formattedBudget,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11.sp,
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 1,
+              height: 30.h,
+              color: Colors.white.withOpacity(0.3),
+              margin: EdgeInsets.symmetric(horizontal: 8.w),
+            ),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.receipt_long,
+                    color: Colors.red.shade300,
+                    size: 18.sp,
+                  ),
+                  SizedBox(height: 4.h),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      formattedSpent,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11.sp,
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

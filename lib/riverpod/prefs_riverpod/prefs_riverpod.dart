@@ -45,3 +45,26 @@ class TipPrefNotifier extends StateNotifier<bool> {
     state = value;
   }
 }
+
+
+final collapseDashboardPrefProvider = StateNotifierProvider<CollapseDashBoardPrefNotifier,bool>((ref)=>CollapseDashBoardPrefNotifier());
+
+class CollapseDashBoardPrefNotifier extends StateNotifier<bool>{
+
+  CollapseDashBoardPrefNotifier() : super(false){
+    _loadCollapsePref();
+  }
+
+  Future<void> _loadCollapsePref()async{
+    SharedPreferences preferences = await SharedPreferences.getInstance();
+    final val = preferences.getBool('collapse') ?? false;
+    state = val;
+  }
+
+  Future<void> saveCollapsePref(bool value)async{
+    SharedPreferences preferences = await SharedPreferences.getInstance();
+    await preferences.setBool('collapse', value);
+    state = value;
+  }
+
+}

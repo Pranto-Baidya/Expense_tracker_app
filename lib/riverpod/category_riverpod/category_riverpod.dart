@@ -1,12 +1,16 @@
 
 import 'package:expense_tracker_app/database/db_connection.dart';
+import 'package:expense_tracker_app/models/budget_model.dart';
 import 'package:expense_tracker_app/models/category_model.dart';
+import 'package:expense_tracker_app/riverpod/budget_riverpod/budget_riverpod.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+import '../../screens/budgets_screen.dart';
 import '../../screens/category_screen.dart';
 
-final categoryProvider = StateNotifierProvider<CategoryNotifier,CategoryState>((ref)=>CategoryNotifier());
+final categoryProvider = StateNotifierProvider<CategoryNotifier,CategoryState>((ref)=>CategoryNotifier(ref));
 
 class CategoryState{
   final List<CategoryModel> allCategories;
@@ -38,9 +42,11 @@ class CategoryState{
 
 class CategoryNotifier extends StateNotifier<CategoryState>{
 
+  final Ref ref;
+
   final DatabaseConnection databaseConnection = DatabaseConnection();
 
-  CategoryNotifier() : super(CategoryState());
+  CategoryNotifier(this.ref) : super(CategoryState());
 
   Future<void> getAllCategories()async{
     try{
@@ -114,17 +120,36 @@ class CategoryNotifier extends StateNotifier<CategoryState>{
 
 
   Future<void> deleteCategory(int id) async {
-    try {
+    try{
+
+      final categoryToDelete = state.allCategories.firstWhere((c)=>c.categoryId==id, orElse: () => throw Exception('Category not found'));
+
+      final budgetNotifier = ref.read(budgetProvider.notifier);
+      final allBudgets = ref.read(budgetProvider).budgets;
+
+      final budgetsToDelete = allBudgets.where((budget) => budget.categoryName == categoryToDelete.categoryName).toList();
+
+      for(var budget in budgetsToDelete){
+        if(budget.id != null) {
+          await budgetNotifier.deleteBudget(budget.id!);
+        }
+      }
+
       await databaseConnection.deleteCategory(id);
 
-      final updatedList = state.allCategories.where((c) => c.categoryId != id).toList();
+      final updatedList = state.allCategories.where((i)=>i.categoryId!=id).toList();
 
       state = state.copyWith(
         allCategories: updatedList,
         allIncomeCategories: updatedList.where((c) => c.categoryType == CategoryType.income).toList(),
         allExpenseCategories: updatedList.where((c) => c.categoryType == CategoryType.expense).toList(),
       );
-    } catch (e) {
+
+      await budgetNotifier.getAllBudgetsList();
+      final selectedDate = ref.read(selectedDateProviderForBudgets);
+      budgetNotifier.filterBudgetsByMonth(selectedDate);
+    }
+    catch(e){
       state = state.copyWith(error: e.toString());
     }
   }
@@ -142,5 +167,6 @@ class CategoryNotifier extends StateNotifier<CategoryState>{
       }
     }
   }
+
 
 }

@@ -1,11 +1,7 @@
-
-
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/category_riverpod/category_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
-import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
-import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/expense_tile.dart';
 import 'package:flutter/material.dart';
@@ -29,30 +25,20 @@ class SearchRecordsScreen extends ConsumerStatefulWidget {
 class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
   final TextEditingController _searchController = TextEditingController();
 
-
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
   }
 
-
   @override
   Widget build(BuildContext context) {
-
     var theme = Theme.of(context);
-
     final searchState = ref.watch(expenseProvider);
-
     final hasSearched = ref.watch(hasSearchedProvider);
-
     final hasSearchedNotifier = ref.read(hasSearchedProvider.notifier);
-
     final groupedSearchesWithDate = _groupedData(searchState.searchRecords);
-
     final sortedDates = _groupedData(searchState.searchRecords).keys.toList()..sort((a,b)=>b.compareTo(a));
-
-    final isDark = ref.watch(themeModeProvider)==ThemeMode.dark;
 
     return PopScope(
       onPopInvokedWithResult: (_,_){
@@ -61,7 +47,7 @@ class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
       },
       canPop: true,
       child: Scaffold(
-       backgroundColor: theme.scaffoldBackgroundColor,
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: AppBar(
           toolbarHeight: 80,
           titleSpacing: 0,
@@ -72,8 +58,8 @@ class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
               autofocus: true,
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search for records',
-                hintStyle: theme.textTheme.titleMedium?.copyWith(color: AppColors.hintTextColor)
+                  hintText: 'Search for records',
+                  hintStyle: theme.textTheme.titleMedium?.copyWith(color: AppColors.hintTextColor)
               ),
               onChanged: (value){
                 ref.read(expenseProvider.notifier).searchForRecords(value);
@@ -151,7 +137,6 @@ class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
                           ),
                           SizedBox(height: 5.h,),
                           ...groupedSearches.map((data) {
-
                             final matchedCategory = ref.watch(categoryProvider).allCategories.firstWhere((i)=>i.categoryName==data.category);
 
                             return ExpenseTile(
@@ -160,15 +145,15 @@ class _SearchRecordsScreenState extends ConsumerState<SearchRecordsScreen> {
                                 icon: matchedCategory.icon,
                                 currency: ref.read(newCurrencyProvider).currency,
                                 onEdit: (){
-                                  Navigator.pop(context,{
-                                    'action' : 'edit',
-                                    'expense' : data
+                                  Navigator.pop(context, {
+                                    'action': 'edit',
+                                    'expense': data
                                   });
                                 },
                                 onDelete: (){
-                                  Navigator.pop(context,{
-                                    'action' : 'delete',
-                                    'expense' : data
+                                  Navigator.pop(context, {
+                                    'action': 'delete',
+                                    'expense': data
                                   });
                                 },
                                 cardModel: ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==data.accountId,

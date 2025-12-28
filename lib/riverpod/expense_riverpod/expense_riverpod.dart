@@ -114,6 +114,7 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     );
 
     filterRecordsByMonth(state.selectedDate, state.selectedTime);
+    _ref.read(cardsProvider.notifier).calculateTotalExpenseAndIncomeInAccount();
   }
 
   Future<void> insertExpense(ExpenseModel expense)async{
@@ -133,7 +134,6 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
 
     state = state.copyWith(expenses: [newExpense,...state.expenses]);
 
-    // Apply the current active filter instead of always monthly
     switch(state.activeFilter) {
       case 'daily':
         filterRecordsByDay(state.selectedDate);
@@ -148,6 +148,7 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
         filterRecordsByMonth(state.selectedDate, state.selectedTime);
         break;
     }
+    _ref.read(cardsProvider.notifier).calculateTotalExpenseAndIncomeInAccount();
   }
 
 
@@ -159,7 +160,6 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
         expenses: state.expenses.map((e)=>e.id==expense.id? expense : e).toList()
     );
 
-    // Apply the current active filter instead of always monthly
     switch(state.activeFilter) {
       case 'daily':
         filterRecordsByDay(state.selectedDate);
@@ -174,6 +174,7 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
         filterRecordsByMonth(state.selectedDate, state.selectedTime);
         break;
     }
+    _ref.read(cardsProvider.notifier).calculateTotalExpenseAndIncomeInAccount();
   }
 
   Future<void> deleteExpense(int id) async {
@@ -259,6 +260,7 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     );
 
     _calculateTotals();
+    _ref.read(cardsProvider.notifier).calculateTotalExpenseAndIncomeInAccount();
   }
 
   void setActiveFilter(String currentFilter){
@@ -311,6 +313,7 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
       }).toList()
     );
   }
+
 
   void filterRecordsByMonth(DateTime selectedDate, TimeOfDay selectedTime) {
     final filtered = state.expenses.where((item) {

@@ -55,12 +55,12 @@ class NotificationService{
     }
 
     flutterLocalNotificationsPlugin.zonedSchedule(
-        1,
+        1001,
         'MoneyMate',
         "Don't forget to add your record today",
         scheduledDate,
         notificationDetails,
-        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
         matchDateTimeComponents: DateTimeComponents.time
     );
   }

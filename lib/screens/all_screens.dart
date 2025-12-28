@@ -34,6 +34,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:open_file/open_file.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import '../widgets/search_callback_helper.dart';
+
 
 
 final indexProvider = StateProvider<int>((ref)=>0);
@@ -49,11 +51,35 @@ class AllScreens extends ConsumerStatefulWidget {
 }
 
 
-class _AllScreensState extends ConsumerState<AllScreens> {
+class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProviderStateMixin{
 
-  final GlobalKey<RecordsScreenState> _recordKey = GlobalKey<RecordsScreenState>();
+  final GlobalKey<RecordsScreenState> _recordsKey = GlobalKey<RecordsScreenState>();
 
   final DatabaseConnection _databaseConnection = DatabaseConnection();
+
+  bool _isBottomNavVisible = true;
+  double lastScrollPosition = 0;
+
+  late AnimationController _animationController;
+  late Animation<double> _hideBottomNavAnimation;
+
+  bool _handleBottomNav(ScrollNotification scroll) {
+    if (scroll is ScrollUpdateNotification) {
+      final currentScroll = scroll.metrics.pixels;
+      final scrollDelta = currentScroll - lastScrollPosition;
+
+      if (scrollDelta > 2 && _isBottomNavVisible) {
+          _animationController.forward();
+          _isBottomNavVisible = false;
+      }
+      else if (scrollDelta < -2 && !_isBottomNavVisible) {
+          _animationController.reverse();
+          _isBottomNavVisible = true;
+      }
+      lastScrollPosition = currentScroll;
+    }
+    return false;
+  }
 
   void showFilterDialogue(){
     showDialog(
@@ -273,6 +299,8 @@ class _AllScreensState extends ConsumerState<AllScreens> {
     }
   }
 
+
+
   void backupRestoreSheet(){
     showModalBottomSheet(
         backgroundColor: Theme.of(context).cardColor,
@@ -425,40 +453,114 @@ class _AllScreensState extends ConsumerState<AllScreens> {
           var theme = Theme.of(context);
           return Consumer(
               builder: (context,ref,_){
-                return AlertDialog(
+                return Dialog(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(22),
+                  ),
                   backgroundColor: theme.cardColor,
-                  title: Row(
-                    children: [
-                      Text('Please wait!',style: theme.textTheme.titleMedium?.copyWith(fontSize: 20,color: Colors.red),),
-                      Spacer(),
-                      IconButton(onPressed: ()=>Navigator.pop(context), icon: Icon(Icons.close,color: theme.iconTheme.color,size: 30,))
-                    ],
-                  ),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('Are you sure you want to delete everything?',style: theme.textTheme.titleMedium,),
-                      SizedBox(height: 10.h,),
-                      Text('This action will erase everything including: ',style: theme.textTheme.titleMedium,),
-                      SizedBox(height: 10.h,),
-                      Text('Records,Statistics,Budgets,Accounts and Categories.',style: theme.textTheme.titleMedium,)
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                        onPressed: ()async{
-                          await _databaseConnection.deleteAllTables();
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              height: 42,
+                              width: 42,
+                              decoration: BoxDecoration(
+                                color: Colors.red.withOpacity(0.12),
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.warning_amber_rounded,
+                                color: Colors.red,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Delete everything?',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: 20.h),
+                        Text(
+                          'Are you sure you want to permanently erase all data?',
+                          style: theme.textTheme.titleMedium,
+                        ),
+                        SizedBox(height: 24.h),
+                        Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: theme.dividerColor.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          child: Text(
+                            'Records, Statistics, Budgets, Accounts and Categories will be removed.',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        ),
+                        SizedBox(height: 24.h),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: (){
+                                  Navigator.pop(context);
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Cancel',
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: ()async{
+                                  await _databaseConnection.deleteAllTables();
 
-                          ref.invalidate(expenseProvider);
-                          ref.invalidate(categoryProvider);
-                          ref.invalidate(cardsProvider);
-                          ref.invalidate(budgetProvider);
+                                  ref.invalidate(expenseProvider);
+                                  ref.invalidate(categoryProvider);
+                                  ref.invalidate(cardsProvider);
+                                  ref.invalidate(budgetProvider);
 
-                          Navigator.pop(context);
-                        },
-                        child: Text('Delete all',style: theme.textTheme.titleMedium?.copyWith(color: Colors.red),)
-                    )
-                  ],
+                                  Navigator.pop(context);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  elevation: 0,
+                                  backgroundColor: Colors.red,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Delete',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      ],
+                    ),
+                  ),
                 );
               }
           );
@@ -466,11 +568,37 @@ class _AllScreensState extends ConsumerState<AllScreens> {
     );
   }
 
+  @override
+  void initState() {
+    super.initState();
+
+    _animationController = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: 300)
+    );
+
+    _hideBottomNavAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.fastOutSlowIn
+    ));
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+
 
   @override
   Widget build(BuildContext context) {
     final index = ref.watch(indexProvider);
     var theme = Theme.of(context);
+    final isCollapseModeActivated = ref.watch(collapseDashboardPrefProvider);
     return Scaffold(
       appBar: CustomAppbar(
           title: 'MoneyMate',
@@ -489,23 +617,29 @@ class _AllScreensState extends ConsumerState<AllScreens> {
             Padding(
               padding: EdgeInsets.only(right: 5.w),
               child: IconButton(
-                  onPressed: (){
-                    Navigator.push(
+                  onPressed: () async {
+                    final result = await Navigator.push(
                       context,
                       MaterialPageRoute(builder: (_) => const SearchRecordsScreen()),
-                    ).then((result) {
-                      if (result != null && result is Map<String, dynamic>) {
-                        final expense = result['expense'] as ExpenseModel;
-                        final action = result['action'] as String;
+                    );
 
+                    if (result != null && result is Map<String, dynamic>) {
+
+                      final action = result['action'] as String;
+                      final expense = result['expense'] as ExpenseModel;
+
+                      ref.read(indexProvider.notifier).state = 0;
+
+                      await Future.delayed(Duration(milliseconds: 300));
+
+                      if (_recordsKey.currentState != null) {
                         if (action == 'edit') {
-                          _recordKey.currentState?.editExpenseDialogue(expense);
+                          _recordsKey.currentState!.editExpenseDialogue(expense);
                         } else if (action == 'delete') {
-                          _recordKey.currentState?.deleteAlert(expense);
+                          _recordsKey.currentState!.deleteAlert(expense);
                         }
                       }
-                    });
-
+                    }
                   },
                   icon: Padding(
                     padding: const EdgeInsets.only(right: 5.0),
@@ -515,60 +649,129 @@ class _AllScreensState extends ConsumerState<AllScreens> {
             )
           ],
       ),
-     body: [
-         RecordsScreen(key: _recordKey,),
-         StatsScreen(),
-         BudgetScreen(),
-         AccountsScreen(),
-         CategoryScreen()
-       ][index],
+     body: NotificationListener<ScrollNotification>(
+       onNotification: _handleBottomNav,
+         child: [
+           RecordsScreen(key: _recordsKey,),
+           StatsScreen(),
+           BudgetScreen(),
+           AccountsScreen(),
+           CategoryScreen()
+         ][index],
+     ),
 
-     bottomNavigationBar: Container(
-       decoration: BoxDecoration(
-           border: Border(
-               top: BorderSide(color: ref.watch(themeModeProvider)==ThemeMode.dark? Colors.grey.shade500 :Colors.grey.shade500,width: 0.5)
-           ),
-     ),
-       child: NavigationBar(
-           backgroundColor: theme.navigationBarTheme.backgroundColor,
-           indicatorColor: Colors.transparent,
-           selectedIndex: index,
-           height: 60,
-           maintainBottomViewPadding: true,
-           labelPadding: EdgeInsets.zero,
-           onDestinationSelected: (ind){
-             ref.read(indexProvider.notifier).state = ind;
-             ref.read(isIncomeProvider.notifier).state = false;
-           },
-           destinations: [
-             NavigationDestination(
-                 selectedIcon: Icon(Icons.feed,color: theme.colorScheme.primary,size: 25,),
-                 icon: Icon(Icons.feed_outlined,color: theme.iconTheme.color,size: 25,),
-                 label: 'Records'
-             ),
-             NavigationDestination(
-                 selectedIcon: Icon(Icons.analytics,color: theme.colorScheme.primary,size: 25,),
-                 icon: Icon(Icons.analytics_outlined,color: theme.iconTheme.color,size: 25,),
-                 label: 'Analysis'
-             ),
-             NavigationDestination(
-                 selectedIcon: Icon(Icons.paid,color: theme.colorScheme.primary,size: 25,),
-                 icon: Icon(Icons.paid_outlined,color: theme.iconTheme.color,size: 25,),
-                 label: 'Budget'
-             ),
-             NavigationDestination(
-                 selectedIcon: Icon(Icons.account_balance_wallet,color: theme.colorScheme.primary,size: 25,),
-                 icon: Icon(Icons.account_balance_wallet_outlined,color: theme.iconTheme.color,size: 25,),
-                 label: 'Accounts'
-             ),
-             NavigationDestination(
-                 selectedIcon: Icon(Icons.space_dashboard_rounded,color: theme.colorScheme.primary,size: 25,),
-                 icon: Icon(Icons.space_dashboard_outlined,color: theme.iconTheme.color,size: 25,),
-                 label: 'Category'
-             ),
-           ]
-       ),
-     ),
+      bottomNavigationBar: isCollapseModeActivated? AnimatedBuilder(
+        animation: _animationController,
+        builder: (context, child) {
+          return Transform.translate(
+            offset: Offset(0, 3 * (1 - _hideBottomNavAnimation.value)),
+            child: SizedBox(
+              height: 60 * _hideBottomNavAnimation.value,
+              child: Opacity(
+                opacity: _hideBottomNavAnimation.value,
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border(
+                        top: BorderSide(
+                            color: ref.watch(themeModeProvider) == ThemeMode.dark ? Colors.grey.shade500 : Colors.grey.shade500,
+                            width: 0.5
+                        )
+                    ),
+                  ),
+                  child: NavigationBar(
+                      backgroundColor: theme.navigationBarTheme.backgroundColor,
+                      indicatorColor: Colors.transparent,
+                      selectedIndex: index,
+                      height: 60,
+                      maintainBottomViewPadding: true,
+                      labelPadding: EdgeInsets.zero,
+                      onDestinationSelected: (ind) {
+                        ref.read(indexProvider.notifier).state = ind;
+                        ref.read(isIncomeProvider.notifier).state = false;
+                      },
+                      destinations: [
+                        NavigationDestination(
+                            selectedIcon: Icon(Icons.feed, color: theme.colorScheme.primary, size: 25),
+                            icon: Icon(Icons.feed_outlined, color: theme.iconTheme.color, size: 25),
+                            label: 'Records'
+                        ),
+                        NavigationDestination(
+                            selectedIcon: Icon(Icons.analytics, color: theme.colorScheme.primary, size: 25),
+                            icon: Icon(Icons.analytics_outlined, color: theme.iconTheme.color, size: 25),
+                            label: 'Analysis'
+                        ),
+                        NavigationDestination(
+                            selectedIcon: Icon(Icons.paid, color: theme.colorScheme.primary, size: 25),
+                            icon: Icon(Icons.paid_outlined, color: theme.iconTheme.color, size: 25),
+                            label: 'Budget'
+                        ),
+                        NavigationDestination(
+                            selectedIcon: Icon(Icons.account_balance_wallet, color: theme.colorScheme.primary, size: 25),
+                            icon: Icon(Icons.account_balance_wallet_outlined, color: theme.iconTheme.color, size: 25),
+                            label: 'Accounts'
+                        ),
+                        NavigationDestination(
+                            selectedIcon: Icon(Icons.space_dashboard_rounded, color: theme.colorScheme.primary, size: 25),
+                            icon: Icon(Icons.space_dashboard_outlined, color: theme.iconTheme.color, size: 25),
+                            label: 'Category'
+                        ),
+                      ]
+                  ),
+                ),
+              ),
+            ),
+          );
+        },
+      )
+          :Container(
+        decoration: BoxDecoration(
+          border: Border(
+              top: BorderSide(
+                  color: ref.watch(themeModeProvider) == ThemeMode.dark ? Colors.grey.shade500 : Colors.grey.shade500,
+                  width: 0.5
+              )
+          ),
+        ),
+        child: NavigationBar(
+            backgroundColor: theme.navigationBarTheme.backgroundColor,
+            indicatorColor: Colors.transparent,
+            selectedIndex: index,
+            height: 60,
+            maintainBottomViewPadding: true,
+            labelPadding: EdgeInsets.zero,
+            onDestinationSelected: (ind) {
+              ref.read(indexProvider.notifier).state = ind;
+              ref.read(isIncomeProvider.notifier).state = false;
+            },
+            destinations: [
+              NavigationDestination(
+                  selectedIcon: Icon(Icons.feed, color: theme.colorScheme.primary, size: 25),
+                  icon: Icon(Icons.feed_outlined, color: theme.iconTheme.color, size: 25),
+                  label: 'Records'
+              ),
+              NavigationDestination(
+                  selectedIcon: Icon(Icons.analytics, color: theme.colorScheme.primary, size: 25),
+                  icon: Icon(Icons.analytics_outlined, color: theme.iconTheme.color, size: 25),
+                  label: 'Analysis'
+              ),
+              NavigationDestination(
+                  selectedIcon: Icon(Icons.paid, color: theme.colorScheme.primary, size: 25),
+                  icon: Icon(Icons.paid_outlined, color: theme.iconTheme.color, size: 25),
+                  label: 'Budget'
+              ),
+              NavigationDestination(
+                  selectedIcon: Icon(Icons.account_balance_wallet, color: theme.colorScheme.primary, size: 25),
+                  icon: Icon(Icons.account_balance_wallet_outlined, color: theme.iconTheme.color, size: 25),
+                  label: 'Accounts'
+              ),
+              NavigationDestination(
+                  selectedIcon: Icon(Icons.space_dashboard_rounded, color: theme.colorScheme.primary, size: 25),
+                  icon: Icon(Icons.space_dashboard_outlined, color: theme.iconTheme.color, size: 25),
+                  label: 'Category'
+              ),
+            ]
+        ),
+      ),
       drawer: Drawer(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
 

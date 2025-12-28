@@ -8,6 +8,9 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 
+final totalExpenseInAccountProvider = StateProvider<double>((ref)=>0.0);
+final totalIncomeInAccountProvider = StateProvider<double>((ref)=>0.0);
+
 
 final cardsProvider = StateNotifierProvider<CardNotifier,CardState>((ref){
   return CardNotifier(ref);
@@ -71,6 +74,8 @@ class CardNotifier extends StateNotifier<CardState>{
       cards: [...state.cards,...data],
       isLoading: false
     );
+
+    calculateTotalExpenseAndIncomeInAccount();
   }
 
   Future<void> updateCard(CardModel card) async {
@@ -145,6 +150,26 @@ class CardNotifier extends StateNotifier<CardState>{
     }
   }
 
+  void calculateTotalExpenseAndIncomeInAccount(){
+    final allRecords = _ref.read(expenseProvider).expenses;
+
+    double totalExpense = 0;
+    double totalIncome = 0;
+
+    for(var a in allRecords){
+      if(a.moneyType==MoneyType.expense){
+        totalExpense+=a.amount;
+      }
+      else{
+        totalIncome+= a.amount;
+      }
+    }
+
+    _ref.read(totalExpenseInAccountProvider.notifier).state = totalExpense;
+    _ref.read(totalIncomeInAccountProvider.notifier).state = totalIncome;
+  }
+
+
   void calculateTotalAmountInAccount() async {
 
     final selectedAccountId = _ref.read(selectedAccountProvider);
@@ -190,6 +215,7 @@ class CardNotifier extends StateNotifier<CardState>{
       cards: state.cards.map((card)=>card.id==newBalance.id?newBalance:card).toList(),
     );
     await getCards();
+    calculateTotalExpenseAndIncomeInAccount();
   }
 
 }

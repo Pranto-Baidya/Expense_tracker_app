@@ -2,21 +2,25 @@ import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/prefs_riverpod/prefs_riverpod.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:expense_tracker_app/widgets/account_dashboard.dart';
 import 'package:expense_tracker_app/widgets/accounts_widget.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
+import 'package:expense_tracker_app/widgets/listAnimation_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
 
 final selectedIconProvider = StateProvider<IconData>((ref)=>Icons.credit_card);
 final typingProvider = StateProvider<bool>((ref)=>false);
 final accountEditingProvider = StateProvider<bool>((ref)=>false);
 final isIdSelectedForBulkDeleteProvider = StateProvider<bool>((ref)=>false);
 final selectedIdsProvider = StateProvider<Set<int>>((ref)=>{});
+final accountDashboardCollapseProvider = StateProvider<bool>((ref)=>false);
 
 
 class AccountsScreen extends ConsumerStatefulWidget {
@@ -34,6 +38,8 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
   final TextEditingController _editNameController = TextEditingController();
   final TextEditingController _editAmountController = TextEditingController();
 
+  final ScrollController _scrollController = ScrollController();
+
   late AnimationController _animationController;
 
   late Animation<Offset> _fabAnimation;
@@ -45,8 +51,13 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
   double _lastScrollPosition = 0;
   bool _isFABVisible = true;
 
+  double expandedHeight = 244.0.h;
+  double collapsedHeight = 60.0.h;
+
   @override
   void initState() {
+
+    _scrollController.addListener(_onScroll);
 
     _animationController = AnimationController(
         vsync: this,
@@ -76,7 +87,20 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
     _bulkDeleteFABController.dispose();
     _nameController.removeListener(()=>checkTyping(ref));
     _amountController.removeListener(()=>checkTyping(ref));
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll(){
+    final scrollState = ref.read(accountDashboardCollapseProvider);
+    final scrollNotifier = ref.read(accountDashboardCollapseProvider.notifier);
+
+    final bool isCollapsed = _scrollController.offset > 50;
+
+    if(isCollapsed!=scrollState){
+      scrollNotifier.state = isCollapsed;
+    }
   }
 
   bool _handleFabButton(ScrollNotification scrollInfo){
@@ -85,11 +109,11 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
       final currentScrollPosition = scrollInfo.metrics.pixels;
       final scrollDelta = currentScrollPosition - _lastScrollPosition;
 
-      if(scrollDelta>8 && _isFABVisible){
+      if(scrollDelta>2 && _isFABVisible){
         _animationController.forward();
         _isFABVisible = false;
       }
-      else if(scrollDelta<-8 && !_isFABVisible){
+      else if(scrollDelta<-2 && !_isFABVisible){
         _animationController.reverse();
         _isFABVisible = true;
       }
@@ -465,31 +489,205 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
 
   }
 
+  void deleteAlert(CardModel card){
+    showDialog(
+        context: context,
+        builder: (BuildContext context){
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            backgroundColor: Theme.of(context).cardColor,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Delete account',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Are you sure you want to delete this account?\nThis action cannot be undone.',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: (){
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: (){
+                            ref.read(cardsProvider.notifier).deleteCard(card.id!);
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Delete',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+    );
+  }
+
   void bulkDeleteAlert(){
     showDialog(
         context: context,
         builder: (BuildContext context){
-          return AlertDialog(
+          final selectedIds = ref.read(selectedIdsProvider);
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             backgroundColor: Theme.of(context).cardColor,
-            title: Text('Delete selected records?',style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18),),
-            content: Text('This can not be undone.',style: Theme.of(context).textTheme.titleSmall,),
-            actions: [
-              TextButton(
-                  onPressed: (){
-                    Navigator.pop(context);
-                  },
-                  child: Text('Cancel',style: Theme.of(context).textTheme.titleMedium,)
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: selectedIds.length==1?Text(
+                          'Delete ${selectedIds.length} account?',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontSize: 17,fontWeight: FontWeight.bold),
+                        ):Text(
+                          'Delete ${selectedIds.length} accounts?',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontSize: 17,fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'This action cannot be undone.',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: (){
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: (){
+                            ref.read(cardsProvider.notifier).bulkDeleteCards(selectedIds.toList());
+                            selectedIds.clear();
+                            ref.read(isIdSelectedForBulkDeleteProvider.notifier).state = false;
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Delete',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              TextButton(
-                  onPressed: (){
-                    ref.read(cardsProvider.notifier).bulkDeleteCards(ref.read(selectedIdsProvider).toList());
-                    ref.read(selectedIdsProvider).clear();
-                    ref.read(isIdSelectedForBulkDeleteProvider.notifier).state = false;
-                    Navigator.pop(context);
-                  },
-                  child: Text('Delete',style: Theme.of(context).textTheme.titleMedium,)
-              ),
-            ],
+            ),
           );
         }
     );
@@ -504,15 +702,229 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
 
     final totalAccountBalance = cardState.cards.fold(0.0, (sum,value)=>sum+value.amount);
 
-    final averageUsage = cardState.cards.isEmpty?0.0:cardState.cards.fold(0.0, (sum,avg)=>(sum+avg.progress)/cardState.cards.length);
+    final avg = ref.watch(cardsProvider).cards.isEmpty ? 0.0 : ref.watch(cardsProvider).cards.fold(0.0, (sum, card) => sum + card.progress) / ref.watch(cardsProvider).cards.length;
+
+    final isCollapseModeActivated = ref.watch(collapseDashboardPrefProvider);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
-      body: Column(
+      body: isCollapseModeActivated?NotificationListener<ScrollNotification>(
+        onNotification: _handleFabButton,
+        child: CustomScrollView(
+          controller: _scrollController,
+          physics: cardState.cards.isEmpty?const NeverScrollableScrollPhysics(): const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            // Collapsible Account Dashboard
+            SliverAppBar(
+              expandedHeight: expandedHeight,
+              collapsedHeight: collapsedHeight,
+              backgroundColor: theme.colorScheme.primary,
+              elevation: 0,
+              pinned: true,
+              automaticallyImplyLeading: false,
+              flexibleSpace: LayoutBuilder(
+                builder: (context, constraints) {
+                  final double maxHeight = expandedHeight;
+                  final double minHeight = collapsedHeight;
+                  final double currentHeight = constraints.maxHeight;
+                  final double collapseThreshold = minHeight + ((maxHeight - minHeight) * 0.3);
+                  final bool isCurrentlyCollapsed = currentHeight <= collapseThreshold;
+
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    final currentState = ref.read(accountDashboardCollapseProvider);
+                    if (isCurrentlyCollapsed != currentState) {
+                      ref.read(accountDashboardCollapseProvider.notifier).state = isCurrentlyCollapsed;
+                    }
+                  });
+
+                  return AnimatedAccountDashboard(isCollapsed: isCurrentlyCollapsed);
+                },
+              ),
+            ),
+
+            // Loading State
+            if (cardState.isLoading)
+              SliverFillRemaining(
+                child: Container(
+                  color: theme.cardColor,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ),
+              )
+
+           else if (cardState.cards.isEmpty)...[
+              SliverToBoxAdapter(
+                child: SizedBox(height: 12.h),
+              ),
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.cardColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20.r),
+                      topRight: Radius.circular(20.r),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      SizedBox(height: 80.h,),
+                      Icon(
+                        Icons.credit_card_off_outlined,
+                        color: theme.colorScheme.primary,
+                        size: 100,
+                      ),
+                      SizedBox(height: 24.h),
+                      Text(
+                        'No accounts yet',
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      SizedBox(height: 8.h),
+                      Text(
+                        'Tap the + button to add a new account',
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+              )
+              ]
+            else
+              SliverList(
+                delegate: SliverChildListDelegate([
+                  SizedBox(height: 12.h),
+                  Container(
+                    width: double.infinity.w,
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(20.r),
+                        topRight: Radius.circular(20.r),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 15.w,vertical: 8.h),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: 10.h,),
+                          if (cardState.cards.isNotEmpty)
+                            Text(
+                              'All accounts',
+                              style: theme.textTheme.titleLarge,
+                            ),
+
+                          SizedBox(height: 10.h),
+
+
+                          // Accounts List
+                          Column(
+                            children: [
+                              ...cardState.cards.map((data) {
+                                final index = cardState.cards.indexOf(data);
+                                double amount = 0;
+
+                                if (data.amount <= 0 && ref.read(moneyTypeProvider.notifier).state == MoneyType.expense) {
+                                  amount = 0;
+                                } else {
+                                  amount = data.amount;
+                                }
+
+                                return GestureDetector(
+                                  onLongPress: () {
+                                    ref.read(isIdSelectedForBulkDeleteProvider.notifier).state = true;
+                                    final val = ref.read(selectedIdsProvider);
+                                    ref.read(selectedIdsProvider.notifier).state = Set<int>.from(val)..add(data.id!);
+                                    if (ref.read(selectedIdsProvider.notifier).state.length == 1) {
+                                      _bulkDeleteFABController.forward(from: 0);
+                                    }
+                                  },
+                                  onTap: () {
+                                    if (ref.read(isIdSelectedForBulkDeleteProvider)) {
+                                      final val = ref.read(selectedIdsProvider);
+                                      if (val.contains(data.id)) {
+                                        final newSet = Set<int>.from(val)..remove(data.id);
+                                        ref.read(selectedIdsProvider.notifier).state = newSet;
+                                        if (ref.read(selectedIdsProvider.notifier).state.isEmpty) {
+                                          ref.read(isIdSelectedForBulkDeleteProvider.notifier).state = false;
+                                          _bulkDeleteFABController.reverse();
+                                        }
+                                      } else {
+                                        ref.read(selectedIdsProvider.notifier).state = Set<int>.from(val)..add(data.id!);
+                                      }
+                                    }
+                                  },
+                                  child: Column(
+                                    children: [
+                                      if (ref.watch(isIdSelectedForBulkDeleteProvider)) ...[
+                                        Row(
+                                          children: [
+                                            Icon(
+                                              ref.watch(selectedIdsProvider).contains(data.id!)
+                                                  ? Icons.check_box
+                                                  : Icons.check_box_outline_blank,
+                                              color: ref.watch(selectedIdsProvider).contains(data.id)
+                                                  ? theme.colorScheme.primary
+                                                  : Colors.grey,
+                                            ),
+                                            SizedBox(width: 15.w),
+                                            Expanded(
+                                              child: AccountsWidget(
+                                                title: data.cardName,
+                                                amount: amount,
+                                                icon: data.icon,
+                                                value: data.progress,
+                                                onEdit: () {
+                                                  editCardDialogue(data);
+                                                },
+                                                onDelete: () {
+                                                  ref.read(cardsProvider.notifier).deleteCard(data.id!);
+                                                },
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      ],
+                                      if (!ref.watch(isIdSelectedForBulkDeleteProvider)) ...[
+                                        ListAnimationWidget(
+                                          index: index,
+                                          offset: const Offset(0, 0.3),
+                                          child: AccountsWidget(
+                                            title: data.cardName,
+                                            amount: amount,
+                                            icon: data.icon,
+                                            value: data.progress,
+                                            onEdit: () {
+                                              editCardDialogue(data);
+                                            },
+                                            onDelete: ()=> deleteAlert(data),
+                                          ),
+                                        ),
+                                      ]
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                          )
+                        ],
+                      ),
+                    ),
+                  )
+
+                ]),
+              )
+          ],
+        ),
+      )
+      :Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AccountDashboard(
-              avgUsage: averageUsage,
+              avgUsage: avg,
               totalBalance: totalAccountBalance,
               theme: theme,
               selectedCurrency: ref.watch(newCurrencyProvider).currency
@@ -533,7 +945,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SizedBox(height: 15.h,),
-                      cardState.cards.isEmpty?SizedBox.shrink():Text('All Accounts',style: theme.textTheme.titleLarge,),
+                      cardState.cards.isEmpty?SizedBox.shrink():Text('All accounts',style: theme.textTheme.titleLarge,),
                       SizedBox(height: 10.h,),
                       Expanded(
                           child: Builder(
@@ -545,7 +957,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
                                   return Center(
                                     child: Column(
                                       children: [
-                                        SizedBox(height: 80.h,),
+                                        SizedBox(height: 50.h,),
                                         Icon(Icons.credit_card_off_outlined,color: theme.colorScheme.primary,size: 100,),
                                         SizedBox(height: 24.h,),
                                         Text('No accounts yet',style: theme.textTheme.titleLarge,),
@@ -558,7 +970,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
                                 return NotificationListener(
                                   onNotification: _handleFabButton,
                                   child: ListView.builder(
-                                      physics: const BouncingScrollPhysics(),
+                                      physics: const AlwaysScrollableScrollPhysics(),
                                       shrinkWrap: true,
                                       itemCount: cardState.cards.length,
                                       itemBuilder: (context,index){
@@ -627,17 +1039,19 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
                                                 )
                                               ],
                                               if(!ref.watch(isIdSelectedForBulkDeleteProvider))...[
-                                                AccountsWidget(
-                                                    title: data.cardName,
-                                                    amount: amount,
-                                                    icon: data.icon,
-                                                    value: data.progress,
-                                                    onEdit: (){
-                                                      editCardDialogue(data);
-                                                    },
-                                                    onDelete: (){
-                                                      ref.read(cardsProvider.notifier).deleteCard(data.id!);
-                                                    }
+                                                ListAnimationWidget(
+                                                  index: index,
+                                                  offset: Offset(0, 0.3),
+                                                  child: AccountsWidget(
+                                                      title: data.cardName,
+                                                      amount: amount,
+                                                      icon: data.icon,
+                                                      value: data.progress,
+                                                      onEdit: (){
+                                                        editCardDialogue(data);
+                                                      },
+                                                      onDelete: ()=> deleteAlert(data)
+                                                  ),
                                                 ),
                                               ]
                                             ],
@@ -738,3 +1152,153 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
     );
   }
 }
+
+
+class AnimatedAccountDashboard extends ConsumerWidget {
+  final bool isCollapsed;
+  const AnimatedAccountDashboard({super.key, required this.isCollapsed});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+
+    var theme = Theme.of(context);
+    final currency = ref.watch(newCurrencyProvider).currency;
+    final total = ref.watch(cardsProvider).cards.fold(0.0, (a, b) => a + b.amount);
+
+    final avg = ref.watch(cardsProvider).cards.isEmpty ? 0.0 : ref.watch(cardsProvider).cards.fold(0.0, (sum, card) => sum + card.progress) / ref.watch(cardsProvider).cards.length;
+
+    return Container(
+      color: theme.colorScheme.primary,
+      child: ClipRect(
+        child: AnimatedCrossFade(
+          duration: const Duration(milliseconds: 250),
+          crossFadeState: isCollapsed ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+          firstChild: SingleChildScrollView(
+            physics: const NeverScrollableScrollPhysics(),
+            child: AccountDashboard(
+              avgUsage: avg,
+              totalBalance: total,
+              theme: theme,
+              selectedCurrency: currency,
+            ),
+          ),
+          secondChild: _buildMinimizedHeader(
+            ref: ref,
+            context: context,
+            currency: currency,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMinimizedHeader({
+    required WidgetRef ref,
+    required BuildContext context,
+    required String currency,
+  }) {
+    var theme = Theme.of(context);
+
+    final formattedSpending = NumberFormat.compactCurrency(
+      decimalDigits: 0,
+      symbol: currency,
+    ).format(ref.watch(totalExpenseInAccountProvider));
+
+    final formattedEarning = NumberFormat.compactCurrency(
+      decimalDigits: 0,
+      symbol: currency,
+    ).format(ref.watch(totalIncomeInAccountProvider));
+
+    final avg = ref.watch(cardsProvider).cards.isEmpty ? 0.0 : ref.watch(cardsProvider).cards.fold(0.0, (sum, card) => sum + card.progress) / ref.watch(cardsProvider).cards.length;
+
+    return Container(
+      height: 60.h,
+      color: theme.colorScheme.primary,
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+      child: SafeArea(
+        bottom: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.arrow_downward, color: Colors.red.shade300, size: 16.sp),
+                  SizedBox(height: 2.h),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      formattedSpending,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11.sp,
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 1,
+              height: 30.h,
+              color: Colors.white.withOpacity(0.3),
+              margin: EdgeInsets.symmetric(horizontal: 4.w),
+            ),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.arrow_upward, color: Colors.green.shade300, size: 16.sp),
+                  SizedBox(height: 2.h),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      formattedEarning,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11.sp,
+                      ),
+                      maxLines: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: 1,
+              height: 30.h,
+              color: Colors.white.withOpacity(0.3),
+              margin: EdgeInsets.symmetric(horizontal: 4.w),
+            ),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.show_chart, color: Colors.yellow, size: 16.sp),
+                  SizedBox(height: 2.h),
+                  Text(
+                    '${(avg*100).toStringAsFixed(0)}%',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 11.sp,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

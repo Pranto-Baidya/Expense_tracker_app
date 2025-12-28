@@ -1,3 +1,4 @@
+import 'package:expense_tracker_app/notification/notification_service.dart';
 import 'package:expense_tracker_app/riverpod/accent_riverpod/accent_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
 import 'package:expense_tracker_app/screens/checkAuth.dart';
@@ -33,6 +34,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
     _fadeAnimation = Tween<double>(begin: 0,end: 1).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
 
     _animationController.forward(from: 0);
+    
+    NotificationService.sendNotificationAt();
 
     WidgetsBinding.instance.addPostFrameCallback((_)async{
       await Future.delayed(Duration(seconds: 1)).then((_){

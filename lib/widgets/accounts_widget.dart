@@ -1,4 +1,5 @@
 import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
+import 'package:expense_tracker_app/screens/accounts_screen.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -112,47 +113,51 @@ class AccountsWidget extends ConsumerWidget {
                     ],
                   ),
                   Spacer(),
-                  PopupMenuButton(
-                    popUpAnimationStyle:
-                    const AnimationStyle(curve: Curves.easeInOut),
-                    color: theme.cardColor,
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
-                    itemBuilder: (context) {
-                      return [
-                        PopupMenuItem(
-                          onTap: onEdit,
-                          child: Row(
-                            children: [
-                              Icon(Icons.mode_edit_outline_outlined, size: 18),
-                              SizedBox(width: 12),
-                              Text(
-                                "Edit",
-                                style: theme.textTheme.titleSmall
-                              ),
-                            ],
-                          ),
-                        ),
-                        PopupMenuItem(
-                          onTap: onDelete,
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                              SizedBox(width: 12),
-                              Text(
-                                "Delete",
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  color: Colors.red,
+                  Visibility(
+                    visible: !ref.watch(isIdSelectedForBulkDeleteProvider),
+                    replacement: SizedBox.shrink(),
+                    child: PopupMenuButton(
+                      popUpAnimationStyle:
+                      const AnimationStyle(curve: Curves.easeInOut),
+                      color: theme.cardColor,
+                      elevation: 8,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
+                      itemBuilder: (context) {
+                        return [
+                          PopupMenuItem(
+                            onTap: onEdit,
+                            child: Row(
+                              children: [
+                                Icon(Icons.mode_edit_outline_outlined, size: 18),
+                                SizedBox(width: 12),
+                                Text(
+                                  "Edit",
+                                  style: theme.textTheme.titleSmall
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
-                      ];
-                    },
+                          PopupMenuItem(
+                            onTap: onDelete,
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                SizedBox(width: 12),
+                                Text(
+                                  "Delete",
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ];
+                      },
+                    ),
                   ),
                 ],
               ),

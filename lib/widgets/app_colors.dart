@@ -3,13 +3,7 @@
 import 'package:flutter/material.dart';
 
 class AppColors{
-  static const Color mainColor = Color(0xFF1476B8); //Color(0xFF1476B8) //Color(0xFF14B8A6)
-  //static const Color similarYellow = Color(0xFFB8A814);
-  //static const Color similarOrange = Color(0xFFB86A14);
-  //static const Color similarRed = Color(0xFFB8143A);
-  //static const Color similarPurple = Color(0xFF7A14B8);
-  //static const Color similarGreen = Color(0xFF14B85A);
-
+  static const Color mainColor = Color(0xFF0F52BA);
   // Light theme colors
   static const Color lightBackground = Color(0xFFF9FAFB);
   static const Color lightSurface = Color(0xFFE5E7EB);

@@ -1,10 +1,13 @@
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
+import 'package:expense_tracker_app/screens/accounts_screen.dart';
 import 'package:expense_tracker_app/widgets/wave_animation.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
+
+import '../riverpod/card_riverpod/card_riverpod.dart';
 
 class AccountDashboard extends ConsumerStatefulWidget {
   final double avgUsage;
@@ -35,17 +38,12 @@ class _AccountDashboardState extends ConsumerState<AccountDashboard> {
     final formattedIncome = NumberFormat.currency(
         symbol: widget.selectedCurrency,
         decimalDigits: 2
-    ).format(ref.watch(totalIncomeProvider));
+    ).format(ref.watch(totalIncomeInAccountProvider));
 
     final formattedExpense = NumberFormat.currency(
         symbol: widget.selectedCurrency,
         decimalDigits: 2
-    ).format(ref.watch(totalExpenseProvider));
-
-    final formattedUsage = NumberFormat.currency(
-        symbol: widget.selectedCurrency,
-        decimalDigits: 2
-    ).format(widget.avgUsage);
+    ).format(ref.watch(totalExpenseInAccountProvider));
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 15.h),

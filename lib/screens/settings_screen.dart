@@ -182,6 +182,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         TextFormField(
+                          autofocus: true,
                           controller: _pinController,
                           obscureText: obSecureState,
                           keyboardType: TextInputType.number,
@@ -232,9 +233,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           return Consumer(
               builder: (context,ref,_){
                 List<Color> accentColors = [
+                  Color(0xFF0F52BA),
                   Color(0xFF1476B8),
                   Color(0xFF1D9EAE),
-                  Color(0xFF0F6F72),
+                  Color(0xFF006666),
                   Color(0xFF16A085),
                   Color(0xFF558B2F),
                   Color(0xFFAA8811),
@@ -248,18 +250,19 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 ];
 
                 List<String> colorName = [
-                  'Bright Azure',
-                  'Cyan Spark',
-                  'Teal Blue',
-                  'Jade Pulse',
-                  'Nature Green',
-                  'Golden Olive',
-                  'Orange Rust',
-                  'Crimson Red',
-                  'Magenta Rose',
-                  'Royal Amethyst',
-                  'Cosmic Indigo',
-                  'Chocolaty Brown',
+                  'Deep Blue',
+                  'Light Blue',
+                  'Cyan',
+                  'Teal',
+                  'Green',
+                  'Deep Green',
+                  'Gold',
+                  'Orange',
+                  'Red',
+                  'Magenta',
+                  'Purple',
+                  'Indigo',
+                  'Brown',
                   'Slate Grey',
                 ];
 
@@ -368,16 +371,28 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ListTile(
               onTap: chooseTheme,
               tileColor: Colors.transparent,
-              leading: Icon(Icons.wb_sunny_outlined,color: theme.iconTheme.color,),
+              leading: isDark?Icon(Icons.wb_sunny_outlined,color: theme.iconTheme.color,):Icon(Icons.dark_mode_outlined,color: theme.iconTheme.color,),
               title: Text('Display mode'),
               trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
           ),
           ListTile(
               onTap: chooseCurrency,
               tileColor: Colors.transparent,
-              leading: Icon(Icons.attach_money,color: theme.iconTheme.color,),
+              leading: Icon(Icons.paid_outlined,color: theme.iconTheme.color,),
               title: Text('Currency sign'),
               trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+          ),
+          ListTile(
+              onTap: chooseCurrency,
+              tileColor: Colors.transparent,
+              leading: Icon(Icons.dashboard_outlined,color: theme.iconTheme.color,),
+              title: Text('Enable collapse mode'),
+              trailing: Switch(
+                  value: ref.watch(collapseDashboardPrefProvider),
+                  onChanged: (val){
+                    ref.read(collapseDashboardPrefProvider.notifier).saveCollapsePref(val);
+                  }
+              )
           ),
           Divider(indent: 10,endIndent: 10,thickness: 1,color: theme.colorScheme.primary,),
           ListTile(

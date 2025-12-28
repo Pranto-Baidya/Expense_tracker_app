@@ -144,7 +144,7 @@ class _BudgetDashboardState extends ConsumerState<BudgetDashboard> with TickerPr
               ],
             ),
           ),
-          SizedBox(height: 15.h),
+          SizedBox(height: 25.h),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [

@@ -9,9 +9,12 @@ import 'package:expense_tracker_app/riverpod/category_riverpod/category_riverpod
 import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/prefs_riverpod/prefs_riverpod.dart';
+import 'package:expense_tracker_app/screens/analysis_screen/stats_screen.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
 import 'package:expense_tracker_app/widgets/expense_tile.dart';
+import 'package:expense_tracker_app/widgets/listAnimation_widget.dart';
+import 'package:expense_tracker_app/widgets/search_callback_helper.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
@@ -36,6 +39,8 @@ final moneyTypeProvider = StateProvider<MoneyType>((ref)=>MoneyType.expense);
 final selectedAccountProvider = StateProvider<int?>((ref)=>null);
 final enteredAmountProvider = StateProvider<double>((ref)=>0);
 final recordAddedTriggerProvider = StateProvider<int>((ref) => 0);
+final recordsDashboardCollapseProvider = StateProvider<bool>((ref)=>false);
+final oldAmountTrackerProvider = StateProvider<double>((ref)=>0);
 
 
 class RecordsScreen extends ConsumerStatefulWidget {
@@ -61,15 +66,22 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
   final TextEditingController _editTitleController = TextEditingController();
   final TextEditingController _editAmountController = TextEditingController();
 
+  final ScrollController _scrollController = ScrollController();
+
   double _lastScrollPosition = 0.0;
   bool _isFabVisible = true;
-  
+
   bool isSelectedForBulkDelete = false;
   Set<int> selectedIds = {};
+
+  final double _expandedHeight = 244.0.h;
+  final double _collapsedHeight = 60.0.h;
 
 
   @override
   void initState() {
+
+    _scrollController.addListener(_onScroll);
     super.initState();
 
     _animationController = AnimationController(
@@ -77,7 +89,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
         duration: Duration(milliseconds: 300)
     );
 
-    _disappearFABAnimation = Tween<Offset>(begin: Offset.zero, end: Offset(0, 1.5))
+    _disappearFABAnimation = Tween<Offset>(begin: Offset.zero, end: Offset(0, 2.5))
         .animate(CurvedAnimation(parent: _animationController, curve: Curves.fastOutSlowIn));
 
     _bulkDeleteAnimationController = AnimationController(
@@ -117,6 +129,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
           expenseNotifier.filterRecordsByMonth(selectedDate, selectedTime);
           break;
       }
+
     });
 
     _titleController.addListener(() => checkTyping(ref));
@@ -126,11 +139,24 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
 
   @override
   void dispose() {
+    _scrollController.removeListener(_onScroll);
     _titleController.removeListener(()=>checkTyping(ref,));
     _amountController.removeListener(()=>checkTyping(ref));
     _bulkDeleteAnimationController.dispose();
     _animationController.dispose();
+    _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll(){
+    final collapseState = ref.read(recordsDashboardCollapseProvider);
+    final collapseNotifier = ref.read(recordsDashboardCollapseProvider.notifier);
+
+    final isCollapsed = _scrollController.offset > 50;
+
+    if(isCollapsed!=collapseState){
+      collapseNotifier.state = isCollapsed;
+    }
   }
 
   bool _handleScrollNotification(ScrollNotification scrollInfo){
@@ -139,11 +165,11 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
       final currentScroll = scrollInfo.metrics.pixels;
       final scrollDelta = currentScroll-_lastScrollPosition;
 
-      if(scrollDelta>8 && _isFabVisible){
+      if(scrollDelta>2 && _isFabVisible){
         _animationController.forward();
         _isFabVisible = false;
       }
-      else if(scrollDelta<-8 && !_isFabVisible){
+      else if(scrollDelta<-2 && !_isFabVisible){
         _animationController.reverse();
         _isFabVisible = true;
       }
@@ -166,7 +192,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
     }
     else{
       bool hasChanged = _editTitleController.text!=expense?.title || _editAmountController.text!=expense?.amount.toString() || ref.read(categoryPickerProvider)!=expense?.category
-      || ref.read(selectedDateProvider)!=expense?.date || ref.read(selectedTimeProvider)!=expense?.time || moneyTypeState!=expense?.moneyType || account!=card?.id;
+          || ref.read(selectedDateProvider)!=expense?.date || ref.read(selectedTimeProvider)!=expense?.time || moneyTypeState!=expense?.moneyType || account!=card?.id;
 
       if(hasChanged!=ref.read(checkTypingProvider.notifier).state){
         ref.read(checkTypingProvider.notifier).state = hasChanged;
@@ -192,8 +218,8 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
   Future<void> pickTime()async{
     final currentTime = ref.read(selectedTimeProvider);
     final pickedTime = await showTimePicker(
-        context: context,
-        initialTime: TimeOfDay.now(),
+      context: context,
+      initialTime: TimeOfDay.now(),
     );
 
     if(pickedTime!=null && pickedTime!=currentTime){
@@ -205,328 +231,498 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
   void addExpenseDialogue(){
     ref.read(selectedDateProvider.notifier).state = DateTime.now();
     ref.read(selectedTimeProvider.notifier).state = TimeOfDay.now();
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).cardColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
+      useSafeArea: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
       builder: (context) {
         var theme = Theme.of(context);
-
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
+        return Container(
+          decoration: BoxDecoration(
+            color: theme.scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Consumer(
-            builder: (context, ref, _) {
-              final category = ref.watch(categoryPickerProvider);
-              final isTyping = ref.watch(checkTypingProvider);
-
-              final moneyTypeState = ref.watch(moneyTypeProvider);
-              final moneyTypeNotifier = ref.read(moneyTypeProvider.notifier);
-
-              final selectedAccountState = ref.watch(selectedAccountProvider);
-              final selectedAccountNotifier = ref.read(selectedAccountProvider.notifier);
-
-              final incomeCategories = ref.watch(categoryProvider).allIncomeCategories;
-
-              final expenseCategories = ref.watch(categoryProvider).allExpenseCategories;
-
-              return SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 5,
-                        margin: const EdgeInsets.only(bottom: 20),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[400],
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      "Add a new record",
-                      style:
-                      theme.textTheme.titleLarge?.copyWith(fontSize: 18),
-                    ),
-                    SizedBox(height: 15.h),
-                    TextFormField(
-                      autofocus: true,
-                      controller: _titleController,
-                      decoration: InputDecoration(
-                        hintText: 'Name of your expense or income',
-                        hintStyle: theme.textTheme.labelLarge
-                            ?.copyWith(color: AppColors.hintTextColor),
-                      ),
-                    ),
-                    SizedBox(height: 15.h),
-                    TextFormField(
-                      autofocus: true,
-                      keyboardType: TextInputType.number,
-                      controller: _amountController,
-                      decoration: InputDecoration(
-                        hintText: 'Amount spent or received today',
-                        hintStyle: theme.textTheme.labelLarge
-                            ?.copyWith(color: AppColors.hintTextColor),
-                      ),
-                    ),
-                    SizedBox(height: 15.h),
-                    Row(
-                      children: [
-                        Icon(Icons.date_range, color: theme.iconTheme.color),
-                        TextButton(
-                          onPressed: pickDate,
-                          child: Text(
-                            DateFormat('MMMM dd, yyyy')
-                                .format(ref.watch(selectedDateProvider)),
-                            style: theme.textTheme.titleSmall,
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 20,
+              right: 20,
+              top: 12,
+            ),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final category = ref.watch(categoryPickerProvider);
+                final isTyping = ref.watch(checkTypingProvider);
+                final moneyTypeState = ref.watch(moneyTypeProvider);
+                final moneyTypeNotifier = ref.read(moneyTypeProvider.notifier);
+                final selectedAccountState = ref.watch(selectedAccountProvider);
+                final selectedAccountNotifier = ref.read(selectedAccountProvider.notifier);
+                final incomeCategories = ref.watch(categoryProvider).allIncomeCategories;
+                final expenseCategories = ref.watch(categoryProvider).allExpenseCategories;
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 36,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 24),
+                          decoration: BoxDecoration(
+                            color: theme.dividerColor,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Icon(Icons.more_time_outlined,
-                            color: theme.iconTheme.color),
-                        TextButton(
-                          onPressed: pickTime,
-                          child: Text(
-                            ref.watch(selectedTimeProvider).format(context),
-                            style: theme.textTheme.titleSmall,
-                          ),
+                      ),
+                      Text(
+                        "Add new record",
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
-                    ),
-                    SizedBox(height: 15.h),
-                    Text('Select money type:',
-                        style: theme.textTheme.titleMedium),
-                    Row(
-                      children: MoneyType.values.map((type) {
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Radio<MoneyType>(
-                              fillColor: WidgetStatePropertyAll(
-                                  theme.colorScheme.primary),
-                              value: type,
-                              groupValue: moneyTypeState,
-                              onChanged: (value) {
-                                moneyTypeNotifier.state = value!;
-                                ref.read(categoryPickerProvider.notifier).state =
-                                value == MoneyType.expense
-                                    ? expenseCategories.first.categoryName
-                                    : incomeCategories.first.categoryName;
-                                ref.read(categorySelectionProvider.notifier).state = false;
-                              },
+                      ),
+                      SizedBox(height: 24.h),
+                      TextFormField(
+                        autofocus: true,
+                        controller: _titleController,
+                        style: theme.textTheme.bodyLarge,
+                        decoration: InputDecoration(
+                          labelText: 'Title',
+                          hintText: 'Name of your expense or income',
+                          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.hintTextColor,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
                             ),
-                            Text(
-                              type == MoneyType.expense
-                                  ? 'Expense'
-                                  : 'Income',
-                              style: theme.textTheme.titleMedium,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
                             ),
-                            const SizedBox(width: 10),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                    SizedBox(height: 15.h),
-                    Text('Select category',style: theme.textTheme.titleMedium,),
-                    SizedBox(height: 10.h,),
-                    DropdownButtonFormField2(
-                      isExpanded: true,
-                      value: (moneyTypeState == MoneyType.expense ? expenseCategories : incomeCategories)
-                          .any((cat) => cat.categoryName == category) ? category : null,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.r),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        filled: true,
-                        fillColor: theme.colorScheme.surfaceVariant,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      hint: Text(
-                        'Select category',
-                        style: theme.textTheme.labelLarge
-                            ?.copyWith(color: AppColors.hintTextColor),
-                      ),
-                      items: moneyTypeNotifier.state==MoneyType.expense?
-                      expenseCategories.map((item) {
-                        return DropdownMenuItem<String>(
-                          value: item.categoryName,
-                          child: Text(
-                            item.categoryName,
-                            style: theme.textTheme.titleSmall,
                           ),
-                        );
-                      }).toList() : incomeCategories.map((item) {
-                        return DropdownMenuItem<String>(
-                          value: item.categoryName,
-                          child: Text(
-                            item.categoryName,
-                            style: theme.textTheme.titleSmall,
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 1.5,
+                            ),
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                         ref.read(categoryPickerProvider.notifier).state = value;
-                          ref.read(categorySelectionProvider.notifier).state = true;
-                          checkTyping(ref);
-                        }
-                      },
-                      iconStyleData: const IconStyleData(
-                        icon: Icon(Icons.arrow_drop_down_rounded),
-                        iconSize: 28,
-                      ),
-                      buttonStyleData: ButtonStyleData(
-                        height: 55.h,
-                        padding: const EdgeInsets.symmetric(horizontal: 15),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10.r),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
                         ),
                       ),
-                      dropdownStyleData: DropdownStyleData(
-                        maxHeight: 300,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10.r),
-                          color: theme.dropdownMenuTheme.menuStyle
-                              ?.backgroundColor
-                              ?.resolve({}) ??
-                              theme.colorScheme.surface,
+                      SizedBox(height: 16.h),
+                      TextFormField(
+                        autofocus: true,
+                        keyboardType: TextInputType.number,
+                        controller: _amountController,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Amount',
+                          hintText: '0.00',
+                          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.hintTextColor,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
                         ),
                       ),
-                      menuItemStyleData: const MenuItemStyleData(
-                        height: 48,
-                        padding: EdgeInsets.symmetric(horizontal: 15),
-                      ),
-                    ),
-                    SizedBox(height: 15.h),
-                    Text('Choose account',style: theme.textTheme.titleMedium,),
-                    SizedBox(height: 10.h,),
-                    DropdownButtonFormField2(
-                      isExpanded: true,
-                      value: selectedAccountState,
-                      decoration: InputDecoration(
-                        contentPadding: EdgeInsets.zero,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        filled: true,
-                        fillColor: theme.colorScheme.surfaceVariant,
-                      ),
-                      hint: Text(
-                        'Choose account',
-                        style: theme.textTheme.labelLarge?.copyWith(color: AppColors.hintTextColor,),
-                      ),
-                      items: ref.watch(cardsProvider).cards.map((card) {
-                        return DropdownMenuItem<int>(
-                          value: card.id,
-                          child: Row(
-                            children: [
-                              Icon(card.icon, size: 20, color: theme.iconTheme.color),
-                              const SizedBox(width: 10),
-                              Text(
-                                card.cardName,
-                                style: theme.textTheme.titleSmall,
+                      SizedBox(height: 16.h),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: pickDate,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: theme.dividerColor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_today,
+                                      size: 20,
+                                      color: theme.iconTheme.color?.withOpacity(0.7),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        DateFormat('MMM dd, yyyy')
+                                            .format(ref.watch(selectedDateProvider)),
+                                        style: theme.textTheme.bodyMedium,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
+                            ),
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          selectedAccountNotifier.state = value;
-                          checkTyping(ref);
-                        }
-                      },
-                      iconStyleData: const IconStyleData(
-                        icon: Icon(Icons.arrow_drop_down_rounded),
-                        iconSize: 28,
-                      ),
-                      buttonStyleData: ButtonStyleData(
-                        padding: const EdgeInsets.symmetric(horizontal: 15),
-                        height: 55.h,
-                      ),
-                      dropdownStyleData: DropdownStyleData(
-                        maxHeight: 300,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: theme.colorScheme.surface,
-                        ),
-                      ),
-                      menuItemStyleData: const MenuItemStyleData(
-                        height: 50,
-                        padding: EdgeInsets.symmetric(horizontal: 15),
-                      ),
-                    ),
-                    SizedBox(height: 15.h),
-                    SizedBox(
-                      width: double.infinity,
-                      child: !isTyping
-                          ? ElevatedButton(
-                        onPressed: null,
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15.r),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: InkWell(
+                              onTap: pickTime,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: theme.dividerColor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.access_time,
+                                      size: 20,
+                                      color: theme.iconTheme.color?.withOpacity(0.7),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        ref.watch(selectedTimeProvider).format(context),
+                                        style: theme.textTheme.bodyMedium,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           ),
-                          elevation: 0,
-                          minimumSize: Size(double.infinity.w, 55.h),
-                        ),
-                        child: Text(
-                          'Add record',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(color: Colors.grey),
-                        ),
-                      )
-                          : CustomAppButton(
-                          onPressed: () {
-
-                          ref.read(enteredAmountProvider.notifier).state = double.parse(_amountController.text);
-                          final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==selectedAccountNotifier.state);
-
-                          if((ref.read(enteredAmountProvider.notifier).state>selectedCard.amount || selectedCard.amount<=0) && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
-                            toast('Not sufficient balance, please choose a different account or update the balance');
-                            return;
-                          }
-
-                          ref.read(expenseProvider.notifier).insertExpense(
-                            ExpenseModel(
-                              title: _titleController.text,
-                              amount: double.parse(_amountController.text),
-                              category: category,
-                              date: ref.read(selectedDateProvider.notifier).state,
-                              time: ref.read(selectedTimeProvider.notifier).state,
-                              moneyType: ref.read(moneyTypeProvider.notifier).state,
-                              accountId: ref.read(selectedAccountProvider)!
+                        ],
+                      ),
+                      SizedBox(height: 20.h),
+                      Row(
+                        children: MoneyType.values.map((type) {
+                          final isSelected = moneyTypeState == type;
+                          return Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                right: type == MoneyType.expense ? 8 : 0,
+                                left: type == MoneyType.income ? 8 : 0,
+                              ),
+                              child: InkWell(
+                                onTap: () {
+                                  moneyTypeNotifier.state = type;
+                                  ref.read(categoryPickerProvider.notifier).state =
+                                  type == MoneyType.expense
+                                      ? expenseCategories.first.categoryName
+                                      : incomeCategories.first.categoryName;
+                                  ref.read(categorySelectionProvider.notifier).state = false;
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? type==MoneyType.expense? Colors.redAccent : Colors.green : Colors.transparent,
+                                    border: Border.all(
+                                      color: isSelected ? type==MoneyType.expense? Colors.redAccent : Colors.green
+                                          : theme.dividerColor,
+                                      width: isSelected ? 1.5 : 1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      isSelected?type == MoneyType.expense? Icon(Icons.arrow_downward_outlined,color: Colors.white,):Icon(Icons.arrow_upward_outlined,color: Colors.white,):SizedBox.shrink(),
+                                      SizedBox(width: 5.w,),
+                                      Text(
+                                        type == MoneyType.expense ? 'Expense' : 'Income',
+                                        style: theme.textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.w500,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : theme.textTheme.bodyMedium?.color,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           );
-                          ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
-                          ref.read(budgetProvider.notifier).calculateAmount();
-                          ref.read(recordAddedTriggerProvider.notifier).state++;
-
-                          Navigator.pop(context);
-                        },
-                        title: 'Add record',
+                        }).toList(),
                       ),
-                    ),
-                    SizedBox(height: 20),
-                  ],
-                ),
-              );
-            },
+                      SizedBox(height: 20.h),
+                      DropdownButtonFormField2(
+                        isExpanded: true,
+                        value: (moneyTypeState == MoneyType.expense ? expenseCategories : incomeCategories)
+                            .any((cat) => cat.categoryName == category) ? category : null,
+                        decoration: InputDecoration(
+                          labelText: 'Category',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                        ),
+                        hint: Text(
+                          'Select category',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.hintTextColor,
+                          ),
+                        ),
+                        items: moneyTypeNotifier.state==MoneyType.expense?
+                        expenseCategories.map((item) {
+                          return DropdownMenuItem<String>(
+                            value: item.categoryName,
+                            child: Text(
+                              item.categoryName,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          );
+                        }).toList() : incomeCategories.map((item) {
+                          return DropdownMenuItem<String>(
+                            value: item.categoryName,
+                            child: Text(
+                              item.categoryName,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            ref.read(categoryPickerProvider.notifier).state = value;
+                            ref.read(categorySelectionProvider.notifier).state = true;
+                            checkTyping(ref);
+                          }
+                        },
+                        iconStyleData: IconStyleData(
+                          icon: Icon(
+                            Icons.arrow_drop_down,
+                            color: theme.iconTheme.color?.withOpacity(0.7),
+                          ),
+                          iconSize: 24,
+                        ),
+                        buttonStyleData: ButtonStyleData(
+                          height: 56.h,
+                          padding: EdgeInsets.zero,
+                        ),
+                        dropdownStyleData: DropdownStyleData(
+                          maxHeight: 300,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: theme.cardColor,
+                          ),
+                        ),
+                        menuItemStyleData: const MenuItemStyleData(
+                          height: 48,
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                      ),
+                      SizedBox(height: 16.h),
+                      DropdownButtonFormField2(
+                        isExpanded: true,
+                        value: selectedAccountState,
+                        decoration: InputDecoration(
+                          labelText: 'Account',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                        ),
+                        hint: Text(
+                          'Choose account',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.hintTextColor,
+                          ),
+                        ),
+                        items: ref.watch(cardsProvider).cards.map((card) {
+                          return DropdownMenuItem<int>(
+                            value: card.id,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  card.icon,
+                                  size: 20,
+                                  color: theme.iconTheme.color,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  card.cardName,
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            selectedAccountNotifier.state = value;
+                            checkTyping(ref);
+                          }
+                        },
+                        iconStyleData: IconStyleData(
+                          icon: Icon(
+                            Icons.arrow_drop_down,
+                            color: theme.iconTheme.color?.withOpacity(0.7),
+                          ),
+                          iconSize: 24,
+                        ),
+                        buttonStyleData: ButtonStyleData(
+                          height: 56.h,
+                          padding: EdgeInsets.zero,
+                        ),
+                        dropdownStyleData: DropdownStyleData(
+                          maxHeight: 300,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: theme.cardColor,
+                          ),
+                        ),
+                        menuItemStyleData: const MenuItemStyleData(
+                          height: 48,
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                      ),
+                      SizedBox(height: 24.h),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52.h,
+                        child: !isTyping
+                            ? ElevatedButton(
+                          onPressed: null,
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'Add Record',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface.withOpacity(0.38),
+                            ),
+                          ),
+                        )
+                            : ElevatedButton(
+                          onPressed: () {
+                            ref.read(enteredAmountProvider.notifier).state = double.parse(_amountController.text);
+                            final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==selectedAccountNotifier.state);
+                            if((ref.read(enteredAmountProvider.notifier).state>selectedCard.amount || selectedCard.amount<=0) && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
+                              toast('Not sufficient balance, please choose a different account or update the balance');
+                              return;
+                            }
+                            final expenseDate = ref.read(selectedDateProvider.notifier).state;
+                            ref.read(expenseProvider.notifier).insertExpense(
+                              ExpenseModel(
+                                  title: _titleController.text,
+                                  amount: double.parse(_amountController.text),
+                                  category: category,
+                                  date: expenseDate,
+                                  time: ref.read(selectedTimeProvider.notifier).state,
+                                  moneyType: ref.read(moneyTypeProvider.notifier).state,
+                                  accountId: ref.read(selectedAccountProvider)!
+                              ),
+                            );
+                            ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
+                            ref.read(budgetProvider.notifier).calculateAmount(expenseDate);
+                            ref.read(recordAddedTriggerProvider.notifier).state++;
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                            backgroundColor: theme.colorScheme.primary,
+                          ),
+                          child: Text(
+                            'Add Record',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 20.h),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         );
       },
@@ -534,6 +730,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
       _titleController.clear();
       _amountController.clear();
       ref.read(categoryPickerProvider.notifier).state = 'Personal';
+      ref.read(selectedAccountProvider.notifier).state = null;
       ref.read(selectedDateProvider.notifier).state = DateTime.now();
       ref.read(selectedTimeProvider.notifier).state = TimeOfDay.now();
     });
@@ -552,318 +749,514 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
 
     ref.read(editingProvider.notifier).state = true;
 
+    ref.read(oldAmountTrackerProvider.notifier).state = expense.amount;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Theme.of(context).cardColor,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (BuildContext context) {
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
         var theme = Theme.of(context);
-
-        return Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 20,
-            right: 20,
-            top: 20,
+        return Container(
+          decoration: BoxDecoration(
+            color: theme.scaffoldBackgroundColor,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: Consumer(
-            builder: (context, ref, _) {
-              final category = ref.watch(categoryPickerProvider);
-              final isTyping = ref.watch(checkTypingProvider);
-
-              final moneyTypeState = ref.watch(moneyTypeProvider);
-              final moneyTypeNotifier = ref.read(moneyTypeProvider.notifier);
-
-              final selectedAccountState = ref.watch(selectedAccountProvider);
-              final selectedAccountNotifier = ref.read(selectedAccountProvider.notifier);
-
-              final incomeCategories = ref.watch(categoryProvider).allIncomeCategories;
-
-              final expenseCategories = ref.watch(categoryProvider).allExpenseCategories;
-
-              return SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Center(
-                      child: Container(
-                        width: 40,
-                        height: 5,
-                        margin: const EdgeInsets.only(bottom: 20),
-                        decoration: BoxDecoration(
-                          color: Colors.grey[400],
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                    Text(
-                      'Edit existing record',
-                      style: theme.textTheme.titleLarge?.copyWith(fontSize: 18),
-                    ),
-                    SizedBox(height: 15.h),
-                    TextFormField(
-                      autofocus: true,
-                      controller: _editTitleController,
-                      onChanged: (_) => checkTyping(ref, expense: expense),
-                      decoration: InputDecoration(
-                        hintText: 'Name of your expense or income',
-                        hintStyle: theme.textTheme.labelLarge
-                            ?.copyWith(color: AppColors.hintTextColor),
-                      ),
-                    ),
-                    SizedBox(height: 15.h),
-                    TextFormField(
-                      autofocus: true,
-                      controller: _editAmountController,
-                      keyboardType: TextInputType.number,
-                      onChanged: (_) => checkTyping(ref, expense: expense),
-                      decoration: InputDecoration(
-                        hintText: 'Amount spent or received today',
-                        hintStyle: theme.textTheme.labelLarge
-                            ?.copyWith(color: AppColors.hintTextColor),
-                      ),
-                    ),
-                    SizedBox(height: 15.h),
-                    Row(
-                      children: [
-                        Icon(Icons.date_range, color: theme.iconTheme.color),
-                        TextButton(
-                          onPressed: pickDate,
-                          child: Text(
-                            DateFormat('MMMM dd, yyyy')
-                                .format(ref.watch(selectedDateProvider)),
-                            style: theme.textTheme.titleSmall,
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 20,
+              right: 20,
+              top: 12,
+            ),
+            child: Consumer(
+              builder: (context, ref, _) {
+                final category = ref.watch(categoryPickerProvider);
+                final isTyping = ref.watch(checkTypingProvider);
+                final moneyTypeState = ref.watch(moneyTypeProvider);
+                final moneyTypeNotifier = ref.read(moneyTypeProvider.notifier);
+                final selectedAccountState = ref.watch(selectedAccountProvider);
+                final selectedAccountNotifier = ref.read(selectedAccountProvider.notifier);
+                final incomeCategories = ref.watch(categoryProvider).allIncomeCategories;
+                final expenseCategories = ref.watch(categoryProvider).allExpenseCategories;
+                return SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 36,
+                          height: 4,
+                          margin: const EdgeInsets.only(bottom: 24),
+                          decoration: BoxDecoration(
+                            color: theme.dividerColor,
+                            borderRadius: BorderRadius.circular(2),
                           ),
                         ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Icon(Icons.more_time_outlined, color: theme.iconTheme.color),
-                        TextButton(
-                          onPressed: pickTime,
-                          child: Text(
-                            ref.watch(selectedTimeProvider).format(context),
-                            style: theme.textTheme.titleSmall,
+                      ),
+                      Text(
+                        "Edit existing record",
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      SizedBox(height: 24.h),
+                      TextFormField(
+                        autofocus: true,
+                        controller: _editTitleController,
+                        onChanged: (_) => checkTyping(ref, expense: expense),
+                        style: theme.textTheme.bodyLarge,
+                        decoration: InputDecoration(
+                          labelText: 'Title',
+                          hintText: 'Name of your expense or income',
+                          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.hintTextColor,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
                           ),
                         ),
-                      ],
-                    ),
-                    SizedBox(height: 15.h),
-                    Text('Select money type:',
-                        style: theme.textTheme.titleMedium),
-                    Row(
-                      children: MoneyType.values.map((type) {
-                        return Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Radio<MoneyType>(
-                              fillColor: WidgetStatePropertyAll(
-                                  theme.colorScheme.primary),
-                              value: type,
-                              groupValue: moneyTypeState,
-                              onChanged: (value) {
-                                moneyTypeNotifier.state = value!;
-                                checkTyping(ref, expense: expense);
-                                ref.read(categoryPickerProvider.notifier).state = value==MoneyType.expense? expenseCategories.first.categoryName
-                                    :incomeCategories.first.categoryName;
-                              },
+                      ),
+                      SizedBox(height: 16.h),
+                      TextFormField(
+                        autofocus: true,
+                        keyboardType: TextInputType.number,
+                        controller: _editAmountController,
+                        onChanged: (_) => checkTyping(ref, expense: expense),
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w500,
+                        ),
+                        decoration: InputDecoration(
+                          labelText: 'Amount',
+                          hintText: '0.00',
+                          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.hintTextColor,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
                             ),
-                            Text(
-                              type == MoneyType.expense
-                                  ? 'Expense'
-                                  : 'Income',
-                              style: theme.textTheme.titleMedium,
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
                             ),
-                            const SizedBox(width: 10),
-                          ],
-                        );
-                      }).toList(),
-                    ),
-                    SizedBox(height: 15.h),
-                    Text('Select category',style: theme.textTheme.titleMedium,),
-                    SizedBox(height: 10.h),
-                    DropdownButtonFormField2(
-                      isExpanded: true,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(10.r),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        filled: true,
-                        fillColor: theme.colorScheme.surfaceVariant,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      value: category,
-                      items: moneyTypeNotifier.state==MoneyType.expense?expenseCategories.map((cat) {
-                        return DropdownMenuItem(
-                          value: cat.categoryName,
-                          child: Text(cat.categoryName,style: theme.textTheme.titleSmall,),
-                        );
-                      }).toList()
-                          :incomeCategories.map((cat) {
-                        return DropdownMenuItem(
-                          value: cat.categoryName,
-                          child: Text(cat.categoryName,style: theme.textTheme.titleSmall,),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        ref.read(categoryPickerProvider.notifier).state = value!;
-                        ref.read(categorySelectionProvider.notifier).state = true;
-                        checkTyping(ref, expense: expense);
-                      },
-                      iconStyleData: const IconStyleData(
-                        icon: Icon(Icons.arrow_drop_down_rounded),
-                        iconSize: 28,
-                      ),
-                      buttonStyleData: ButtonStyleData(
-                        height: 55.h,
-                        padding: const EdgeInsets.symmetric(horizontal: 15),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10.r),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
                         ),
                       ),
-                      dropdownStyleData: DropdownStyleData(
-                        maxHeight: 300,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(10.r),
-                          color: theme.dropdownMenuTheme.menuStyle
-                              ?.backgroundColor
-                              ?.resolve({}) ??
-                              theme.colorScheme.surface,
-                        ),
-                      ),
-                      menuItemStyleData: const MenuItemStyleData(
-                        height: 48,
-                        padding: EdgeInsets.symmetric(horizontal: 15),
-                      ),
-                    ),
-                    SizedBox(height: 10.h),
-                    Text('Choose account',style: theme.textTheme.titleMedium,),
-                    SizedBox(height: 10.h,),
-                    DropdownButtonFormField2(
-                      isExpanded: true,
-                      value: selectedAccountState,
-                      decoration: InputDecoration(
-                        contentPadding: EdgeInsets.zero,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        filled: true,
-                        fillColor: theme.colorScheme.surfaceVariant,
-                      ),
-                      hint: Text(
-                        'Choose account',
-                        style: theme.textTheme.labelLarge?.copyWith(color: AppColors.hintTextColor,),
-                      ),
-                      items: ref.watch(cardsProvider).cards.map((card) {
-                        return DropdownMenuItem<int>(
-                          value: card.id,
-                          child: Row(
-                            children: [
-                              Icon(card.icon, size: 20, color: theme.iconTheme.color),
-                              const SizedBox(width: 10),
-                              Text(
-                                card.cardName,
-                                style: theme.textTheme.titleSmall,
+                      SizedBox(height: 16.h),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              onTap: pickDate,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: theme.dividerColor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_today,
+                                      size: 20,
+                                      color: theme.iconTheme.color?.withOpacity(0.7),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        DateFormat('MMM dd, yyyy')
+                                            .format(ref.watch(selectedDateProvider)),
+                                        style: theme.textTheme.bodyMedium,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ],
+                            ),
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        if (value != null) {
-                          selectedAccountNotifier.state = value;
-                          checkTyping(ref, expense: expense);
-                        }
-                      },
-                      iconStyleData: const IconStyleData(
-                        icon: Icon(Icons.arrow_drop_down_rounded),
-                        iconSize: 28,
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: InkWell(
+                              onTap: pickTime,
+                              borderRadius: BorderRadius.circular(12),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                decoration: BoxDecoration(
+                                  border: Border.all(
+                                    color: theme.dividerColor,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.access_time,
+                                      size: 20,
+                                      color: theme.iconTheme.color?.withOpacity(0.7),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Text(
+                                        ref.watch(selectedTimeProvider).format(context),
+                                        style: theme.textTheme.bodyMedium,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      buttonStyleData: ButtonStyleData(
-                        padding: const EdgeInsets.symmetric(horizontal: 15),
-                        height: 55.h,
-                      ),
-                      dropdownStyleData: DropdownStyleData(
-                        maxHeight: 300,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(12),
-                          color: theme.colorScheme.surface,
-                        ),
-                      ),
-                      menuItemStyleData: const MenuItemStyleData(
-                        height: 50,
-                        padding: EdgeInsets.symmetric(horizontal: 15),
-                      ),
-                    ),
-                    SizedBox(height: 15.h),
-                    SizedBox(
-                      width: double.infinity,
-                      child: !isTyping
-                          ? ElevatedButton(
-                        onPressed: null,
-                        style: ElevatedButton.styleFrom(
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15.r)),
-                          elevation: 0,
-                          minimumSize: Size(double.infinity, 55.h),
-                        ),
-                        child: Text(
-                          'Edit record',
-                          style: theme.textTheme.titleMedium
-                              ?.copyWith(color: Colors.grey),
-                        ),
-                      )
-                          : CustomAppButton(
-                        onPressed: () {
-
-                          if(ref.read(editingProvider.notifier).state==true) {
-                            ref.read(enteredAmountProvider.notifier).state = double.parse(_editAmountController.text);
-                          }
-
-                          final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==selectedAccountNotifier.state);
-
-                          if((ref.read(enteredAmountProvider.notifier).state>selectedCard.amount || selectedCard.amount<=0) && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
-                            toast('Not sufficient balance, please choose a different account or update the balance');
-                            return;
-                          }
-
-                          ref.read(expenseProvider.notifier).updateExpense(
-                            ExpenseModel(
-                                id: id,
-                                title: _editTitleController.text,
-                                amount: double.parse(_editAmountController.text),
-                                category: category,
-                                date: ref.read(selectedDateProvider.notifier).state,
-                                time: ref.read(selectedTimeProvider.notifier).state,
-                                moneyType: ref.read(moneyTypeProvider.notifier).state,
-                                accountId: ref.read(selectedAccountProvider)!
+                      SizedBox(height: 20.h),
+                      Row(
+                        children: MoneyType.values.map((type) {
+                          final isSelected = moneyTypeState == type;
+                          return Expanded(
+                            child: Padding(
+                              padding: EdgeInsets.only(
+                                right: type == MoneyType.expense ? 8 : 0,
+                                left: type == MoneyType.income ? 8 : 0,
+                              ),
+                              child: InkWell(
+                                onTap: () {
+                                  moneyTypeNotifier.state = type;
+                                  ref.read(categoryPickerProvider.notifier).state =
+                                  type == MoneyType.expense
+                                      ? expenseCategories.first.categoryName
+                                      : incomeCategories.first.categoryName;
+                                  checkTyping(ref, expense: expense);
+                                },
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? type==MoneyType.expense? Colors.redAccent : Colors.green : Colors.transparent,
+                                    border: Border.all(
+                                      color: isSelected ? type==MoneyType.expense? Colors.redAccent : Colors.green
+                                          : theme.dividerColor,
+                                      width: isSelected ? 1.5 : 1,
+                                    ),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      isSelected?type == MoneyType.expense? Icon(Icons.arrow_downward_outlined,color: Colors.white,):Icon(Icons.arrow_upward_outlined,color: Colors.white,):SizedBox.shrink(),
+                                      SizedBox(width: 5.w,),
+                                      Text(
+                                        type == MoneyType.expense ? 'Expense' : 'Income',
+                                        style: theme.textTheme.bodyMedium?.copyWith(
+                                          fontWeight: FontWeight.w500,
+                                          color: isSelected
+                                              ? Colors.white
+                                              : theme.textTheme.bodyMedium?.color,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           );
-
-                          ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
-                          ref.read(budgetProvider.notifier).calculateAmount();
-
-                          ref.read(editingProvider.notifier).state = false;
-                          ref.read(checkTypingProvider.notifier).state = false;
-                          ref.read(recordAddedTriggerProvider.notifier).state++;
-
-                          Navigator.pop(context);
-                        },
-                        title: 'Edit record',
+                        }).toList(),
                       ),
-                    ),
-                    SizedBox(height: 20),
-                  ],
-                ),
-              );
-            },
+                      SizedBox(height: 20.h),
+                      DropdownButtonFormField2(
+                        isExpanded: true,
+                        value: (moneyTypeState == MoneyType.expense ? expenseCategories : incomeCategories)
+                            .any((cat) => cat.categoryName == category) ? category : null,
+                        decoration: InputDecoration(
+                          labelText: 'Category',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                        ),
+                        hint: Text(
+                          'Select category',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.hintTextColor,
+                          ),
+                        ),
+                        items: moneyTypeNotifier.state==MoneyType.expense?
+                        expenseCategories.map((item) {
+                          return DropdownMenuItem<String>(
+                            value: item.categoryName,
+                            child: Text(
+                              item.categoryName,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          );
+                        }).toList() : incomeCategories.map((item) {
+                          return DropdownMenuItem<String>(
+                            value: item.categoryName,
+                            child: Text(
+                              item.categoryName,
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            ref.read(categoryPickerProvider.notifier).state = value;
+                            ref.read(categorySelectionProvider.notifier).state = true;
+                            checkTyping(ref, expense: expense);
+                          }
+                        },
+                        iconStyleData: IconStyleData(
+                          icon: Icon(
+                            Icons.arrow_drop_down,
+                            color: theme.iconTheme.color?.withOpacity(0.7),
+                          ),
+                          iconSize: 24,
+                        ),
+                        buttonStyleData: ButtonStyleData(
+                          height: 56.h,
+                          padding: EdgeInsets.zero,
+                        ),
+                        dropdownStyleData: DropdownStyleData(
+                          maxHeight: 300,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: theme.cardColor,
+                          ),
+                        ),
+                        menuItemStyleData: const MenuItemStyleData(
+                          height: 48,
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                      ),
+                      SizedBox(height: 16.h),
+                      DropdownButtonFormField2(
+                        isExpanded: true,
+                        value: selectedAccountState,
+                        decoration: InputDecoration(
+                          labelText: 'Account',
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.dividerColor,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: theme.colorScheme.primary,
+                              width: 1.5,
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 16,
+                          ),
+                        ),
+                        hint: Text(
+                          'Choose account',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.hintTextColor,
+                          ),
+                        ),
+                        items: ref.watch(cardsProvider).cards.map((card) {
+                          return DropdownMenuItem<int>(
+                            value: card.id,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  card.icon,
+                                  size: 20,
+                                  color: theme.iconTheme.color,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  card.cardName,
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          if (value != null) {
+                            selectedAccountNotifier.state = value;
+                            checkTyping(ref, expense: expense);
+                          }
+                        },
+                        iconStyleData: IconStyleData(
+                          icon: Icon(
+                            Icons.arrow_drop_down,
+                            color: theme.iconTheme.color?.withOpacity(0.7),
+                          ),
+                          iconSize: 24,
+                        ),
+                        buttonStyleData: ButtonStyleData(
+                          height: 56.h,
+                          padding: EdgeInsets.zero,
+                        ),
+                        dropdownStyleData: DropdownStyleData(
+                          maxHeight: 300,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: theme.cardColor,
+                          ),
+                        ),
+                        menuItemStyleData: const MenuItemStyleData(
+                          height: 48,
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                      ),
+                      SizedBox(height: 24.h),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52.h,
+                        child: !isTyping
+                            ? ElevatedButton(
+                          onPressed: null,
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                          ),
+                          child: Text(
+                            'Edit Record',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: theme.colorScheme.onSurface.withOpacity(0.38),
+                            ),
+                          ),
+                        )
+                            : ElevatedButton(
+                          onPressed: () {
+                            if(ref.read(editingProvider.notifier).state==true) {
+                              ref.read(enteredAmountProvider.notifier).state = double.parse(_editAmountController.text);
+                            }
+
+                            final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==selectedAccountNotifier.state);
+
+                            if((ref.read(enteredAmountProvider.notifier).state>selectedCard.amount || selectedCard.amount<=0) && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
+                              toast('Not sufficient balance, please choose a different account or update the balance');
+                              return;
+                            }
+
+                            ref.read(expenseProvider.notifier).updateExpense(
+                              ExpenseModel(
+                                  id: id,
+                                  title: _editTitleController.text,
+                                  amount: double.parse(_editAmountController.text),
+                                  category: category,
+                                  date: ref.read(selectedDateProvider.notifier).state,
+                                  time: ref.read(selectedTimeProvider.notifier).state,
+                                  moneyType: ref.read(moneyTypeProvider.notifier).state,
+                                  accountId: ref.read(selectedAccountProvider)!
+                              ),
+                            );
+
+                            ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
+                            ref.read(budgetProvider.notifier).calculateAmountForEdit(
+                              ref.read(selectedDateProvider.notifier).state,
+                              ref.read(oldAmountTrackerProvider.notifier).state,
+                            );
+
+                            ref.read(editingProvider.notifier).state = false;
+                            ref.read(checkTypingProvider.notifier).state = false;
+                            ref.read(recordAddedTriggerProvider.notifier).state++;
+
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 0,
+                            backgroundColor: theme.colorScheme.primary,
+                          ),
+                          child: Text(
+                            'Edit Record',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 20.h),
+                    ],
+                  ),
+                );
+              },
+            ),
           ),
         );
       },
@@ -877,61 +1270,211 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
     showDialog(
         context: context,
         builder: (BuildContext context){
-          return AlertDialog(
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             backgroundColor: Theme.of(context).cardColor,
-            title: Text('Wait!',style: Theme.of(context).textTheme.titleLarge,),
-            content: Text('Are you sure you want to delete this entry?',style: Theme.of(context).textTheme.titleSmall,),
-            actions: [
-              TextButton(
-                  onPressed: (){
-                    Navigator.pop(context);
-                  },
-                  child: Text('Cancel',style: Theme.of(context).textTheme.titleMedium,)
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Delete entry',
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Are you sure you want to delete this entry?\nThis action cannot be undone.',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: (){
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: (){
+                            ref.read(expenseProvider.notifier).deleteExpense(expense.id!);
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Delete',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              TextButton(
-                  onPressed: (){
-                    ref.read(expenseProvider.notifier).deleteExpense(expense.id!);
-                    Navigator.pop(context);
-                  },
-                  child: Text('Delete',style: Theme.of(context).textTheme.titleMedium,)
-              ),
-            ],
+            ),
           );
         }
     );
   }
 
+
   void bulkDeleteAlert(){
     showDialog(
         context: context,
         builder: (BuildContext context){
-          return AlertDialog(
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             backgroundColor: Theme.of(context).cardColor,
-            title: Text('Delete selected records?',style: Theme.of(context).textTheme.titleMedium?.copyWith(fontSize: 18),),
-            content: Text('This can not be undone.',style: Theme.of(context).textTheme.titleSmall,),
-            actions: [
-              TextButton(
-                  onPressed: (){
-                    Navigator.pop(context);
-                  },
-                  child: Text('Cancel',style: Theme.of(context).textTheme.titleMedium,)
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        height: 40,
+                        width: 40,
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.delete_outline,
+                          color: Colors.red,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: selectedIds.length==1?Text(
+                          'Delete ${selectedIds.length} record?',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontSize: 17,fontWeight: FontWeight.bold),
+                        ):Text(
+                          'Delete ${selectedIds.length} records?',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(fontSize: 17,fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'This action cannot be undone.',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: (){
+                            Navigator.pop(context);
+                          },
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Cancel',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton(
+                          onPressed: (){
+                            ref.read(expenseProvider.notifier)
+                                .bulkDeleteSelectedRecords(selectedIds.toList());
+                            setState(() {
+                              isSelectedForBulkDelete = false;
+                              selectedIds.clear();
+                            });
+                            Navigator.pop(context);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text(
+                            'Delete',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              TextButton(
-                  onPressed: (){
-                    ref.read(expenseProvider.notifier).bulkDeleteSelectedRecords(selectedIds.toList());
-                    setState(() {
-                      isSelectedForBulkDelete = false;
-                      selectedIds.clear();
-                    });
-                    Navigator.pop(context);
-                  },
-                  child: Text('Delete',style: Theme.of(context).textTheme.titleMedium,)
-              ),
-            ],
+            ),
           );
         }
     );
   }
+
+
+
 
 
   @override
@@ -950,9 +1493,124 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
 
     final expenseList = expenseState.filteredRecord;
 
+    final isCollapseModeActivated = ref.watch(collapseDashboardPrefProvider);
+
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
-      body: Center(
+      body: isCollapseModeActivated? NotificationListener<ScrollNotification>(
+          onNotification: _handleScrollNotification,
+          child: CustomScrollView(
+            controller: _scrollController,
+            physics: const AlwaysScrollableScrollPhysics(),
+            slivers: [
+              SliverAppBar(
+                expandedHeight: _expandedHeight,
+                collapsedHeight: _collapsedHeight,
+                pinned: true,
+                elevation: 0,
+                backgroundColor: theme.colorScheme.primary,
+                automaticallyImplyLeading: false,
+                flexibleSpace: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final double collapseThreshold =
+                        _collapsedHeight + ((_expandedHeight - _collapsedHeight) * 0.3);
+
+                    final bool isCollapsed = constraints.maxHeight <= collapseThreshold;
+
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      final prev = ref.read(recordsDashboardCollapseProvider);
+                      if (prev != isCollapsed) {
+                        ref.read(recordsDashboardCollapseProvider.notifier).state = isCollapsed;
+                      }
+                    });
+
+                    return AnimatedBalanceDashboard(
+                      isCollapsed: isCollapsed,
+                    );
+                  },
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: SizedBox(height: 12.h),
+              ),
+
+              if(expenseState.isLoading)
+                SliverFillRemaining(
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(20.r),
+                        topRight: Radius.circular(20.r),
+                      ),
+                    ),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: theme.colorScheme.primary,
+                        backgroundColor: Colors.transparent,
+                      ),
+                    ),
+                  ),
+                )
+              else if(expenseList.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: theme.cardColor,
+                      borderRadius: BorderRadius.only(
+                        topLeft: Radius.circular(20.r),
+                        topRight: Radius.circular(20.r),
+                      ),
+                    ),
+                    child: _buildEmptyState(theme),
+                  ),
+                )
+
+              else ...[
+                  SliverToBoxAdapter(
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(20.r),
+                          topRight: Radius.circular(20.r),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          SizedBox(height: 15.h),
+                          _buildRecordsList(
+                            context,
+                            ref,
+                            theme,
+                            (() {
+                              final expenseList = ref.watch(expenseProvider).filteredRecord;
+                              final groupedExpenses = _groupByDate(expenseList);
+                              return groupedExpenses.keys.toList()..sort((a, b) => b.compareTo(a));
+                            })(),
+                            _groupByDate(ref.watch(expenseProvider).filteredRecord),
+                            selectedCurrency,
+                            expenseNotifier,
+                            expenseState,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  SliverFillRemaining(
+                    hasScrollBody: false,
+                    child: Container(color: theme.cardColor),
+                  ),
+                ],
+            ],
+          )
+      )
+          : Center(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           mainAxisAlignment: MainAxisAlignment.center,
@@ -984,8 +1642,8 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                       ],
                       if(!expenseState.isLoading)...[
                         SizedBox(height: 10.h,),
-                      if(expenseList.isEmpty)
-                        _buildEmptyState(theme),
+                        if(expenseList.isEmpty)
+                          _buildEmptyState(theme),
                         Expanded(
                             child: NotificationListener(
                                 onNotification: _handleScrollNotification,
@@ -1010,7 +1668,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                                 )
                             )
                         )
-                    ]
+                      ]
                     ],
                   ),
                 )
@@ -1018,8 +1676,8 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
           ],
         ),
       ),
-      floatingActionButton: isSelectedForBulkDelete?
-      ScaleTransition(
+      floatingActionButton: isSelectedForBulkDelete
+          ? ScaleTransition(
         scale: _bulkDeleteFabAnimation,
         child: Container(
           height: 64.h,
@@ -1058,7 +1716,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
           ),
         ),
       )
-      :SlideTransition(
+          : SlideTransition(
         position: _disappearFABAnimation,
         child: Container(
           height: 64.h,
@@ -1098,7 +1756,6 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
         ),
       ),
     );
-
   }
   Map<DateTime,List<ExpenseModel>> _groupByDate(List<ExpenseModel> expense){
     Map<DateTime,List<ExpenseModel>> map = {};
@@ -1117,12 +1774,11 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
 
   Widget _buildEmptyState(ThemeData theme) {
     return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        SizedBox(height: 50.h),
+        SizedBox(height: 80.h,),
         Icon(Icons.error_outline_outlined, color: theme.colorScheme.primary, size: 100),
         SizedBox(height: 24.h),
-        Text('No records this month', style: theme.textTheme.titleLarge),
+        Text('No records in this period', style: theme.textTheme.titleLarge),
         SizedBox(height: 8.h),
         Text('Tap the + button to add a new record', style: theme.textTheme.bodyMedium),
         SizedBox(height: 100.h),
@@ -1140,9 +1796,11 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
       dynamic expenseNotifier,
       dynamic expenseState,
       ) {
+    final isCollapseModeActivated = ref.watch(collapseDashboardPrefProvider);
+
     return ListView.builder(
       shrinkWrap: true,
-      physics: BouncingScrollPhysics(),
+      physics: isCollapseModeActivated ? const NeverScrollableScrollPhysics() : const AlwaysScrollableScrollPhysics(),
       itemCount: sortedDates.length,
       itemBuilder: (context, index) {
         final date = sortedDates[index];
@@ -1197,29 +1855,33 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                 ),
               ),
             ],
-        showBanner? SizedBox(height: 10.h,) : SizedBox.shrink(),
+            showBanner? SizedBox(height: 10.h,) : SizedBox.shrink(),
             Padding(
               padding: EdgeInsets.symmetric(vertical: 5.h, horizontal: 15.w),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 14,
-                        height: 14,
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary,
-                          shape: BoxShape.circle,
-                          boxShadow: [BoxShadow(color: theme.colorScheme.primary.withOpacity(0.4), blurRadius: 4, offset: Offset(0, 2))],
+                  ListAnimationWidget(
+                    index: index,
+                    offset: Offset(0, 0.3),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 14,
+                          height: 14,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(color: theme.colorScheme.primary.withOpacity(0.4), blurRadius: 4, offset: Offset(0, 2))],
+                          ),
                         ),
-                      ),
-                      SizedBox(width: 10.w),
-                      Text(
-                        DateFormat('MMMM dd, yyyy').format(date),
-                        style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
-                      ),
-                    ],
+                        SizedBox(width: 10.w),
+                        Text(
+                          DateFormat('MMMM dd, yyyy').format(date),
+                          style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
                   ),
                   SizedBox(height: 5.h),
                   ...expensesForDate.map((expense) {
@@ -1230,20 +1892,20 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
 
                     final selectedCategory = ref.watch(categoryProvider).allCategories.firstWhere((i)=>i.categoryName==expense.category,
                       orElse: () => CategoryModel(
-                      categoryName: expense.category,
-                      icon: Icons.category,
-                      color: Colors.grey,
-                    ),);
+                        categoryName: expense.category,
+                        icon: Icons.category,
+                        color: Colors.grey,
+                      ),);
 
                     return GestureDetector(
                       onLongPress: (){
-                       setState(() {
-                         isSelectedForBulkDelete = true;
-                         selectedIds.add(expense.id!);
-                         if(selectedIds.length==1) {
-                           _bulkDeleteAnimationController.forward(from: 0);
-                         }
-                       });
+                        setState(() {
+                          isSelectedForBulkDelete = true;
+                          selectedIds.add(expense.id!);
+                          if(selectedIds.length==1) {
+                            _bulkDeleteAnimationController.forward(from: 0);
+                          }
+                        });
                       },
                       onTap: (){
                         setState(() {
@@ -1265,37 +1927,42 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                             Row(
                               children: [
                                 Center(
-                                      child: Icon(
-                                        selectedIds.contains(expense.id!)?
-                                        Icons.check_box : Icons.check_box_outline_blank,
-                                        color: selectedIds.contains(expense.id!)? theme.colorScheme.primary : Colors.grey,
-                                      ),
-                                    ),
-                                  SizedBox(width: 15.w,),
-                                  Expanded(
-                                    child: ExpenseTile(
-                                      bgColor: selectedCategory.color,
-                                      icon: selectedCategory.icon,
-                                      expenseModel: expense,
-                                      currency: selectedCurrency,
-                                      cardModel: selectedCard,
-                                      onEdit: () => editExpenseDialogue(expense),
-                                      onDelete: () => deleteAlert(expense),
-                                    ),
+                                  child: Icon(
+                                    selectedIds.contains(expense.id!)?
+                                    Icons.check_box : Icons.check_box_outline_blank,
+                                    color: selectedIds.contains(expense.id!)? theme.colorScheme.primary : Colors.grey,
+                                  ),
+                                ),
+                                SizedBox(width: 15.w,),
+                                Expanded(
+                                  child: ExpenseTile(
+                                    bgColor: selectedCategory.color,
+                                    icon: selectedCategory.icon,
+                                    expenseModel: expense,
+                                    currency: selectedCurrency,
+                                    cardModel: selectedCard,
+                                    onEdit: () => editExpenseDialogue(expense),
+                                    onDelete: () => deleteAlert(expense),
+                                  ),
                                 )
                               ],
                             )
                           ],
                           if(!isSelectedForBulkDelete)...[
 
-                            ExpenseTile(
-                              bgColor: selectedCategory.color,
-                              icon: selectedCategory.icon,
-                              expenseModel: expense,
-                              currency: selectedCurrency,
-                              cardModel: selectedCard,
-                              onEdit: () => editExpenseDialogue(expense),
-                              onDelete: () => deleteAlert(expense),
+                            ListAnimationWidget(
+                              key: ValueKey(expense.id),
+                              offset: Offset(0, 0.3),
+                              index: expensesForDate.indexOf(expense),
+                              child: ExpenseTile(
+                                bgColor: selectedCategory.color,
+                                icon: selectedCategory.icon,
+                                expenseModel: expense,
+                                currency: selectedCurrency,
+                                cardModel: selectedCard,
+                                onEdit: () => editExpenseDialogue(expense),
+                                onDelete: () => deleteAlert(expense),
+                              ),
                             ),
                           ],
                         ],
@@ -1311,6 +1978,5 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
     );
   }
 
+
 }
-
-
