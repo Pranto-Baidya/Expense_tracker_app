@@ -1,7 +1,9 @@
 import 'package:expense_tracker_app/notification/notification_service.dart';
 import 'package:expense_tracker_app/riverpod/accent_riverpod/accent_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/prefs_riverpod/prefs_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
 import 'package:expense_tracker_app/screens/checkAuth.dart';
+import 'package:expense_tracker_app/screens/onboarding_screen/onboarding_screen.dart';
 import 'package:expense_tracker_app/widgets/custom_appbar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -24,6 +26,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
 
   @override
   void initState() {
+    super.initState();
+
     _animationController = AnimationController(
         vsync: this,
         duration: Duration(milliseconds: 900)
@@ -34,16 +38,29 @@ class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerPr
     _fadeAnimation = Tween<double>(begin: 0,end: 1).animate(CurvedAnimation(parent: _animationController, curve: Curves.easeInOut));
 
     _animationController.forward(from: 0);
-    
+
     NotificationService.sendNotificationAt();
 
-    WidgetsBinding.instance.addPostFrameCallback((_)async{
-      await Future.delayed(Duration(seconds: 1)).then((_){
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context)=>CheckAuth()));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.delayed(Duration(seconds: 1)).then((_) {
+        _checkOnboarding();
       });
     });
+  }
 
-    super.initState();
+
+  Future<void> _checkOnboarding() async {
+    await ref.read(onBoardProvider.notifier).loadOnBoardPref();
+    final hasSeenOnboarding = ref.read(onBoardProvider);
+
+    if (mounted) {
+      Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+              builder: (context) => hasSeenOnboarding ? CheckAuth() : OnboardingScreen()
+          )
+      );
+    }
   }
 
   List<BoxShadow> customShadow(bool isDark,WidgetRef ref) {

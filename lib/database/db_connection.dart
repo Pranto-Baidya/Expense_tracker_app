@@ -126,18 +126,10 @@ class DatabaseConnection {
     );
   }
 
-  Future<List<ExpenseModel>> getAllExpenses({
-    int offset = 0,
-    int limit = 10,
-  }) async {
+  Future<List<ExpenseModel>> getAllExpenses() async {
     final db = await getDB();
-    List<Map<String, dynamic>> data = await db.query(
-      'expenses',
-      orderBy: 'id DESC',
-      offset: offset,
-      limit: limit,
-    );
-    return await data.map((i) => ExpenseModel.fromMap(i)).toList();
+    List<Map<String, dynamic>> data = await db.query('expenses', orderBy: 'id DESC');
+    return data.map((i) => ExpenseModel.fromMap(i)).toList();
   }
 
   Future<int> updateExpenses(ExpenseModel expense) async {

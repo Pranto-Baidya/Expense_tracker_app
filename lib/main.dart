@@ -4,6 +4,7 @@ import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart'
 import 'package:expense_tracker_app/screens/all_screens.dart';
 import 'package:expense_tracker_app/screens/auth_screen/auth_screen.dart';
 import 'package:expense_tracker_app/screens/checkAuth.dart';
+import 'package:expense_tracker_app/screens/onboarding_screen/onboarding_screen.dart';
 import 'package:expense_tracker_app/screens/splash_screen.dart';
 import 'package:expense_tracker_app/theme_data.dart';
 import 'package:flutter/material.dart';

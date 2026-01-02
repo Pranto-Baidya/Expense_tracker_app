@@ -89,9 +89,156 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     showDialog(
         context: context,
         builder: (BuildContext context){
+
           var theme = Theme.of(context);
-          List<String> currencies = ["\$","€","₹","৳","¥","₽","R"];
-          List<String> currencyName = ["USD", "EUR", "INR", "BDT", "JPY/CNY", "RUB", "ZAR"];
+
+          List<String> currencies = [
+            // Americas
+            "\$",   // USD, CAD, AUD, NZD, SGD, HKD
+            "₱",    // PHP
+            "₡",    // CRC
+            "₲",    // PYG
+            "₦",    // NGN
+            "₵",    // GHS
+            "₠",    // ECU (legacy)
+            "₢",    // Cruzeiro (legacy)
+            "₧",    // Peseta (legacy)
+
+            // Europe
+            "€",    // EUR
+            "£",    // GBP
+            "₽",    // RUB
+            "₴",    // UAH
+            "₺",    // TRY
+            "₣",    // Franc (CHF legacy symbol)
+            "kr",   // SEK, NOK, DKK, ISK
+            "zł",   // PLN
+            "lei",  // RON, MDL
+            "Ft",   // HUF
+            "Kč",   // CZK
+            "₮",    // MNT (also Asia)
+
+            // South Asia
+            "₹",    // INR
+            "৳",    // BDT
+            "₨",    // PKR, LKR, NPR, MVR
+            "؋",    // AFN
+            "៛",    // KHR
+
+            // East Asia
+            "¥",    // JPY, CNY
+            "₩",    // KRW
+            "元",    // CNY (Yuan text)
+            "円",    // JPY (Yen text)
+
+            // Southeast Asia
+            "฿",    // THB
+            "₫",    // VND
+            "RM",   // MYR
+            "Rp",   // IDR
+            "₭",    // LAK
+            "B\$",   // BND
+
+            // Middle East
+            "₪",    // ILS
+            "﷼",    // SAR, IRR, QAR, OMR, YER, MAD
+            "د.إ",  // AED
+            "د.ك",  // KWD
+            "د.ب",  // BHD
+            "ل.ل",  // LBP
+
+            // Africa
+            "R",    // ZAR
+            "Br",   // ETB
+            "Sh",   // KES, TZS, UGX
+            "CFA",  // XOF, XAF
+
+            // Central Asia
+            "₸",    // KZT
+            "₼",    // AZN
+            "₾",    // GEL
+            "som",  // KGS
+
+            // Special / Others
+            "₿",    // Bitcoin
+            "Ξ",    // Ethereum
+            "Ł",    // PLN (alt)
+            "₯",    // Drachma (legacy)
+          ];
+
+          List<String> currencyName = [
+            // Americas
+            "Dollar",
+            "Philippine Peso",
+            "Costa Rican Colón",
+            "Paraguayan Guaraní",
+            "Nigerian Naira",
+            "Ghanaian Cedi",
+            "European Currency Unit (Legacy)",
+            "Brazilian Cruzeiro (Legacy)",
+            "Spanish Peseta (Legacy)",
+
+            // Europe
+            "Euro",
+            "British Pound Sterling",
+            "Russian Ruble",
+            "Ukrainian Hryvnia",
+            "Turkish Lira",
+            "Franc (Swiss / Legacy)",
+            "Scandinavian Krona",
+            "Polish Złoty",
+            "Leu (Romanian / Moldovan)",
+            "Hungarian Forint",
+            "Czech Koruna",
+            "Mongolian Tögrög",
+
+            // South Asia
+            "Indian Rupee",
+            "Bangladeshi Taka",
+            "Rupee (Pakistani/Sri Lankan/Nepalese/Maldivian)",
+            "Afghan Afghani",
+            "Cambodian Riel",
+
+            // East Asia
+            "Yen / Yuan",
+            "South Korean Won",
+            "Chinese Yuan (Text)",
+            "Japanese Yen (Text)",
+
+            // Southeast Asia
+            "Thai Baht",
+            "Vietnamese Dong",
+            "Malaysian Ringgit",
+            "Indonesian Rupiah",
+            "Lao Kip",
+            "Brunei Dollar",
+
+            // Middle East
+            "Israeli New Shekel",
+            "Riyal (Saudi/Iranian/Qatari/Omani/Yemeni/Moroccan)",
+            "UAE Dirham",
+            "Kuwaiti Dinar",
+            "Bahraini Dinar",
+            "Lebanese Pound",
+
+            // Africa
+            "South African Rand",
+            "Ethiopian Birr",
+            "Shilling (Kenyan/Tanzanian/Ugandan)",
+            "CFA Franc",
+
+            // Central Asia
+            "Kazakhstani Tenge",
+            "Azerbaijani Manat",
+            "Georgian Lari",
+            "Kyrgyzstani Som",
+
+            // Special / Others
+            "Bitcoin",
+            "Ethereum",
+            "Polish Złoty (Alt)",
+            "Greek Drachma (Legacy)",
+          ];
 
           Map<String,String> currMap = {};
 

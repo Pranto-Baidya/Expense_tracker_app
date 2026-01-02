@@ -17,17 +17,14 @@ final totalMoneyProvider = StateProvider<double>((ref)=>0);
 
 final expenseProvider = StateNotifierProvider<ExpenseNotifier,ExpenseState>((ref)=>ExpenseNotifier(ref));
 
-class ExpenseState{
-
+class ExpenseState {
   final List<ExpenseModel> expenses;
   final List<ExpenseModel> filteredRecord;
   final List<ExpenseModel> searchRecords;
   final bool isLoading;
-  final bool hasMore;
-  final int offset;
   final DateTime selectedDate;
   final TimeOfDay selectedTime;
-  final DateTime weekStart; 
+  final DateTime weekStart;
   final DateTime weekEnd;
   final String activeFilter;
 
@@ -36,19 +33,16 @@ class ExpenseState{
     this.filteredRecord = const [],
     this.searchRecords = const [],
     this.isLoading = false,
-    this.hasMore = true,
-    this.offset = 0,
     DateTime? selectedDate,
     TimeOfDay? selectedTime,
-    DateTime? weekStart,  
+    DateTime? weekStart,
     DateTime? weekEnd,
     this.activeFilter = 'monthly'
-  }):selectedDate = selectedDate ?? DateTime.now(),
+  }): selectedDate = selectedDate ?? DateTime.now(),
         selectedTime = selectedTime ?? TimeOfDay.now(),
         weekStart = weekStart ?? _getWeekStart(selectedDate),
-        weekEnd = weekEnd ??_getWeekEnd(selectedDate);     
+        weekEnd = weekEnd ?? _getWeekEnd(selectedDate);
 
-  
   static DateTime _getWeekStart(DateTime? date) {
     final currentDate = date ?? DateTime.now();
     final int dayNo = currentDate.weekday;
@@ -65,15 +59,12 @@ class ExpenseState{
     List<ExpenseModel>? filteredRecord,
     List<ExpenseModel>? searchRecords,
     bool? isLoading,
-    bool? hasMore,
-    int? offset,
     DateTime? selectedDate,
     TimeOfDay? selectedTime,
     DateTime? weekStart,
     DateTime? weekEnd,
     String? activeFilter,
   }) {
-
     final newSelectedDate = selectedDate ?? this.selectedDate;
 
     return ExpenseState(
@@ -81,16 +72,13 @@ class ExpenseState{
       filteredRecord: filteredRecord ?? this.filteredRecord,
       searchRecords: searchRecords ?? this.searchRecords,
       isLoading: isLoading ?? this.isLoading,
-      hasMore: hasMore ?? this.hasMore,
-      offset: offset ?? this.offset,
       selectedDate: newSelectedDate,
       selectedTime: selectedTime ?? this.selectedTime,
       weekStart: weekStart ?? this.weekStart,
-      weekEnd:   weekEnd ?? this.weekEnd,
+      weekEnd: weekEnd ?? this.weekEnd,
       activeFilter: activeFilter ?? this.activeFilter,
     );
   }
-
 }
 
 class ExpenseNotifier extends StateNotifier<ExpenseState>{
@@ -101,7 +89,6 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
 
   ExpenseNotifier(this._ref) : super(ExpenseState());
 
-
   Future<void> getExpenses() async {
     state = state.copyWith(isLoading: true);
 
@@ -109,13 +96,13 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
 
     state = state.copyWith(
       expenses: allExpenses,
-      hasMore: false,
       isLoading: false,
     );
 
     filterRecordsByMonth(state.selectedDate, state.selectedTime);
     _ref.read(cardsProvider.notifier).calculateTotalExpenseAndIncomeInAccount();
   }
+
 
   Future<void> insertExpense(ExpenseModel expense)async{
 
@@ -401,8 +388,6 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     state = state.copyWith(
       expenses: [],
       filteredRecord: [],
-      offset: 0,
-      hasMore: true,
     );
     await getExpenses();
   }

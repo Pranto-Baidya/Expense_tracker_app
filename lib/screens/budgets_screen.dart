@@ -676,15 +676,12 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                 ),
               ),
             )
-          // In the CustomScrollView slivers section, replace the empty state conditions with this:
 
-          else if (budgetedCategories.isEmpty && !isPastMonth)...[
-              SliverToBoxAdapter(
-                child: SizedBox(height: 12.h),
-              ),
+          else if (budgetedCategories.isEmpty && !isPastMonth)
               SliverFillRemaining(
+                hasScrollBody: false,
                 child: Container(
-                  width: double.infinity.w,
+                  width: double.infinity,
                   decoration: BoxDecoration(
                     color: theme.cardColor,
                     borderRadius: BorderRadius.only(
@@ -692,148 +689,148 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                       topRight: Radius.circular(20.r),
                     ),
                   ),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 8.h),
-                    child: Column(
-                      children: [
-                        SizedBox(height: unbudgetedCategories.isEmpty ? 80.h : 20.h),
-                        Icon(Icons.note_add_outlined, color: theme.colorScheme.primary, size: 100),
-                        SizedBox(height: 24.h),
-                        Text('No budgets this month', style: theme.textTheme.titleLarge),
-                        SizedBox(height: 8.h),
-                        Text('Set a budget from the list below', style: theme.textTheme.bodyMedium),
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 8.h),
+                      child: Column(
+                        children: [
+                          SizedBox(height: unbudgetedCategories.isEmpty ? 80.h : 20.h),
+                          Icon(Icons.note_add_outlined, color: theme.colorScheme.primary, size: 100),
+                          SizedBox(height: 24.h),
+                          Text('No budgets this month', style: theme.textTheme.titleLarge),
+                          SizedBox(height: 8.h),
+                          Text('Set a budget from the list below', style: theme.textTheme.bodyMedium),
 
-                        // Add unbudgeted categories here
-                        if (unbudgetedCategories.isNotEmpty) ...[
-                          SizedBox(height: 20.h),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: theme.colorScheme.primary,
-                                  shape: BoxShape.circle,
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: theme.colorScheme.primary.withOpacity(0.4),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              SizedBox(width: 10.w),
-                              Text(
-                                'Not budgeted this month',
-                                style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 10.h),
-                          ...unbudgetedCategories.map((data) {
-                            final index = unbudgetedCategories.indexOf(data);
-                            return Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.0),
-                              child: Container(
-                                padding: EdgeInsets.all(15),
-                                decoration: BoxDecoration(
-                                  color: theme.cardColor.withOpacity(0.92),
-                                  borderRadius: BorderRadius.circular(18.r),
-                                  border: Border.all(
-                                    color: theme.dividerColor.withOpacity(0.15),
-                                    width: 1,
+                          if (unbudgetedCategories.isNotEmpty) ...[
+                            SizedBox(height: 20.h),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.primary,
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: theme.colorScheme.primary.withOpacity(0.4),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                                   ),
-                                  boxShadow: Theme.of(context).brightness == Brightness.dark
-                                      ? [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.4),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                    BoxShadow(
-                                      color: Colors.white.withOpacity(0.05),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, -1),
-                                    ),
-                                  ]
-                                      : [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.06),
-                                      blurRadius: 18,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                    BoxShadow(
-                                      color: Colors.white.withOpacity(0.4),
-                                      blurRadius: 10,
-                                      offset: const Offset(-2, -2),
-                                    ),
-                                  ],
                                 ),
-                                child: Row(
-                                  children: [
-                                    ListAnimationWidget(
-                                      offset: const Offset(0, 0.3),
-                                      index: index,
-                                      child: Container(
-                                        height: 45.w,
-                                        width: 45.w,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(14.r),
-                                          gradient: LinearGradient(
-                                            colors: [
-                                              data.color.withOpacity(0.9),
-                                              data.color.withOpacity(0.6),
+                                SizedBox(width: 10.w),
+                                Text(
+                                  'Not budgeted this month',
+                                  style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 10.h),
+                            ...unbudgetedCategories.map((data) {
+                              final index = unbudgetedCategories.indexOf(data);
+                              return ListAnimationWidget(
+                                index: index,
+                                offset: const Offset(0, 0.3),
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(vertical: 8.0),
+                                  child: Container(
+                                    padding: EdgeInsets.all(15),
+                                    decoration: BoxDecoration(
+                                      color: theme.cardColor.withOpacity(0.92),
+                                      borderRadius: BorderRadius.circular(18.r),
+                                      border: Border.all(
+                                        color: theme.dividerColor.withOpacity(0.15),
+                                        width: 1,
+                                      ),
+                                      boxShadow: Theme.of(context).brightness == Brightness.dark
+                                          ? [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.4),
+                                          blurRadius: 12,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                        BoxShadow(
+                                          color: Colors.white.withOpacity(0.05),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, -1),
+                                        ),
+                                      ]
+                                          : [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.06),
+                                          blurRadius: 18,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                        BoxShadow(
+                                          color: Colors.white.withOpacity(0.4),
+                                          blurRadius: 10,
+                                          offset: const Offset(-2, -2),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Container(
+                                          height: 45.w,
+                                          width: 45.w,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(14.r),
+                                            gradient: LinearGradient(
+                                              colors: [
+                                                data.color.withOpacity(0.9),
+                                                data.color.withOpacity(0.6),
+                                              ],
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: data.color.withOpacity(0.3),
+                                                blurRadius: 12,
+                                                spreadRadius: 1,
+                                                offset: const Offset(0, 4),
+                                              )
                                             ],
-                                            begin: Alignment.topLeft,
-                                            end: Alignment.bottomRight,
                                           ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: data.color.withOpacity(0.3),
-                                              blurRadius: 12,
-                                              spreadRadius: 1,
-                                              offset: const Offset(0, 4),
-                                            )
-                                          ],
+                                          child: Icon(data.icon, color: Colors.white, size: 22),
                                         ),
-                                        child: Icon(data.icon, color: Colors.white, size: 22),
-                                      ),
+                                        SizedBox(width: 20.w),
+                                        Text(data.categoryName, style: theme.textTheme.titleMedium),
+                                        const Spacer(),
+                                        ElevatedButton(
+                                          onPressed: () => addBudgetDialogue(data),
+                                          style: ElevatedButton.styleFrom(
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(15.r),
+                                              side: BorderSide(color: theme.colorScheme.primary),
+                                            ),
+                                            backgroundColor: theme.cardColor,
+                                            minimumSize: const Size(100, 50),
+                                            elevation: 0,
+                                          ),
+                                          child: Text(
+                                            'Set budget',
+                                            style: theme.textTheme.titleMedium?.copyWith(
+                                              color: theme.colorScheme.primary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    SizedBox(width: 20.w),
-                                    Text(data.categoryName, style: theme.textTheme.titleMedium),
-                                    const Spacer(),
-                                    ElevatedButton(
-                                      onPressed: () => addBudgetDialogue(data),
-                                      style: ElevatedButton.styleFrom(
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(15.r),
-                                          side: BorderSide(color: theme.colorScheme.primary),
-                                        ),
-                                        backgroundColor: theme.cardColor,
-                                        minimumSize: const Size(100, 50),
-                                        elevation: 0,
-                                      ),
-                                      child: Text(
-                                        'Set budget',
-                                        style: theme.textTheme.titleMedium?.copyWith(
-                                          color: theme.colorScheme.primary,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            );
-                          }),
+                              );
+                            }),
+                          ],
                         ],
-                      ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ]
+              )
 
            else
             SliverList(
@@ -1152,18 +1149,16 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                                   ),
                                 ),
                               if (budgetedCategories.isEmpty && !isPastMonth)
-                                SizedBox(
-                                  height: 300.h,
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(Icons.note_add_outlined, color: theme.colorScheme.primary, size: 100),
-                                      SizedBox(height: 24.h),
-                                      Text('No budgets this month', style: theme.textTheme.titleLarge),
-                                      SizedBox(height: 8.h),
-                                      Text('Set a budget from the list below', style: theme.textTheme.bodyMedium),
-                                    ],
-                                  ),
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(height: 20.h,),
+                                    Icon(Icons.note_add_outlined, color: theme.colorScheme.primary, size: 100),
+                                    SizedBox(height: 24.h),
+                                    Text('No budgets this month', style: theme.textTheme.titleLarge),
+                                    SizedBox(height: 8.h),
+                                    Text('Set a budget from the list below', style: theme.textTheme.bodyMedium),
+                                  ],
                                 ),
                               SizedBox(height: 10.h),
                               if (budgetedCategories.isNotEmpty)
@@ -1323,94 +1318,94 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                                         itemCount: unbudgetedCategories.length,
                                         itemBuilder: (context, index) {
                                           final data = unbudgetedCategories[index];
-                                          return Padding(
-                                            padding: EdgeInsets.symmetric(vertical: 8.0),
-                                            child: Container(
-                                              padding: EdgeInsets.all(15),
-                                              decoration: BoxDecoration(
-                                                color: theme.cardColor.withOpacity(0.92),
-                                                borderRadius: BorderRadius.circular(18.r),
-                                                border: Border.all(
-                                                  color: theme.dividerColor.withOpacity(0.15),
-                                                  width: 1,
+                                          return ListAnimationWidget(
+                                            index: index,
+                                            offset: Offset(0, 0.3),
+                                            child: Padding(
+                                              padding: EdgeInsets.symmetric(vertical: 8.0),
+                                              child: Container(
+                                                padding: EdgeInsets.all(15),
+                                                decoration: BoxDecoration(
+                                                  color: theme.cardColor.withOpacity(0.92),
+                                                  borderRadius: BorderRadius.circular(18.r),
+                                                  border: Border.all(
+                                                    color: theme.dividerColor.withOpacity(0.15),
+                                                    width: 1,
+                                                  ),
+                                                  boxShadow: Theme.of(context).brightness == Brightness.dark
+                                                      ? [
+                                                    BoxShadow(
+                                                      color: Colors.black.withOpacity(0.4),
+                                                      blurRadius: 12,
+                                                      offset: const Offset(0, 4),
+                                                    ),
+                                                    BoxShadow(
+                                                      color: Colors.white.withOpacity(0.05),
+                                                      blurRadius: 4,
+                                                      offset: const Offset(0, -1),
+                                                    ),
+                                                  ] : [
+                                                    BoxShadow(
+                                                      color: Colors.black.withOpacity(0.06),
+                                                      blurRadius: 18,
+                                                      offset: const Offset(0, 6),
+                                                    ),
+                                                    BoxShadow(
+                                                      color: Colors.white.withOpacity(0.4),
+                                                      blurRadius: 10,
+                                                      offset: const Offset(-2, -2),
+                                                    ),
+                                                  ],
                                                 ),
-                                                boxShadow: Theme.of(context).brightness == Brightness.dark
-                                                    ? [
-                                                  BoxShadow(
-                                                    color: Colors.black.withOpacity(0.4),
-                                                    blurRadius: 12,
-                                                    offset: const Offset(0, 4),
-                                                  ),
-                                                  BoxShadow(
-                                                    color: Colors.white.withOpacity(0.05),
-                                                    blurRadius: 4,
-                                                    offset: const Offset(0, -1),
-                                                  ),
-                                                ] : [
-                                                  BoxShadow(
-                                                    color: Colors.black.withOpacity(0.06),
-                                                    blurRadius: 18,
-                                                    offset: const Offset(0, 6),
-                                                  ),
-                                                  BoxShadow(
-                                                    color: Colors.white.withOpacity(0.4),
-                                                    blurRadius: 10,
-                                                    offset: const Offset(-2, -2),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  ListAnimationWidget(
-                                                    offset: Offset(0, 0.3),
-                                                    index: index,
-                                                    child: Container(
-                                                      height: 45.w,
-                                                      width: 45.w,
-                                                      decoration: BoxDecoration(
-                                                        borderRadius: BorderRadius.circular(14.r),
-                                                        gradient: LinearGradient(
-                                                          colors: [
-                                                            data.color.withOpacity(0.9),
-                                                            data.color.withOpacity(0.6),
+                                                child: Row(
+                                                  children: [
+                                                    Container(
+                                                        height: 45.w,
+                                                        width: 45.w,
+                                                        decoration: BoxDecoration(
+                                                          borderRadius: BorderRadius.circular(14.r),
+                                                          gradient: LinearGradient(
+                                                            colors: [
+                                                              data.color.withOpacity(0.9),
+                                                              data.color.withOpacity(0.6),
+                                                            ],
+                                                            begin: Alignment.topLeft,
+                                                            end: Alignment.bottomRight,
+                                                          ),
+                                                          boxShadow: [
+                                                            BoxShadow(
+                                                              color: data.color.withOpacity(0.3),
+                                                              blurRadius: 12,
+                                                              spreadRadius: 1,
+                                                              offset: const Offset(0, 4),
+                                                            )
                                                           ],
-                                                          begin: Alignment.topLeft,
-                                                          end: Alignment.bottomRight,
                                                         ),
-                                                        boxShadow: [
-                                                          BoxShadow(
-                                                            color: data.color.withOpacity(0.3),
-                                                            blurRadius: 12,
-                                                            spreadRadius: 1,
-                                                            offset: const Offset(0, 4),
-                                                          )
-                                                        ],
+                                                        child: Icon(data.icon, color: Colors.white, size: 22),
                                                       ),
-                                                      child: Icon(data.icon, color: Colors.white, size: 22),
-                                                    ),
-                                                  ),
-                                                  SizedBox(width: 20.w),
-                                                  Text(data.categoryName, style: theme.textTheme.titleMedium),
-                                                  Spacer(),
-                                                  ElevatedButton(
-                                                    onPressed: ()=> addBudgetDialogue(data),
-                                                    style: ElevatedButton.styleFrom(
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(15.r),
-                                                        side: BorderSide(color: theme.colorScheme.primary),
+                                                    SizedBox(width: 20.w),
+                                                    Text(data.categoryName, style: theme.textTheme.titleMedium),
+                                                    Spacer(),
+                                                    ElevatedButton(
+                                                      onPressed: ()=> addBudgetDialogue(data),
+                                                      style: ElevatedButton.styleFrom(
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius: BorderRadius.circular(15.r),
+                                                          side: BorderSide(color: theme.colorScheme.primary),
+                                                        ),
+                                                        backgroundColor: theme.cardColor,
+                                                        minimumSize: Size(100, 50),
+                                                        elevation: 0,
                                                       ),
-                                                      backgroundColor: theme.cardColor,
-                                                      minimumSize: Size(100, 50),
-                                                      elevation: 0,
-                                                    ),
-                                                    child: Text(
-                                                      'Set budget',
-                                                      style: theme.textTheme.titleMedium?.copyWith(
-                                                        color: theme.colorScheme.primary,
+                                                      child: Text(
+                                                        'Set budget',
+                                                        style: theme.textTheme.titleMedium?.copyWith(
+                                                          color: theme.colorScheme.primary,
+                                                        ),
                                                       ),
                                                     ),
-                                                  ),
-                                                ],
+                                                  ],
+                                                ),
                                               ),
                                             ),
                                           );

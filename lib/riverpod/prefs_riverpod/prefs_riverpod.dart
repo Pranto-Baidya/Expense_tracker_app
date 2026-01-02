@@ -68,3 +68,22 @@ class CollapseDashBoardPrefNotifier extends StateNotifier<bool>{
   }
 
 }
+
+final onBoardProvider = StateNotifierProvider<SaveOnBoardNotifier,bool>((ref)=>SaveOnBoardNotifier());
+
+class SaveOnBoardNotifier extends StateNotifier<bool>{
+
+  SaveOnBoardNotifier() : super(false);
+
+  Future<void> loadOnBoardPref()async{
+    SharedPreferences preferences = await SharedPreferences.getInstance();
+    bool data = preferences.getBool('onBoard') ?? false;
+    state = data;
+  }
+
+  Future<void> saveOnBoardingAppearance(bool val)async{
+    SharedPreferences preferences = await SharedPreferences.getInstance();
+    await preferences.setBool('onBoard', val);
+    state = val;
+  }
+}

@@ -793,24 +793,25 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
               )
               ]
             else
-              SliverList(
-                delegate: SliverChildListDelegate([
-                  SizedBox(height: 12.h),
-                  Container(
-                    width: double.infinity.w,
-                    decoration: BoxDecoration(
-                      color: theme.cardColor,
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(20.r),
-                        topRight: Radius.circular(20.r),
-                      ),
+              SliverFillRemaining(
+                hasScrollBody: false,
+                child: Container(
+                  width: double.infinity.w,
+                  decoration: BoxDecoration(
+                    color: theme.cardColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(20.r),
+                      topRight: Radius.circular(20.r),
                     ),
+                  ),
+                  child: SingleChildScrollView(
+                    physics: const NeverScrollableScrollPhysics(),
                     child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 15.w,vertical: 8.h),
+                      padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 8.h),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          SizedBox(height: 10.h,),
+                          SizedBox(height: 10.h),
                           if (cardState.cards.isNotEmpty)
                             Text(
                               'All accounts',
@@ -818,7 +819,6 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
                             ),
 
                           SizedBox(height: 10.h),
-
 
                           // Accounts List
                           Column(
@@ -900,7 +900,7 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
                                             onEdit: () {
                                               editCardDialogue(data);
                                             },
-                                            onDelete: ()=> deleteAlert(data),
+                                            onDelete: () => deleteAlert(data),
                                           ),
                                         ),
                                       ]
@@ -913,9 +913,8 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
                         ],
                       ),
                     ),
-                  )
-
-                ]),
+                  ),
+                ),
               )
           ],
         ),

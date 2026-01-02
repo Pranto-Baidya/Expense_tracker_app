@@ -527,17 +527,29 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                         expenseCategories.map((item) {
                           return DropdownMenuItem<String>(
                             value: item.categoryName,
-                            child: Text(
-                              item.categoryName,
-                              style: theme.textTheme.bodyMedium,
+                            child: Row(
+                              children: [
+                                Icon(item.icon,size: 20,),
+                                SizedBox(width: 10.w,),
+                                Text(
+                                  item.categoryName,
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
                             ),
                           );
                         }).toList() : incomeCategories.map((item) {
                           return DropdownMenuItem<String>(
                             value: item.categoryName,
-                            child: Text(
-                              item.categoryName,
-                              style: theme.textTheme.bodyMedium,
+                            child: Row(
+                              children: [
+                                Icon(item.icon,size: 20,),
+                                SizedBox(width: 10.w,),
+                                Text(
+                                  item.categoryName,
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
                             ),
                           );
                         }).toList(),
@@ -622,6 +634,8 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                                   card.cardName,
                                   style: theme.textTheme.bodyMedium,
                                 ),
+                                Spacer(),
+                                Text('${ref.read(newCurrencyProvider).currency}${card.amount.toStringAsFixed(2)} ',style: theme.textTheme.bodyMedium,)
                               ],
                             ),
                           );
@@ -797,7 +811,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                         ),
                       ),
                       Text(
-                        "Edit existing record",
+                        "Edit record",
                         style: theme.textTheme.headlineSmall?.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
@@ -1048,17 +1062,37 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                         expenseCategories.map((item) {
                           return DropdownMenuItem<String>(
                             value: item.categoryName,
-                            child: Text(
-                              item.categoryName,
-                              style: theme.textTheme.bodyMedium,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  item.icon,
+                                  size: 20,
+                                  color: theme.iconTheme.color,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  item.categoryName,
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
                             ),
                           );
                         }).toList() : incomeCategories.map((item) {
                           return DropdownMenuItem<String>(
                             value: item.categoryName,
-                            child: Text(
-                              item.categoryName,
-                              style: theme.textTheme.bodyMedium,
+                            child: Row(
+                              children: [
+                                Icon(
+                                  item.icon,
+                                  size: 20,
+                                  color: theme.iconTheme.color,
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  item.categoryName,
+                                  style: theme.textTheme.bodyMedium,
+                                ),
+                              ],
                             ),
                           );
                         }).toList(),
@@ -1143,6 +1177,8 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                                   card.cardName,
                                   style: theme.textTheme.bodyMedium,
                                 ),
+                                Spacer(),
+                                Text('${ref.read(newCurrencyProvider).currency}${card.amount.toStringAsFixed(2)}',style: theme.textTheme.bodyMedium,)
                               ],
                             ),
                           );
