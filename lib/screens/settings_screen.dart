@@ -266,32 +266,34 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       )
                     ],
                   ),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      ...currMap.entries.map((curr){
-                        return RadioListTile(
-                          tileColor: Colors.transparent,
-                          value: curr.key,
-                          fillColor: WidgetStatePropertyAll(theme.colorScheme.primary),
-                          title: Row(
-                            children: [
-                              Text(curr.key),
-                              SizedBox(width: 5,),
-                              Text(curr.value)
-                            ],
-                          ),
-                          groupValue: selected,
-                          onChanged: (val){
-                            if(val!=null){
-                              selectedNotifier.saveCurrency(val);
-                              Navigator.pop(context);
-                            }
-                          },
-
-                        );
-                      })
-                    ],
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ...currMap.entries.map((curr){
+                          return RadioListTile(
+                            tileColor: Colors.transparent,
+                            value: curr.key,
+                            fillColor: WidgetStatePropertyAll(theme.colorScheme.primary),
+                            title: Row(
+                              children: [
+                                Text(curr.key),
+                                SizedBox(width: 5,),
+                                Flexible(child: Text(curr.value))
+                              ],
+                            ),
+                            groupValue: selected,
+                            onChanged: (val){
+                              if(val!=null){
+                                selectedNotifier.saveCurrency(val);
+                                Navigator.pop(context);
+                              }
+                            },
+                    
+                          );
+                        })
+                      ],
+                    ),
                   ),
                 );
               }
@@ -382,11 +384,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 List<Color> accentColors = [
                   Color(0xFF0F52BA),
                   Color(0xFF1476B8),
-                  Color(0xFF1D9EAE),
+                  Color(0xFF1A8A98),
                   Color(0xFF006666),
-                  Color(0xFF16A085),
+                  Color(0xFF138D75),
                   Color(0xFF558B2F),
-                  Color(0xFFAA8811),
+                  Color(0xFFB89A2F),
                   Color(0xFFC05A14),
                   Color(0xFFB8143A),
                   Color(0xFF9C116E),

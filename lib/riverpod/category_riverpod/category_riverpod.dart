@@ -1,14 +1,13 @@
 
 import 'package:expense_tracker_app/database/db_connection.dart';
-import 'package:expense_tracker_app/models/budget_model.dart';
 import 'package:expense_tracker_app/models/category_model.dart';
 import 'package:expense_tracker_app/riverpod/budget_riverpod/budget_riverpod.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
-
 import '../../screens/budgets_screen.dart';
 import '../../screens/category_screen.dart';
+import '../expense_riverpod/expense_riverpod.dart';
 
 final categoryProvider = StateNotifierProvider<CategoryNotifier,CategoryState>((ref)=>CategoryNotifier(ref));
 
@@ -17,25 +16,29 @@ class CategoryState{
   final List<CategoryModel> allIncomeCategories;
   final List<CategoryModel> allExpenseCategories;
   final String error;
+  final bool isLoading;
 
   CategoryState({
     this.allCategories = const [],
     this.allIncomeCategories = const [],
     this.allExpenseCategories = const [],
-    this.error = ''
+    this.error = '',
+    this.isLoading = false
   });
 
   CategoryState copyWith({
     List<CategoryModel>? allCategories,
     String? error,
     List<CategoryModel>? allIncomeCategories,
-    List<CategoryModel>? allExpenseCategories
+    List<CategoryModel>? allExpenseCategories,
+    bool? isLoading
   }){
     return CategoryState(
       allCategories: allCategories ?? this.allCategories,
       allIncomeCategories: allIncomeCategories ?? this.allIncomeCategories,
       allExpenseCategories: allExpenseCategories ?? this.allExpenseCategories,
-      error: error ?? this.error
+      error: error ?? this.error,
+      isLoading: isLoading ?? this.isLoading
     );
   }
 }
@@ -51,7 +54,7 @@ class CategoryNotifier extends StateNotifier<CategoryState>{
   Future<void> getAllCategories()async{
     try{
 
-      state = state.copyWith(error: '');
+      state = state.copyWith(error: '',isLoading: true);
 
       final data = await databaseConnection.getAllCategories();
 
@@ -59,11 +62,12 @@ class CategoryNotifier extends StateNotifier<CategoryState>{
           allCategories : data,
           allIncomeCategories: data.where((i)=>i.categoryType==CategoryType.income).toList(),
           allExpenseCategories: data.where((i)=>i.categoryType==CategoryType.expense).toList(),
-          error: ''
+          error: '',
+          isLoading: false
       );
     }
     catch(e){
-      state = state.copyWith(error: e.toString());
+      state = state.copyWith(error: e.toString(),isLoading: false);
     }
   }
 
@@ -126,12 +130,22 @@ class CategoryNotifier extends StateNotifier<CategoryState>{
 
       final budgetNotifier = ref.read(budgetProvider.notifier);
       final allBudgets = ref.read(budgetProvider).budgets;
+      final allRecords = ref.read(expenseProvider).expenses;
+      final recordNotifier = ref.read(expenseProvider.notifier);
 
       final budgetsToDelete = allBudgets.where((budget) => budget.categoryName == categoryToDelete.categoryName).toList();
+
+      final recordsToDelete = allRecords.where((r)=>r.category==categoryToDelete.categoryName).toList();
 
       for(var budget in budgetsToDelete){
         if(budget.id != null) {
           await budgetNotifier.deleteBudget(budget.id!);
+        }
+      }
+
+      for(var r in recordsToDelete){
+        if(r.id!=null){
+          await recordNotifier.deleteExpense(r.id!);
         }
       }
 
@@ -146,6 +160,7 @@ class CategoryNotifier extends StateNotifier<CategoryState>{
       );
 
       await budgetNotifier.getAllBudgetsList();
+      await recordNotifier.getExpenses();
       final selectedDate = ref.read(selectedDateProviderForBudgets);
       budgetNotifier.filterBudgetsByMonth(selectedDate);
     }
@@ -162,11 +177,10 @@ class CategoryNotifier extends StateNotifier<CategoryState>{
     for(var id in idsToDelete){
       try{
         await deleteCategory(id);
-      }catch(e){
+      }
+      catch(e){
         debugPrint('Error: $id : ${e.toString()}');
       }
     }
   }
-
-
 }

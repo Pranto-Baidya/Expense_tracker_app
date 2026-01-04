@@ -105,15 +105,6 @@ class PreMadeCategoryState {
     );
   }
 
-  PreMadeCategoryState copyWith({
-    List<CategoryModel>? preMadeIncomeCategories,
-    List<CategoryModel>? preMadeExpenseCategories,
-  }) {
-    return PreMadeCategoryState(
-      preMadeIncomeCategories: preMadeIncomeCategories ?? this.preMadeIncomeCategories,
-      preMadeExpenseCategories: preMadeExpenseCategories ?? this.preMadeExpenseCategories,
-    );
-  }
 }
 
 class PreMadeCategoryNotifier extends StateNotifier<PreMadeCategoryState>{

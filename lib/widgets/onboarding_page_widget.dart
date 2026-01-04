@@ -308,11 +308,10 @@ class _BuildPageState extends ConsumerState<BuildPage> with SingleTickerProvider
                             return DropdownMenuItem(
                                 value: currency,
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(currency,style: theme.textTheme.titleMedium,),
                                     SizedBox(width: 10.w,),
-                                    Text(cName,style: theme.textTheme.titleMedium,overflow: TextOverflow.ellipsis,)
+                                    Flexible(child: Text(cName,style: theme.textTheme.titleMedium,overflow: TextOverflow.ellipsis,))
                                   ],
                                 )
                             );

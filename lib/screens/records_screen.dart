@@ -104,6 +104,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
       await ref.read(expenseProvider.notifier).getExpenses();
       await ref.read(cardsProvider.notifier).getCards();
       await ref.read(categoryProvider.notifier).getAllCategories();
+      await ref.read(tipPrefProvider.notifier).loadTip();
 
 
       final savedFilter = ref.read(saveRecordFilterProvider);
@@ -124,7 +125,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
           expenseNotifier.setActiveFilter('yearly');
           expenseNotifier.filterRecordsByYear(selectedDate);
           break;
-        default: // monthly
+        default:
           expenseNotifier.setActiveFilter('monthly');
           expenseNotifier.filterRecordsByMonth(selectedDate, selectedTime);
           break;
@@ -1573,6 +1574,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
 
               if(expenseState.isLoading)
                 SliverFillRemaining(
+                  hasScrollBody: false,
                   child: Container(
                     width: double.infinity,
                     decoration: BoxDecoration(

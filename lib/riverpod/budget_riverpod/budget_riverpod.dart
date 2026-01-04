@@ -1,5 +1,3 @@
-
-
 import 'package:expense_tracker_app/database/db_connection.dart';
 import 'package:expense_tracker_app/models/budget_model.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
@@ -20,14 +18,14 @@ class BudgetState{
   BudgetState({
     this.budgets = const [],
     this.filteredBudgets = const [],
-    this.isLoading = false
+    this.isLoading = true
   });
 
   BudgetState copyWith({List<BudgetModel>? budgets,List<BudgetModel>? filteredBudgets,bool? isLoading}){
     return BudgetState(
-      budgets: budgets ?? this.budgets,
-      filteredBudgets: filteredBudgets ?? this.filteredBudgets,
-      isLoading: isLoading ?? this.isLoading
+        budgets: budgets ?? this.budgets,
+        filteredBudgets: filteredBudgets ?? this.filteredBudgets,
+        isLoading: isLoading ?? this.isLoading
     );
   }
 }
@@ -46,8 +44,8 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
     final data = await databaseConnection.getAllBudgets();
 
     state = state.copyWith(
-      budgets: data,
-      isLoading: false
+        budgets: data,
+        isLoading: false
     );
   }
 
@@ -73,10 +71,10 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
 
     final matchingExpenses = allExpenses.where((expense) {
       return
-          expense.category == budget.categoryName &&
-          expense.date.month == budget.date.month &&
-          expense.date.year == budget.date.year &&
-          expense.moneyType == MoneyType.expense;
+        expense.category == budget.categoryName &&
+            expense.date.month == budget.date.month &&
+            expense.date.year == budget.date.year &&
+            expense.moneyType == MoneyType.expense;
     }).toList();
 
     if (matchingExpenses.isNotEmpty) {
@@ -111,19 +109,19 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
     final remaining = budget.budget-selectedBudgetedCategory.spent;
 
     final updatedBudget = BudgetModel(
-       id: selectedBudgetedCategory.id,
-       categoryName: selectedBudgetedCategory.categoryName,
-       budget: budget.budget,
-       spent: selectedBudgetedCategory.spent,
-       remaining: remaining,
-       date: selectedBudgetedCategory.date
-   );
+        id: selectedBudgetedCategory.id,
+        categoryName: selectedBudgetedCategory.categoryName,
+        budget: budget.budget,
+        spent: selectedBudgetedCategory.spent,
+        remaining: remaining,
+        date: selectedBudgetedCategory.date
+    );
 
     await databaseConnection.updateBudget(updatedBudget);
 
     state = state.copyWith(
-      budgets: state.budgets.map((budj)=>budj.id == budget.id? updatedBudget : budj).toList(),
-      isLoading: false
+        budgets: state.budgets.map((budj)=>budj.id == budget.id? updatedBudget : budj).toList(),
+        isLoading: false
     );
 
     filterBudgetsByMonth(budget.date);
@@ -169,11 +167,11 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
 
   void filterBudgetsByMonth(DateTime selectedDate){
     state = state.copyWith(
-      filteredBudgets: state.budgets.where((data){
-        final yearInBudgets = data.date.year;
-        final monthInBudgets = data.date.month;
-        return selectedDate.year==yearInBudgets && selectedDate.month==monthInBudgets;
-      }).toList()
+        filteredBudgets: state.budgets.where((data){
+          final yearInBudgets = data.date.year;
+          final monthInBudgets = data.date.month;
+          return selectedDate.year==yearInBudgets && selectedDate.month==monthInBudgets;
+        }).toList()
     );
   }
 
@@ -219,7 +217,7 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
     await databaseConnection.updateBudget(newBudget);
 
     state = state.copyWith(
-      budgets: state.budgets.map((current)=>current.id==newBudget.id?newBudget:current).toList()
+        budgets: state.budgets.map((current)=>current.id==newBudget.id?newBudget:current).toList()
     );
 
     await getAllBudgetsList();
@@ -265,7 +263,7 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
     await databaseConnection.updateBudget(updated);
 
     state = state.copyWith(
-      budgets: state.budgets.map((i)=>i.id == updated.id?updated:i).toList()
+        budgets: state.budgets.map((i)=>i.id == updated.id?updated:i).toList()
     );
     await getAllBudgetsList();
   }
