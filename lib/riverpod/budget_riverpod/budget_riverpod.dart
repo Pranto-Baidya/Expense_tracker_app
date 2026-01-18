@@ -57,7 +57,7 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
         id: id,
         categoryName: budget.categoryName,
         budget: budget.budget,
-        date: ref.read(selectedDateProviderForBudgets.notifier).state
+        date: budget.date
     );
 
     state = state.copyWith(
@@ -224,48 +224,87 @@ class BudgetNotifier extends StateNotifier<BudgetState>{
 
   }
 
-  void calculateAmountForEdit(DateTime selectedDate, double oldAmount)async{
+  Future<void> updateBudgetOnRecordEdit({
+    required String oldCategory,
+    required String newCategory,
+    required double oldAmount,
+    required double newAmount,
+    required DateTime oldDate,
+    required DateTime newDate,
+    required MoneyType oldMoneyType,
+    required MoneyType newMoneyType,
+  }) async {
+    // Handle old expense's budget impact (if it was an expense)
+    if (oldMoneyType == MoneyType.expense) {
+      final oldBudgetExists = state.budgets.any(
+              (b) => b.categoryName == oldCategory &&
+              b.date.year == oldDate.year &&
+              b.date.month == oldDate.month
+      );
 
-    final newAmount = ref.read(enteredAmountProvider);
-    final selectedCategory = ref.read(categoryPickerProvider);
-    final moneyType = ref.read(moneyTypeProvider);
+      if (oldBudgetExists) {
+        final oldBudget = state.budgets.firstWhere(
+                (b) => b.categoryName == oldCategory &&
+                b.date.year == oldDate.year &&
+                b.date.month == oldDate.month
+        );
 
-    final selectedCategoryForBudget = state.filteredBudgets.firstWhere((i)=> i.categoryName==selectedCategory);
+        // Remove the old expense from budget (revert it)
+        final updatedOldBudget = BudgetModel(
+          id: oldBudget.id,
+          categoryName: oldBudget.categoryName,
+          budget: oldBudget.budget,
+          spent: oldBudget.spent - oldAmount,
+          remaining: oldBudget.budget - (oldBudget.spent - oldAmount),
+          date: oldBudget.date,
+        );
 
-    final isSameMonth = selectedDate.month==selectedCategoryForBudget.date.month && selectedDate.year==selectedCategoryForBudget.date.year;
+        await databaseConnection.updateBudget(updatedOldBudget);
 
-    if(!isSameMonth){
-      return;
+        state = state.copyWith(
+          budgets: state.budgets.map((b) {
+            return b.id == updatedOldBudget.id ? updatedOldBudget : b;
+          }).toList(),
+        );
+      }
     }
 
-    if(moneyType!=MoneyType.expense){
-      return;
+    // Handle new expense's budget impact (if it's now an expense)
+    if (newMoneyType == MoneyType.expense) {
+      final newBudgetExists = state.budgets.any(
+              (b) => b.categoryName == newCategory &&
+              b.date.year == newDate.year &&
+              b.date.month == newDate.month
+      );
+
+      if (newBudgetExists) {
+        final newBudget = state.budgets.firstWhere(
+                (b) => b.categoryName == newCategory &&
+                b.date.year == newDate.year &&
+                b.date.month == newDate.month
+        );
+
+        // Add the new expense to budget
+        final updatedNewBudget = BudgetModel(
+          id: newBudget.id,
+          categoryName: newBudget.categoryName,
+          budget: newBudget.budget,
+          spent: newBudget.spent + newAmount,
+          remaining: newBudget.budget - (newBudget.spent + newAmount),
+          date: newBudget.date,
+        );
+
+        await databaseConnection.updateBudget(updatedNewBudget);
+
+        state = state.copyWith(
+          budgets: state.budgets.map((b) {
+            return b.id == updatedNewBudget.id ? updatedNewBudget : b;
+          }).toList(),
+        );
+      }
     }
 
-    double currentBudget = selectedCategoryForBudget.budget;
-    double spent = selectedCategoryForBudget.spent;
-
-    if (moneyType == MoneyType.expense) {
-      spent = spent - oldAmount + newAmount;
-    }
-
-    double remaining = currentBudget - spent;
-
-    final updated = BudgetModel(
-        id: selectedCategoryForBudget.id,
-        categoryName: selectedCategoryForBudget.categoryName,
-        budget: currentBudget,
-        spent: spent,
-        remaining: remaining,
-        date: selectedDate
-    );
-
-    await databaseConnection.updateBudget(updated);
-
-    state = state.copyWith(
-        budgets: state.budgets.map((i)=>i.id == updated.id?updated:i).toList()
-    );
-    await getAllBudgetsList();
+    filterBudgetsByMonth(newDate);
   }
 
 

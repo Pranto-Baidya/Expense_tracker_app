@@ -91,7 +91,7 @@ class _BudgetDashboardState extends ConsumerState<BudgetDashboard> with TickerPr
     ).format(widget.totalSpent);
 
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 5.h),
+      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 15.h),
       child: Column(
         children: [
           Container(
@@ -144,7 +144,7 @@ class _BudgetDashboardState extends ConsumerState<BudgetDashboard> with TickerPr
               ],
             ),
           ),
-          SizedBox(height: 25.h),
+          SizedBox(height: 20.h),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [

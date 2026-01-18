@@ -13,7 +13,8 @@ class BudgetWidget extends ConsumerStatefulWidget {
   final BudgetModel budget;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
-  const BudgetWidget({required this.bgColor, required this.icon,required this.budget, required this.onEdit, required this.onDelete,super.key});
+  final VoidCallback onDetailsTap;
+  const BudgetWidget({required this.bgColor, required this.icon,required this.budget, required this.onEdit, required this.onDelete,required this.onDetailsTap,super.key});
 
   @override
   _BudgetWidgetState createState() => _BudgetWidgetState();
@@ -140,9 +141,20 @@ class _BudgetWidgetState extends ConsumerState<BudgetWidget>{
                       borderRadius: BorderRadius.circular(12),
                     ),
                     icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
+                    menuPadding: EdgeInsets.all(5),
                     itemBuilder: (context) {
                       return [
                         if(!isPastBudget)...[
+                          PopupMenuItem(
+                            onTap: widget.onDetailsTap,
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outlined, size: 18,color: widget.bgColor,),
+                                SizedBox(width: 12),
+                                Text("Details", style: theme.textTheme.titleSmall?.copyWith(color: widget.bgColor)),
+                              ],
+                            ),
+                          ),
                           PopupMenuItem(
                             onTap: widget.onEdit,
                             child: Row(
@@ -153,22 +165,49 @@ class _BudgetWidgetState extends ConsumerState<BudgetWidget>{
                               ],
                             ),
                           ),
-                        ],
-                        PopupMenuItem(
-                          onTap: widget.onDelete,
-                          child: Row(
-                            children: [
-                              Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                              SizedBox(width: 12),
-                              Text(
-                                "Delete",
-                                style: theme.textTheme.titleSmall?.copyWith(
-                                  color: Colors.red,
+                          PopupMenuItem(
+                            onTap: widget.onDelete,
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                SizedBox(width: 12),
+                                Text(
+                                  "Delete",
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    color: Colors.red,
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
-                        ),
+                        ]
+                        else...[
+                          PopupMenuItem(
+                            onTap: widget.onDetailsTap,
+                            child: Row(
+                              children: [
+                                Icon(Icons.info_outlined, size: 18,color: widget.bgColor,),
+                                SizedBox(width: 12),
+                                Text("Details", style: theme.textTheme.titleSmall?.copyWith(color: widget.bgColor)),
+                              ],
+                            ),
+                          ),
+                          PopupMenuItem(
+                            onTap: widget.onDelete,
+                            child: Row(
+                              children: [
+                                Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                SizedBox(width: 12),
+                                Text(
+                                  "Delete",
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                         ]
                       ];
                     },
                   ),
@@ -317,37 +356,34 @@ class _BudgetWidgetState extends ConsumerState<BudgetWidget>{
                           borderRadius: BorderRadius.circular(12),
                         ),
                         icon: Icon(Icons.more_vert, color: theme.iconTheme.color),
-                        itemBuilder: (context) {
-                          return [
-                            if(!isPastBudget)...[
+                          itemBuilder: (context) {
+                            return [
                               PopupMenuItem(
-                                onTap: widget.onEdit,
+                                onTap: widget.onDetailsTap,
                                 child: Row(
                                   children: [
-                                    Icon(Icons.edit_outlined, size: 18),
+                                    Icon(Icons.info_outlined, size: 18, color: widget.bgColor),
                                     SizedBox(width: 12),
-                                    Text("Edit", style: theme.textTheme.titleSmall),
+                                    Text("Details", style: theme.textTheme.titleSmall?.copyWith(color: widget.bgColor)),
                                   ],
                                 ),
                               ),
-                            ],
-                            PopupMenuItem(
-                              onTap: widget.onDelete,
-                              child: Row(
-                                children: [
-                                  Icon(Icons.delete_outline, size: 18, color: Colors.red),
-                                  SizedBox(width: 12),
-                                  Text(
-                                    "Delete",
-                                    style: theme.textTheme.titleSmall?.copyWith(
-                                      color: Colors.red,
+                              PopupMenuItem(
+                                onTap: widget.onDelete,
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.delete_outline, size: 18, color: Colors.red),
+                                    SizedBox(width: 12),
+                                    Text(
+                                      "Delete",
+                                      style: theme.textTheme.titleSmall?.copyWith(color: Colors.red),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ];
-                        },
+                            ];
+                          }
+
                       ),
                     ],
                   ),
@@ -380,7 +416,7 @@ class _BudgetWidgetState extends ConsumerState<BudgetWidget>{
                     child: LinearProgressIndicator(
                       minHeight: 5,
                       value: progress,
-                      color: progress >= 0.8 && progress < 1
+                      color: progress >= 0.6 && progress < 1
                           ? Colors.amber
                           : progress == 1
                           ? Colors.redAccent

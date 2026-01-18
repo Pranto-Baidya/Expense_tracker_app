@@ -1,8 +1,11 @@
 import 'package:expense_tracker_app/models/budget_model.dart';
 import 'package:expense_tracker_app/models/category_model.dart';
+import 'package:expense_tracker_app/models/expense_model.dart';
 import 'package:expense_tracker_app/riverpod/budget_riverpod/budget_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/category_riverpod/category_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
+import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/budget_dashboard.dart';
 import 'package:expense_tracker_app/widgets/budget_widget.dart';
@@ -32,7 +35,7 @@ class BudgetScreen extends ConsumerStatefulWidget {
   _StatsScreenState createState() => _StatsScreenState();
 }
 
-class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerProviderStateMixin{
+class _StatsScreenState extends ConsumerState<BudgetScreen> with TickerProviderStateMixin{
 
   final TextEditingController _budgetController = TextEditingController();
 
@@ -59,6 +62,12 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
   final double _expandedHeight = 244.0.h;
 
   final double _collapsedHeight = 60.0.h;
+  
+  late AnimationController _detailsAnimation;
+  
+  late Animation<double> _fadeAnim;
+  
+  late Animation<Offset> _slideAnim;
 
   @override
   void initState() {
@@ -71,6 +80,15 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
     );
 
     _bulkDeleteFABAnimation = Tween<double>(begin: 0,end: 1).animate(CurvedAnimation(parent: _bulkDeleteFABController, curve: Curves.fastOutSlowIn));
+    
+    _detailsAnimation = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: 800)
+    );
+    
+    _fadeAnim = Tween<double>(begin: 0,end: 1).animate(CurvedAnimation(parent: _detailsAnimation, curve: Curves.easeInOut));
+
+    _slideAnim = Tween<Offset>(begin: Offset(-0.7, 0),end: Offset.zero).animate(CurvedAnimation(parent: _detailsAnimation, curve: Curves.fastOutSlowIn));
 
     WidgetsBinding.instance.addPostFrameCallback((_)async{
       await ref.read(budgetProvider.notifier).getAllBudgetsList();
@@ -122,8 +140,20 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
     }
   }
 
+  Color progressColors(double val){
+    if(val<0.4){
+      return Colors.green;
+    }
+    else if(val<0.7){
+      return Colors.orange;
+    }
+    return Colors.redAccent;
+  }
 
   void addBudgetDialogue(CategoryModel category) {
+
+    final currentNavigationDate = ref.read(selectedDateProviderForBudgets);
+
     _budgetController.clear();
     ref.read(checkBudgetTyping.notifier).state = false;
     var theme = Theme.of(context);
@@ -201,29 +231,32 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                     ),
                   ),
                   SizedBox(height: 15.h,),
-                  Text('Month: ${DateFormat('MMMM, yyyy').format(DateTime.now())}',style: theme.textTheme.titleSmall?.copyWith(color: AppColors.hintTextColor),),
+
+                  Text(
+                    'Month: ${DateFormat('MMMM, yyyy').format(currentNavigationDate)}',
+                    style: theme.textTheme.titleSmall?.copyWith(color: AppColors.hintTextColor),
+                  ),
                   SizedBox(height: 15.h),
-                 !isTyping?ElevatedButton(
+                  !isTyping ? ElevatedButton(
                     onPressed: null,
-                   style: ElevatedButton.styleFrom(
-                     shape: RoundedRectangleBorder(
-                       borderRadius: BorderRadius.circular(15.r),
-                     ),
-                     elevation: 0,
-                     minimumSize: Size(double.infinity.w, 50.h),
-                   ),
-                    child: Text('Set',style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey),),
-                  ):
-                  CustomAppButton(
-                      onPressed: (){
-                       final newBudget = BudgetModel(
-                           categoryName: category.categoryName,
-                           budget: double.parse(_budgetController.text),
-                           date: DateTime.now()
-                       );
-                       ref.read(budgetProvider.notifier).addBudget(newBudget);
-                       ref.read(budgetTrackProvider.notifier).state++;
-                       Navigator.pop(context);
+                    style: ElevatedButton.styleFrom(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15.r),
+                      ),
+                      elevation: 0,
+                      minimumSize: Size(double.infinity.w, 50.h),
+                    ),
+                    child: Text('Set', style: theme.textTheme.titleMedium?.copyWith(color: Colors.grey),),
+                  ) : CustomAppButton(
+                      onPressed: () {
+                        final newBudget = BudgetModel(
+                          categoryName: category.categoryName,
+                          budget: double.parse(_budgetController.text),
+                          date: currentNavigationDate,
+                        );
+                        ref.read(budgetProvider.notifier).addBudget(newBudget);
+                        ref.read(budgetTrackProvider.notifier).state++;
+                        Navigator.pop(context);
                       },
                       title: 'Set'
                   )
@@ -233,13 +266,16 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
           },
         );
       },
-    ).then((_){
+    ).then((_) {
       ref.read(checkBudgetTyping.notifier).state = false;
       _budgetController.clear();
     });
   }
 
   void editBudgetDialogue(BudgetModel budget, CategoryModel model){
+
+    final currentNavigationDate = ref.read(selectedDateProviderForBudgets);
+
     ref.read(checkBudgetTyping.notifier).state = false;
     ref.read(budgetEditingProvider.notifier).state = true;
 
@@ -333,7 +369,7 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                                 id: budget.id,
                                 categoryName: category,
                                 budget: double.parse(_editBudgetController.text),
-                                date: DateTime.now()
+                                date: budget.date
                             );
                             ref.read(budgetProvider.notifier).updateBudget(updatedBudget);
                             ref.read(budgetTrackProvider.notifier).state++;
@@ -349,6 +385,7 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
         }
     ).then((_){
       ref.read(budgetEditingProvider.notifier).state = false;
+      ref.read(selectedDateProviderForBudgets.notifier).state = currentNavigationDate;
     });
   }
 
@@ -556,6 +593,651 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
     );
   }
 
+  void budgetDetails(BudgetModel budget) {
+    _detailsAnimation.reset();
+    _detailsAnimation.forward();
+
+    bool isSortPressed = false;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        var theme = Theme.of(context);
+
+        return Consumer(
+          builder: (context, ref, _) {
+            final selectedBudget = ref.read(budgetProvider).filteredBudgets.firstWhere((i) => i.id == budget.id);
+            final totalExpense = ref.read(totalExpenseProvider);
+            final avg = (selectedBudget.spent / totalExpense) * 100;
+            final progress = selectedBudget.spent / totalExpense;
+            final category = ref.read(categoryProvider).allExpenseCategories.firstWhere((i) => i.categoryName == budget.categoryName);
+            final allRecords = ref.read(expenseProvider).expenses;
+            final accounts = ref.read(cardsProvider).cards;
+
+            final matchedRecord = allRecords.where((record) {
+              return record.category == budget.categoryName &&
+                  record.date.year == budget.date.year &&
+                  record.date.month == budget.date.month;
+            }).toList();
+
+            matchedRecord.sort((a, b) => b.date.compareTo(a.date));
+
+            final formatted = NumberFormat.currency(
+              symbol: ref.read(newCurrencyProvider).currency,
+              decimalDigits: 2,
+            ).format(selectedBudget.spent);
+
+            final formattedBudget = NumberFormat.currency(
+              symbol: ref.read(newCurrencyProvider).currency,
+              decimalDigits: 2
+            ).format(selectedBudget.budget);
+
+
+            final remainingFormatted = NumberFormat.currency(
+              symbol: ref.read(newCurrencyProvider).currency,
+              decimalDigits: 2,
+            ).format(selectedBudget.remaining);
+
+            return StatefulBuilder(
+              builder: (context, setModalState) {
+                return Container(
+                  height: MediaQuery.of(context).size.height * 0.92,
+                  decoration: BoxDecoration(
+                    color: theme.scaffoldBackgroundColor,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(32.r),
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Container(
+                        margin: EdgeInsets.only(top: 12.h, bottom: 8.h),
+                        width: 46.w,
+                        height: 5.h,
+                        decoration: BoxDecoration(
+                          color: theme.iconTheme.color,
+                          borderRadius: BorderRadius.circular(10.r),
+                        ),
+                      ),
+
+                      SizedBox(height: 5.h),
+
+                      FadeTransition(
+                        opacity: _fadeAnim,
+                        child: Container(
+                          margin: EdgeInsets.symmetric(horizontal: 20.w),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                category.color,
+                                category.color.withOpacity(0.7),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(24.r),
+                            boxShadow: [
+                              BoxShadow(
+                                color: category.color.withOpacity(0.4),
+                                blurRadius: 20,
+                                offset: Offset(0, 10),
+                              ),
+                            ],
+                          ),
+                          child: Stack(
+                            children: [
+                              Padding(
+                                padding: EdgeInsets.all(24.w),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          padding: EdgeInsets.all(16.w),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withOpacity(0.25),
+                                            borderRadius: BorderRadius.circular(18.r),
+                                          ),
+                                          child: Icon(
+                                            category.icon,
+                                            color: Colors.white,
+                                            size: 32.sp,
+                                          ),
+                                        ),
+                                        SizedBox(width: 16.w),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                category.categoryName,
+                                                style: theme.textTheme.headlineSmall?.copyWith(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              SizedBox(height: 4.h),
+                                              Text(
+                                                DateFormat('MMMM yyyy').format(budget.date),
+                                                style: theme.textTheme.bodyMedium?.copyWith(
+                                                  color: Colors.white70,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    SizedBox(height: 24.h),
+
+                                    Row(
+                                      children: [
+                                        SlideTransition(
+                                          position: _slideAnim,
+                                          child: RotationTransition(
+                                            turns: _fadeAnim,
+                                            child: Container(
+                                              width: 90.w,
+                                              height: 90.w,
+                                              child: Stack(
+                                                children: [
+                                                  SizedBox(
+                                                    width: 90.w,
+                                                    height: 90.w,
+                                                    child: CircularProgressIndicator(
+                                                      value: progress.clamp(0.0, 1.0),
+                                                      strokeWidth: 8,
+                                                      backgroundColor: Colors.white.withOpacity(0.2),
+                                                      valueColor: AlwaysStoppedAnimation(
+                                                        progress > 0.9 ? Colors.red : Colors.white,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  Column(
+                                                    mainAxisAlignment: MainAxisAlignment.center,
+                                                    children: [
+                                                      Center(
+                                                        child: Text(
+                                                          '${avg.toStringAsFixed(0)}%',
+                                                          style: theme.textTheme.titleLarge?.copyWith(
+                                                            color: Colors.white,
+                                                            fontWeight: FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                      ),
+                                                      Text('of total',style: theme.textTheme.titleSmall?.copyWith(
+                                                        color: Colors.white,
+                                                        fontWeight: FontWeight.bold,
+                                                      ),)
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        SizedBox(width: 20.w),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Spent',
+                                                style: theme.textTheme.bodySmall?.copyWith(
+                                                  color: Colors.white70,
+                                                  letterSpacing: 1,
+                                                ),
+                                              ),
+                                              Text(
+                                                formatted,
+                                                style: theme.textTheme.headlineSmall?.copyWith(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                              SizedBox(height: 8.h),
+                                              Text(
+                                                'of $formattedBudget budget',
+                                                style: theme.textTheme.bodySmall?.copyWith(
+                                                  color: Colors.white70,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: 30.h),
+
+                      FadeTransition(
+                        opacity: _fadeAnim,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 20.w),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Container(
+                                  padding: EdgeInsets.all(16.w),
+                                  decoration: BoxDecoration(
+                                    color: theme.cardColor.withOpacity(0.92),
+                                    borderRadius: BorderRadius.circular(18.r),
+                                    border: Border.all(
+                                      color: theme.dividerColor.withOpacity(0.15),
+                                      width: 1,
+                                    ),
+                                    boxShadow: Theme.of(context).brightness == Brightness.dark
+                                        ? [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                      BoxShadow(
+                                        color: Colors.white.withOpacity(0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, -1),
+                                      ),
+                                    ] : [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.06),
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                      BoxShadow(
+                                        color: Colors.white.withOpacity(0.4),
+                                        blurRadius: 10,
+                                        offset: const Offset(-2, -2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(8.w),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(8.r),
+                                        ),
+                                        child: Icon(
+                                          Icons.trending_down,
+                                          color: Colors.green,
+                                          size: 20.sp,
+                                        ),
+                                      ),
+                                      SizedBox(height: 12.h),
+                                      Text(
+                                        'Remaining',
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                                        ),
+                                      ),
+                                      SizedBox(height: 4.h),
+                                      Text(
+                                        remainingFormatted,
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              SizedBox(width: 12.w),
+                              Expanded(
+                                child: Container(
+                                  padding: EdgeInsets.all(16.w),
+                                  decoration: BoxDecoration(
+                                    color: theme.cardColor.withOpacity(0.92),
+                                    borderRadius: BorderRadius.circular(18.r),
+                                    border: Border.all(
+                                      color: theme.dividerColor.withOpacity(0.15),
+                                      width: 1,
+                                    ),
+                                    boxShadow: Theme.of(context).brightness == Brightness.dark
+                                        ? [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                      BoxShadow(
+                                        color: Colors.white.withOpacity(0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, -1),
+                                      ),
+                                    ] : [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.06),
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                      BoxShadow(
+                                        color: Colors.white.withOpacity(0.4),
+                                        blurRadius: 10,
+                                        offset: const Offset(-2, -2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.all(8.w),
+                                        decoration: BoxDecoration(
+                                          color: category.color.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(8.r),
+                                        ),
+                                        child: Icon(
+                                          Icons.receipt_long,
+                                          color: category.color,
+                                          size: 20.sp,
+                                        ),
+                                      ),
+                                      SizedBox(height: 12.h),
+                                      Text(
+                                        'Transactions',
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                                        ),
+                                      ),
+                                      SizedBox(height: 4.h),
+                                      Text(
+                                        '${matchedRecord.length}',
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      SizedBox(height: 24.h),
+
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20.w),
+                        child: Row(
+                          children: [
+                            Text(
+                              'Transactions',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Spacer(),
+                            if (matchedRecord.length > 1)
+                              GestureDetector(
+                                onTap: () {
+                                  setModalState(() {
+                                    isSortPressed = !isSortPressed;
+                                    if (isSortPressed) {
+                                      matchedRecord.sort((a, b) => a.date.compareTo(b.date));
+                                    } else {
+                                      matchedRecord.sort((a, b) => b.date.compareTo(a.date));
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  padding: EdgeInsets.all(8.w),
+                                  decoration: BoxDecoration(
+                                    color: theme.cardColor,
+                                    borderRadius: BorderRadius.circular(10.r),
+                                    border: Border.all(
+                                      color: theme.dividerColor.withOpacity(0.2),
+                                    ),
+                                  ),
+                                  child: AnimatedSwitcher(
+                                    duration: Duration(milliseconds: 300),
+                                    transitionBuilder: (Widget child, Animation<double> animation) {
+                                      return ScaleTransition(scale: animation, child: child);
+                                    },
+                                    child: Icon(
+                                      isSortPressed ? Icons.arrow_upward : Icons.arrow_downward,
+                                      key: ValueKey<bool>(isSortPressed),
+                                      color: theme.iconTheme.color,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+
+                      SizedBox(height: 16.h),
+
+                      Expanded(
+                        child: matchedRecord.isEmpty
+                            ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: EdgeInsets.all(24.w),
+                                decoration: BoxDecoration(
+                                  color: category.color.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.inbox_rounded,
+                                  size: 48.sp,
+                                  color: category.color.withOpacity(0.5),
+                                ),
+                              ),
+                              SizedBox(height: 16.h),
+                              Text(
+                                'No transactions yet',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              SizedBox(height: 8.h),
+                              Text(
+                                'Your transactions will appear here',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                            : ListView.separated(
+                          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+                          itemCount: matchedRecord.length,
+                          separatorBuilder: (_, __) => SizedBox(height: 12.h),
+                          itemBuilder: (context, index) {
+                            final data = matchedRecord[index];
+                            final formattedAmount = NumberFormat.currency(
+                              symbol: ref.read(newCurrencyProvider).currency,
+                              decimalDigits: 2,
+                            ).format(data.amount);
+                            final acc = accounts.firstWhere((i) => i.id == data.accountId);
+
+                            return FadeTransition(
+                              opacity: _fadeAnim,
+                              child: ListAnimationWidget(
+                                index: index,
+                                offset: Offset(0, 0.3),
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: theme.cardColor.withOpacity(0.92),
+                                    borderRadius: BorderRadius.circular(18.r),
+                                    border: Border.all(
+                                      color: theme.dividerColor.withOpacity(0.15),
+                                      width: 1,
+                                    ),
+                                    boxShadow: Theme.of(context).brightness == Brightness.dark
+                                        ? [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                      BoxShadow(
+                                        color: Colors.white.withOpacity(0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, -1),
+                                      ),
+                                    ] : [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.06),
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                      BoxShadow(
+                                        color: Colors.white.withOpacity(0.4),
+                                        blurRadius: 10,
+                                        offset: const Offset(-2, -2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Container(
+                                        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
+                                        decoration: BoxDecoration(
+                                          color: category.color.withOpacity(0.08),
+                                          borderRadius: BorderRadius.vertical(
+                                            top: Radius.circular(16.r),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.calendar_today,
+                                              size: 14.sp,
+                                              color: category.color,
+                                            ),
+                                            SizedBox(width: 6.w),
+                                            Text(
+                                              DateFormat('MMMM dd, yyyy').format(data.date),
+                                              style: theme.textTheme.bodySmall?.copyWith(
+                                                color: category.color,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                            Spacer(),
+                                            Icon(
+                                              Icons.access_time,
+                                              size: 14.sp,
+                                              color: category.color,
+                                            ),
+                                            SizedBox(width: 6.w),
+                                            Text(
+                                              DateFormat('hh:mm a').format(data.date),
+                                              style: theme.textTheme.bodySmall?.copyWith(
+                                                color: category.color,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+
+                                      Padding(
+                                        padding: EdgeInsets.all(16.w),
+                                        child: Row(
+                                          children: [
+                                            Container(
+                                              padding: EdgeInsets.all(12.w),
+                                              decoration: BoxDecoration(
+                                                color: category.color.withOpacity(0.15),
+                                                borderRadius: BorderRadius.circular(12.r),
+                                              ),
+                                              child: Icon(
+                                                category.icon,
+                                                color: category.color,
+                                                size: 24.sp,
+                                              ),
+                                            ),
+                                            SizedBox(width: 14.w),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    data.title,
+                                                    style: theme.textTheme.titleMedium?.copyWith(
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                  SizedBox(height: 6.h),
+                                                  Row(
+                                                    children: [
+                                                      Icon(
+                                                        acc.icon,
+                                                        size: 16.sp,
+                                                        color: theme.iconTheme.color?.withOpacity(0.6),
+                                                      ),
+                                                      SizedBox(width: 6.w),
+                                                      Text(
+                                                        acc.cardName,
+                                                        style: theme.textTheme.bodySmall?.copyWith(
+                                                          color: theme.textTheme.bodySmall?.color?.withOpacity(0.6),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            Container(
+                                              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
+                                              decoration: BoxDecoration(
+                                                color: Colors.red.withOpacity(0.08),
+                                                borderRadius: BorderRadius.circular(10.r),
+                                                border: Border.all(
+                                                  color: Colors.red.withOpacity(0.2),
+                                                ),
+                                              ),
+                                              child: Text(
+                                                '-$formattedAmount',
+                                                style: theme.textTheme.titleSmall?.copyWith(
+                                                  color: Colors.red,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    ).then((_) => _detailsAnimation.reset());
+  }
+
+
   @override
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
@@ -685,162 +1367,169 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
           else if (budgetedCategories.isEmpty && !isPastMonth)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: theme.cardColor,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(20.r),
-                      topRight: Radius.circular(20.r),
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 8.h),
-                      child: Column(
-                        children: [
-                          SizedBox(height: unbudgetedCategories.isEmpty ? 80.h : 20.h),
-                          Icon(Icons.note_add_outlined, color: theme.colorScheme.primary, size: 100),
-                          SizedBox(height: 24.h),
-                          Text('No budgets this month', style: theme.textTheme.titleLarge),
-                          SizedBox(height: 8.h),
-                          Text('Set a budget from the list below', style: theme.textTheme.bodyMedium),
-
-                          if (unbudgetedCategories.isNotEmpty) ...[
-                            SizedBox(height: 20.h),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                child: Column(
+                  children: [
+                    SizedBox(height: 12.h,),
+                    Expanded(
+                      child: Container(
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: theme.cardColor,
+                          borderRadius: BorderRadius.only(
+                            topLeft: Radius.circular(20.r),
+                            topRight: Radius.circular(20.r),
+                          ),
+                        ),
+                        child: SingleChildScrollView(
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 8.h),
+                            child: Column(
                               children: [
-                                Container(
-                                  width: 14,
-                                  height: 14,
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.primary,
-                                    shape: BoxShape.circle,
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: theme.colorScheme.primary.withOpacity(0.4),
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
+                                SizedBox(height: unbudgetedCategories.isEmpty ? 80.h : 20.h),
+                                Icon(Icons.note_add_outlined, color: theme.colorScheme.primary, size: 100),
+                                SizedBox(height: 24.h),
+                                Text('No budgets this month', style: theme.textTheme.titleLarge),
+                                SizedBox(height: 8.h),
+                                Text('Set a budget from the list below', style: theme.textTheme.bodyMedium),
+
+                                if (unbudgetedCategories.isNotEmpty) ...[
+                                  SizedBox(height: 20.h),
+                                  Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Container(
+                                        width: 14,
+                                        height: 14,
+                                        decoration: BoxDecoration(
+                                          color: theme.colorScheme.primary,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: theme.colorScheme.primary.withOpacity(0.4),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      SizedBox(width: 10.w),
+                                      Text(
+                                        'Not budgeted this month',
+                                        style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
                                       ),
                                     ],
                                   ),
-                                ),
-                                SizedBox(width: 10.w),
-                                Text(
-                                  'Not budgeted this month',
-                                  style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 10.h),
-                            ...unbudgetedCategories.map((data) {
-                              final index = unbudgetedCategories.indexOf(data);
-                              return ListAnimationWidget(
-                                index: index,
-                                offset: const Offset(0, 0.3),
-                                child: Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 8.0),
-                                  child: Container(
-                                    padding: EdgeInsets.all(15),
-                                    decoration: BoxDecoration(
-                                      color: theme.cardColor.withOpacity(0.92),
-                                      borderRadius: BorderRadius.circular(18.r),
-                                      border: Border.all(
-                                        color: theme.dividerColor.withOpacity(0.15),
-                                        width: 1,
-                                      ),
-                                      boxShadow: Theme.of(context).brightness == Brightness.dark
-                                          ? [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.4),
-                                          blurRadius: 12,
-                                          offset: const Offset(0, 4),
-                                        ),
-                                        BoxShadow(
-                                          color: Colors.white.withOpacity(0.05),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, -1),
-                                        ),
-                                      ]
-                                          : [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.06),
-                                          blurRadius: 18,
-                                          offset: const Offset(0, 6),
-                                        ),
-                                        BoxShadow(
-                                          color: Colors.white.withOpacity(0.4),
-                                          blurRadius: 10,
-                                          offset: const Offset(-2, -2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Container(
-                                          height: 45.w,
-                                          width: 45.w,
+                                  SizedBox(height: 10.h),
+                                  ...unbudgetedCategories.map((data) {
+                                    final index = unbudgetedCategories.indexOf(data);
+                                    return ListAnimationWidget(
+                                      index: index,
+                                      offset: const Offset(0, 0.3),
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                                        child: Container(
+                                          padding: EdgeInsets.all(15),
                                           decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(14.r),
-                                            gradient: LinearGradient(
-                                              colors: [
-                                                data.color.withOpacity(0.9),
-                                                data.color.withOpacity(0.6),
-                                              ],
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
+                                            color: theme.cardColor.withOpacity(0.92),
+                                            borderRadius: BorderRadius.circular(18.r),
+                                            border: Border.all(
+                                              color: theme.dividerColor.withOpacity(0.15),
+                                              width: 1,
                                             ),
-                                            boxShadow: [
+                                            boxShadow: Theme.of(context).brightness == Brightness.dark
+                                                ? [
                                               BoxShadow(
-                                                color: data.color.withOpacity(0.3),
+                                                color: Colors.black.withOpacity(0.4),
                                                 blurRadius: 12,
-                                                spreadRadius: 1,
                                                 offset: const Offset(0, 4),
-                                              )
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(0.05),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, -1),
+                                              ),
+                                            ]
+                                                : [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.06),
+                                                blurRadius: 18,
+                                                offset: const Offset(0, 6),
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(0.4),
+                                                blurRadius: 10,
+                                                offset: const Offset(-2, -2),
+                                              ),
                                             ],
                                           ),
-                                          child: Icon(data.icon, color: Colors.white, size: 22),
-                                        ),
-                                        SizedBox(width: 20.w),
-                                        Text(data.categoryName, style: theme.textTheme.titleMedium),
-                                        const Spacer(),
-                                        ElevatedButton(
-                                          onPressed: () => addBudgetDialogue(data),
-                                          style: ElevatedButton.styleFrom(
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(15.r),
-                                              side: BorderSide(color: theme.colorScheme.primary),
-                                            ),
-                                            backgroundColor: theme.cardColor,
-                                            minimumSize: const Size(100, 50),
-                                            elevation: 0,
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                height: 45.w,
+                                                width: 45.w,
+                                                decoration: BoxDecoration(
+                                                  borderRadius: BorderRadius.circular(14.r),
+                                                  gradient: LinearGradient(
+                                                    colors: [
+                                                      data.color.withOpacity(0.9),
+                                                      data.color.withOpacity(0.6),
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  ),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: data.color.withOpacity(0.3),
+                                                      blurRadius: 12,
+                                                      spreadRadius: 1,
+                                                      offset: const Offset(0, 4),
+                                                    )
+                                                  ],
+                                                ),
+                                                child: Icon(data.icon, color: Colors.white, size: 22),
+                                              ),
+                                              SizedBox(width: 20.w),
+                                              Text(data.categoryName, style: theme.textTheme.titleMedium),
+                                              const Spacer(),
+                                              ElevatedButton(
+                                                onPressed: () => addBudgetDialogue(data),
+                                                style: ElevatedButton.styleFrom(
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(15.r),
+                                                    side: BorderSide(color: theme.colorScheme.primary),
+                                                  ),
+                                                  backgroundColor: theme.cardColor,
+                                                  minimumSize: const Size(100, 50),
+                                                  elevation: 0,
+                                                ),
+                                                child: Text(
+                                                  'Set budget',
+                                                  style: theme.textTheme.titleMedium?.copyWith(
+                                                    color: theme.colorScheme.primary,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                          child: Text(
-                                            'Set budget',
-                                            style: theme.textTheme.titleMedium?.copyWith(
-                                              color: theme.colorScheme.primary,
-                                            ),
-                                          ),
                                         ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              );
-                            }),
-                          ],
-                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               )
 
            else
             SliverList(
               delegate: SliverChildListDelegate([
-                SizedBox(height: 12.h),
+                SizedBox(height: 10.h),
                 Container(
                   width: double.infinity.w,
                   decoration: BoxDecoration(
@@ -945,21 +1634,26 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                                                 budget: budget,
                                                 onEdit: () => editBudgetDialogue(budget, matchedCategory),
                                                 onDelete: () => deleteAlert(budget),
+                                                onDetailsTap: ()=> budgetDetails(budget),
                                               ),
                                             ),
                                           ],
                                         )
                                       ],
                                       if (!isSelectedForBulkDelete) ...[
-                                        ListAnimationWidget(
-                                          offset: const Offset(0, 0.3),
-                                          index: budgetsForDates.indexOf(budget),
-                                          child: BudgetWidget(
-                                            bgColor: matchedCategory.color,
-                                            icon: matchedCategory.icon,
-                                            budget: budget,
-                                            onEdit: () => editBudgetDialogue(budget, matchedCategory),
-                                            onDelete: () =>  deleteAlert(budget),
+                                        InkWell(
+                                          onTap: ()=>budgetDetails(budget),
+                                          child: ListAnimationWidget(
+                                            offset: const Offset(0, 0.3),
+                                            index: budgetsForDates.indexOf(budget),
+                                            child: BudgetWidget(
+                                              bgColor: matchedCategory.color,
+                                              icon: matchedCategory.icon,
+                                              budget: budget,
+                                              onEdit: () => editBudgetDialogue(budget, matchedCategory),
+                                              onDelete: () =>  deleteAlert(budget),
+                                              onDetailsTap: ()=> budgetDetails(budget),
+                                            ),
                                           ),
                                         ),
                                       ]
@@ -1070,23 +1764,25 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                                       ),
                                     ),
                                     SizedBox(width: 20.w),
-                                    Text(data.categoryName, style: theme.textTheme.titleMedium),
-                                    const Spacer(),
-                                    ElevatedButton(
-                                      onPressed: () => addBudgetDialogue(data),
-                                      style: ElevatedButton.styleFrom(
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(15.r),
-                                          side: BorderSide(color: theme.colorScheme.primary),
+                                    Expanded(child: Text(data.categoryName, style: theme.textTheme.titleMedium)),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: () => addBudgetDialogue(data),
+                                        style: ElevatedButton.styleFrom(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(15.r),
+                                            side: BorderSide(color: theme.colorScheme.primary),
+                                          ),
+                                          backgroundColor: theme.cardColor,
+                                          minimumSize: const Size(100, 50),
+                                          elevation: 0,
+                                          padding: EdgeInsets.zero
                                         ),
-                                        backgroundColor: theme.cardColor,
-                                        minimumSize: const Size(100, 50),
-                                        elevation: 0,
-                                      ),
-                                      child: Text(
-                                        'Set budget',
-                                        style: theme.textTheme.titleMedium?.copyWith(
-                                          color: theme.colorScheme.primary,
+                                        child: Text(
+                                          'Set budget',
+                                          style: theme.textTheme.titleMedium?.copyWith(
+                                            color: theme.colorScheme.primary,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -1107,14 +1803,13 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
       )
       :Column(
         children: [
-          SizedBox(height: 10.h),
           BudgetDashboard(
             dateNotifier: ref.read(selectedDateProviderForBudgets.notifier),
             dateState: ref.watch(selectedDateProviderForBudgets),
             totalBudget: totalBudget,
             totalSpent: totalSpent,
           ),
-          SizedBox(height: 20.h),
+          SizedBox(height: 10.h),
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -1253,21 +1948,26 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with SingleTickerPro
                                                         budget: budget,
                                                         onEdit: () => editBudgetDialogue(budget,matchedCategory),
                                                         onDelete: () => budgetNotifier.deleteBudget(budget.id!),
+                                                        onDetailsTap: ()=>budgetDetails(budget),
                                                       ),
                                                     ),
                                                   ],
                                                 )
                                               ],
                                               if(!isSelectedForBulkDelete)...[
-                                                ListAnimationWidget(
-                                                  offset: Offset(0, 0.3),
-                                                  index: budgetsForDates.indexOf(budget),
-                                                  child: BudgetWidget(
-                                                    bgColor: matchedCategory.color,
-                                                    icon: matchedCategory.icon,
-                                                    budget: budget,
-                                                    onEdit: () => editBudgetDialogue(budget,matchedCategory),
-                                                    onDelete: () => deleteAlert(budget),
+                                                GestureDetector(
+                                                  onTap: ()=>budgetDetails(budget),
+                                                  child: ListAnimationWidget(
+                                                    offset: Offset(0, 0.3),
+                                                    index: budgetsForDates.indexOf(budget),
+                                                    child: BudgetWidget(
+                                                      bgColor: matchedCategory.color,
+                                                      icon: matchedCategory.icon,
+                                                      budget: budget,
+                                                      onEdit: () => editBudgetDialogue(budget,matchedCategory),
+                                                      onDelete: () => deleteAlert(budget),
+                                                      onDetailsTap: ()=>budgetDetails(budget),
+                                                    ),
                                                   ),
                                                 ),
                                               ]

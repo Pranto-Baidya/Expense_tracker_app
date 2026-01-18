@@ -60,6 +60,12 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
 
   late Animation<double> _bulkDeleteFabAnimation;
 
+  late AnimationController _tipController;
+
+  late Animation<double> _tipAnimationBounce;
+
+  late Animation<Offset> _slideAnimTip;
+
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
 
@@ -77,6 +83,8 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
   final double _expandedHeight = 244.0.h;
   final double _collapsedHeight = 60.0.h;
 
+  bool _hasPlayedTipAnimation = false;
+
 
   @override
   void initState() {
@@ -88,6 +96,14 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
         vsync: this,
         duration: Duration(milliseconds: 300)
     );
+
+    _tipController = AnimationController(
+        vsync: this,
+        duration: Duration(milliseconds: 800)
+    );
+
+    _slideAnimTip = Tween<Offset>(begin:Offset(0,-0.9),end: Offset.zero ).animate(CurvedAnimation(parent: _tipController, curve: Curves.fastOutSlowIn));
+    _tipAnimationBounce = Tween<double>(begin: 0.5, end: 1).animate(CurvedAnimation(parent: _tipController, curve: Curves.easeInOut));
 
     _disappearFABAnimation = Tween<Offset>(begin: Offset.zero, end: Offset(0, 2.5))
         .animate(CurvedAnimation(parent: _animationController, curve: Curves.fastOutSlowIn));
@@ -146,6 +162,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
     _bulkDeleteAnimationController.dispose();
     _animationController.dispose();
     _scrollController.dispose();
+    _tipController.dispose();
     super.dispose();
   }
 
@@ -230,8 +247,11 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
   }
 
   void addExpenseDialogue(){
+    final currentNavigationDate = ref.read(selectedDateProvider);
+
     ref.read(selectedDateProvider.notifier).state = DateTime.now();
     ref.read(selectedTimeProvider.notifier).state = TimeOfDay.now();
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -746,12 +766,14 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
       _amountController.clear();
       ref.read(categoryPickerProvider.notifier).state = 'Personal';
       ref.read(selectedAccountProvider.notifier).state = null;
-      ref.read(selectedDateProvider.notifier).state = DateTime.now();
+      ref.read(selectedDateProvider.notifier).state = currentNavigationDate;
       ref.read(selectedTimeProvider.notifier).state = TimeOfDay.now();
     });
   }
 
   void editExpenseDialogue(ExpenseModel expense) {
+
+    final currentDate = ref.read(selectedDateProvider);
 
     int? id = expense.id;
     _editTitleController.text = expense.title;
@@ -1235,43 +1257,42 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                           ),
                         )
                             : ElevatedButton(
-                          onPressed: () {
-                            if(ref.read(editingProvider.notifier).state==true) {
-                              ref.read(enteredAmountProvider.notifier).state = double.parse(_editAmountController.text);
-                            }
+                onPressed: () {
+                if(ref.read(editingProvider.notifier).state==true) {
+                ref.read(enteredAmountProvider.notifier).state = double.parse(_editAmountController.text);
+                }
 
-                            final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==selectedAccountNotifier.state);
+                final selectedCard = ref.watch(cardsProvider).cards.firstWhere((card)=>card.id==selectedAccountNotifier.state);
 
-                            if((ref.read(enteredAmountProvider.notifier).state>selectedCard.amount || selectedCard.amount<=0) && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
-                              toast('Not sufficient balance, please choose a different account or update the balance');
-                              return;
-                            }
+                if((ref.read(enteredAmountProvider.notifier).state>selectedCard.amount || selectedCard.amount<=0) && ref.read(moneyTypeProvider.notifier).state==MoneyType.expense){
+                toast('Not sufficient balance, please choose a different account or update the balance');
+                return;
+                }
 
-                            ref.read(expenseProvider.notifier).updateExpense(
-                              ExpenseModel(
-                                  id: id,
-                                  title: _editTitleController.text,
-                                  amount: double.parse(_editAmountController.text),
-                                  category: category,
-                                  date: ref.read(selectedDateProvider.notifier).state,
-                                  time: ref.read(selectedTimeProvider.notifier).state,
-                                  moneyType: ref.read(moneyTypeProvider.notifier).state,
-                                  accountId: ref.read(selectedAccountProvider)!
-                              ),
-                            );
+                final updatedExpense = ExpenseModel(
+                id: id,
+                title: _editTitleController.text,
+                amount: double.parse(_editAmountController.text),
+                category: category,
+                date: ref.read(selectedDateProvider.notifier).state,
+                time: ref.read(selectedTimeProvider.notifier).state,
+                moneyType: ref.read(moneyTypeProvider.notifier).state,
+                accountId: ref.read(selectedAccountProvider)!
+                );
 
-                            ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
-                            ref.read(budgetProvider.notifier).calculateAmountForEdit(
-                              ref.read(selectedDateProvider.notifier).state,
-                              ref.read(oldAmountTrackerProvider.notifier).state,
-                            );
+                ref.read(expenseProvider.notifier).updateExpense(
+                updatedExpense,
+                expense
+                );
 
-                            ref.read(editingProvider.notifier).state = false;
-                            ref.read(checkTypingProvider.notifier).state = false;
-                            ref.read(recordAddedTriggerProvider.notifier).state++;
 
-                            Navigator.pop(context);
-                          },
+                ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
+                ref.read(editingProvider.notifier).state = false;
+                ref.read(checkTypingProvider.notifier).state = false;
+                ref.read(recordAddedTriggerProvider.notifier).state++;
+
+                Navigator.pop(context);
+                },
                           style: ElevatedButton.styleFrom(
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -1300,6 +1321,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
     ).then((_) {
       ref.read(editingProvider.notifier).state = false;
       ref.read(checkTypingProvider.notifier).state = false;
+      ref.read(selectedDateProvider.notifier).state= currentDate;
     });
   }
 
@@ -1511,9 +1533,6 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
   }
 
 
-
-
-
   @override
   Widget build(BuildContext context) {
     final expenseState = ref.watch(expenseProvider);
@@ -1621,7 +1640,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                       ),
                       child: Column(
                         children: [
-                          SizedBox(height: 15.h),
+                          SizedBox(height: 10.h),
                           _buildRecordsList(
                             context,
                             ref,
@@ -1844,52 +1863,72 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
         final date = sortedDates[index];
         final expensesForDate = groupedExpenses[date]!;
 
-        final showBanner = ref.watch(tipPrefProvider);
+        final tipNotifier = ref.watch(tipPrefProvider.notifier);
+        final showBanner = tipNotifier.isLoaded && ref.watch(tipPrefProvider);
+
+        if (showBanner && !_hasPlayedTipAnimation) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!_hasPlayedTipAnimation) {
+              _tipController.forward().then((_) {
+                _hasPlayedTipAnimation = true;
+              });
+            }
+          });
+        }
 
         return Column(
           children: [
             if(expensesForDate.isNotEmpty && showBanner)...[
-              Container(
-                width: double.infinity.w,
-                height: 140.h,
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.1),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 5.h,),
-                    Padding(
-                      padding: const EdgeInsets.only(right: 10),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
+              FadeTransition(
+                opacity: _tipAnimationBounce,
+                child: SlideTransition(
+                  position: _slideAnimTip,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    child: Container(
+                      width: double.infinity.w,
+                      padding: EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(15.r)
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          IconButton(
-                              onPressed: (){
-                                ref.read(tipPrefProvider.notifier).save(false);
-                              },
-                              icon: Icon(Icons.close,color: theme.colorScheme.primary,size: 30,)
-                          )
+                          SizedBox(height: 5.h,),
+                          Padding(
+                            padding: const EdgeInsets.only(right: 0),
+                            child: Row(
+                              children: [
+                                Icon(Icons.lightbulb_outline,color: theme.colorScheme.primary,size: 30,),
+                                Spacer(),
+                                IconButton(
+                                    onPressed: (){
+                                      ref.read(tipPrefProvider.notifier).save(false);
+                                    },
+                                    icon: Icon(Icons.close,color: theme.colorScheme.primary,size: 30,)
+                                )
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 6.0),
+                            child: Text('Quick Tip: ',style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),),
+                          ),
+                          SizedBox(height: 10.h,),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8.0),
+                            child: Wrap(
+                              alignment: WrapAlignment.start,
+                              children: [
+                                Text('Long press on a record to perform bulk delete.',style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),)
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                     ),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 10.0),
-                      child: Text('Quick Tip: ',style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),),
-                    ),
-                    SizedBox(height: 10.h,),
-                    Padding(
-                      padding: const EdgeInsets.only(left: 10.0),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Icon(Icons.lightbulb_rounded,color: theme.colorScheme.primary,),
-                          SizedBox(width: 10.h,),
-                          Text('Long press on a record to perform bulk delete.',style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),)
-                        ],
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ],

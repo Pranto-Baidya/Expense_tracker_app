@@ -1,12 +1,16 @@
 
 import 'package:expense_tracker_app/database/db_connection.dart';
+import 'package:expense_tracker_app/models/budget_model.dart';
 import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
+import 'package:expense_tracker_app/riverpod/budget_riverpod/budget_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+
+import '../../screens/budgets_screen.dart';
 
 final totalExpenseInAccountProvider = StateProvider<double>((ref)=>0.0);
 final totalIncomeInAccountProvider = StateProvider<double>((ref)=>0.0);
@@ -83,19 +87,36 @@ class CardNotifier extends StateNotifier<CardState>{
 
     final existingCard = state.cards.firstWhere((c) => c.id == card.id);
 
-    final initialAmount = card.initialAmount > 0 ? card.initialAmount : existingCard.initialAmount;
+
+    double updatedInitialAmount;
+    double updatedAmount = card.amount;
+
+
+    if (card.initialAmount == 0 || card.initialAmount == existingCard.initialAmount) {
+
+      double previousSpent = existingCard.initialAmount - existingCard.amount;
+
+      updatedInitialAmount = updatedAmount + previousSpent;
+    }
+    else {
+      updatedInitialAmount = card.initialAmount;
+    }
+
+    if (updatedInitialAmount < updatedAmount) {
+      updatedInitialAmount = updatedAmount;
+    }
 
     double newProgress = 0.0;
-    if (initialAmount > 0) {
-      double spent = initialAmount - card.amount;
-      newProgress = (spent / initialAmount).clamp(0.0, 1.0);
+    if (updatedInitialAmount > 0) {
+      double spent = updatedInitialAmount - updatedAmount;
+      newProgress = (spent / updatedInitialAmount).clamp(0.0, 1.0);
     }
 
     final updatedCard = CardModel(
       id: card.id,
       cardName: card.cardName,
-      amount: card.amount,
-      initialAmount: initialAmount,
+      amount: updatedAmount,
+      initialAmount: updatedInitialAmount,
       icon: card.icon,
       moneyType: card.moneyType,
       progress: newProgress,
@@ -111,15 +132,53 @@ class CardNotifier extends StateNotifier<CardState>{
   }
 
 
-  Future<void> deleteCard(int id)async{
-
+  Future<void> deleteCard(int id) async {
     state = state.copyWith(isLoading: true);
 
     final expenseNotifier = _ref.read(expenseProvider.notifier);
     final expenseState = _ref.read(expenseProvider);
 
-    List<ExpenseModel> remainingRecords = expenseState.expenses.where((exp)=>exp.accountId!=id).toList();
-    
+    final budgetState = _ref.read(budgetProvider);
+    final budgetNotifier = _ref.read(budgetProvider.notifier);
+
+    final expensesToDelete = expenseState.expenses.where((exp) => exp.accountId == id).toList();
+
+    for (var expense in expensesToDelete) {
+      if (expense.moneyType == MoneyType.expense) {
+
+        final matchingBudget = budgetState.budgets.firstWhere(
+              (budget) => budget.categoryName == expense.category &&
+              budget.date.year == expense.date.year &&
+              budget.date.month == expense.date.month,
+          orElse: () => BudgetModel(
+            id: -1,
+            categoryName: '',
+            budget: 0,
+            date: DateTime.now(),
+          ),
+        );
+
+        if (matchingBudget.id != -1) {
+          double updatedSpent = matchingBudget.spent - expense.amount;
+          double updatedRemaining = matchingBudget.remaining + expense.amount;
+
+          final updatedBudget = BudgetModel(
+            id: matchingBudget.id,
+            categoryName: matchingBudget.categoryName,
+            budget: matchingBudget.budget,
+            spent: updatedSpent.clamp(0.0, double.infinity),
+            remaining: updatedRemaining,
+            date: matchingBudget.date,
+          );
+
+          await budgetNotifier.updateBudgetFromExpense(updatedBudget);
+        }
+      }
+    }
+
+
+    List<ExpenseModel> remainingRecords = expenseState.expenses.where((exp) => exp.accountId != id).toList();
+
     await databaseConnection.deleteExpensesByAccountId(id);
 
     await databaseConnection.deleteCard(id);
@@ -130,9 +189,12 @@ class CardNotifier extends StateNotifier<CardState>{
     );
 
     state = state.copyWith(
-      cards: state.cards.where((i)=>i.id!=id).toList(),
-      isLoading: false
+      cards: state.cards.where((i) => i.id != id).toList(),
+      isLoading: false,
     );
+
+    final currentBudgetDate = _ref.read(selectedDateProviderForBudgets);
+    budgetNotifier.filterBudgetsByMonth(currentBudgetDate);
   }
 
   Future<void> bulkDeleteCards(List<int> allAccIds)async{

@@ -30,14 +30,17 @@ final tipPrefProvider = StateNotifierProvider<TipPrefNotifier, bool>((ref) {
 });
 
 class TipPrefNotifier extends StateNotifier<bool> {
-  TipPrefNotifier() : super(true) {
-    loadTip();
-  }
+  TipPrefNotifier() : super(true);
+
+  bool _isLoaded = false;
+
+  bool get isLoaded => _isLoaded;
 
   Future<void> loadTip() async {
     final prefs = await SharedPreferences.getInstance();
     bool data = prefs.getBool('save') ?? true;
     state = data;
+    _isLoaded = true;
   }
 
   Future<void> save(bool value) async {

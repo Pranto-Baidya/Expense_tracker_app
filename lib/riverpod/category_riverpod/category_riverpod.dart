@@ -1,10 +1,11 @@
-
 import 'package:expense_tracker_app/database/db_connection.dart';
 import 'package:expense_tracker_app/models/category_model.dart';
 import 'package:expense_tracker_app/riverpod/budget_riverpod/budget_riverpod.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
+import '../../models/budget_model.dart';
+import '../../models/expense_model.dart';
 import '../../screens/budgets_screen.dart';
 import '../../screens/category_screen.dart';
 import '../expense_riverpod/expense_riverpod.dart';
@@ -34,11 +35,11 @@ class CategoryState{
     bool? isLoading
   }){
     return CategoryState(
-      allCategories: allCategories ?? this.allCategories,
-      allIncomeCategories: allIncomeCategories ?? this.allIncomeCategories,
-      allExpenseCategories: allExpenseCategories ?? this.allExpenseCategories,
-      error: error ?? this.error,
-      isLoading: isLoading ?? this.isLoading
+        allCategories: allCategories ?? this.allCategories,
+        allIncomeCategories: allIncomeCategories ?? this.allIncomeCategories,
+        allExpenseCategories: allExpenseCategories ?? this.allExpenseCategories,
+        error: error ?? this.error,
+        isLoading: isLoading ?? this.isLoading
     );
   }
 }
@@ -76,11 +77,11 @@ class CategoryNotifier extends StateNotifier<CategoryState>{
       final id = await databaseConnection.addCategory(category);
 
       final newCategory = CategoryModel(
-        categoryId: id,
-        categoryName: category.categoryName,
-        categoryType: category.categoryType,
-        icon: category.icon,
-        color: category.color
+          categoryId: id,
+          categoryName: category.categoryName,
+          categoryType: category.categoryType,
+          icon: category.icon,
+          color: category.color
       );
 
       final newList = [newCategory, ...state.allCategories];
@@ -98,14 +99,23 @@ class CategoryNotifier extends StateNotifier<CategoryState>{
 
   Future<void> updateCategory(CategoryModel category) async {
     try {
+
+      final oldCategory = state.allCategories.firstWhere(
+              (c) => c.categoryId == category.categoryId,
+          orElse: () => throw Exception('Category not found')
+      );
+
+      final oldCategoryName = oldCategory.categoryName;
+      final newCategoryName = category.categoryName;
+
       await databaseConnection.updateCategory(category);
 
       final updated = CategoryModel(
-        categoryId: category.categoryId,
-        categoryName: category.categoryName,
-        categoryType: category.categoryType,
-        icon: category.icon,
-        color: category.color
+          categoryId: category.categoryId,
+          categoryName: category.categoryName,
+          categoryType: category.categoryType,
+          icon: category.icon,
+          color: category.color
       );
 
       final updatedList = state.allCategories.map((c) {
@@ -117,8 +127,66 @@ class CategoryNotifier extends StateNotifier<CategoryState>{
         allIncomeCategories: updatedList.where((c) => c.categoryType == CategoryType.income).toList(),
         allExpenseCategories: updatedList.where((c) => c.categoryType == CategoryType.expense).toList(),
       );
+
+      if (oldCategoryName != newCategoryName) {
+        await _updateRelatedRecordsAndBudgets(oldCategoryName, newCategoryName);
+      }
     } catch (e) {
       state = state.copyWith(error: e.toString());
+    }
+  }
+
+  Future<void> _updateRelatedRecordsAndBudgets(String oldCategoryName, String newCategoryName) async {
+    try {
+      final budgetNotifier = ref.read(budgetProvider.notifier);
+      final expenseNotifier = ref.read(expenseProvider.notifier);
+
+      final allBudgets = ref.read(budgetProvider).budgets;
+      final allRecords = ref.read(expenseProvider).expenses;
+
+
+      final budgetsToUpdate = allBudgets.where(
+              (budget) => budget.categoryName == oldCategoryName
+      ).toList();
+
+      for (var budget in budgetsToUpdate) {
+        final updatedBudget = BudgetModel(
+          id: budget.id,
+          categoryName: newCategoryName,
+          budget: budget.budget,
+          spent: budget.spent,
+          remaining: budget.remaining,
+          date: budget.date,
+        );
+        await databaseConnection.updateBudget(updatedBudget);
+      }
+
+      final recordsToUpdate = allRecords.where(
+              (record) => record.category == oldCategoryName
+      ).toList();
+
+      for (var record in recordsToUpdate) {
+        final updatedRecord = ExpenseModel(
+          id: record.id,
+          title: record.title,
+          amount: record.amount,
+          category: newCategoryName,
+          date: record.date,
+          time: record.time,
+          moneyType: record.moneyType,
+          accountId: record.accountId,
+        );
+        await databaseConnection.updateExpenses(updatedRecord);
+      }
+
+      await budgetNotifier.getAllBudgetsList();
+      await expenseNotifier.getExpenses();
+
+      final selectedDate = ref.read(selectedDateProviderForBudgets);
+      budgetNotifier.filterBudgetsByMonth(selectedDate);
+
+    } catch (e) {
+      debugPrint('Error updating related records and budgets: ${e.toString()}');
     }
   }
 

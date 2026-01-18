@@ -140,13 +140,170 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
 
 
 
-  Future<void> updateExpense(ExpenseModel expense)async{
+  Future<void> updateExpense(ExpenseModel expense, ExpenseModel oldExpense) async {
     await databaseConnection.updateExpenses(expense);
 
-    state = state.copyWith(
-        expenses: state.expenses.map((e)=>e.id==expense.id? expense : e).toList()
+    final cardNotifier = _ref.read(cardsProvider.notifier);
+    final allCards = _ref.read(cardsProvider).cards;
+
+    // Check if account changed
+    final bool accountChanged = expense.accountId != oldExpense.accountId;
+
+    if (accountChanged) {
+      // CASE 1: Account changed - revert old account, update new account
+
+      // Revert OLD account
+      final oldCard = allCards.firstWhere(
+            (card) => card.id == oldExpense.accountId,
+        orElse: () => throw Exception('Old card not found'),
+      );
+
+      double revertedAmount = oldCard.amount;
+      double revertedInitialAmount = oldCard.initialAmount;
+
+      if (oldExpense.moneyType == MoneyType.expense) {
+        revertedAmount += oldExpense.amount; // Add back the expense
+      } else if (oldExpense.moneyType == MoneyType.income) {
+        revertedAmount -= oldExpense.amount; // Remove the income
+        revertedInitialAmount -= oldExpense.amount; // Remove from initial
+      }
+
+      double oldCardProgress = 0.0;
+      if (revertedInitialAmount > 0) {
+        double spent = revertedInitialAmount - revertedAmount;
+        oldCardProgress = (spent / revertedInitialAmount).clamp(0.0, 1.0);
+      }
+
+      final revertedOldCard = CardModel(
+        id: oldCard.id,
+        cardName: oldCard.cardName,
+        amount: revertedAmount,
+        initialAmount: revertedInitialAmount,
+        icon: oldCard.icon,
+        moneyType: oldCard.moneyType,
+        progress: oldCardProgress,
+      );
+
+      await databaseConnection.updateCard(revertedOldCard);
+
+      // Update NEW account
+      final newCard = allCards.firstWhere(
+            (card) => card.id == expense.accountId,
+        orElse: () => throw Exception('New card not found'),
+      );
+
+      double updatedAmount = newCard.amount;
+      double updatedInitialAmount = newCard.initialAmount;
+
+      if (expense.moneyType == MoneyType.expense) {
+        updatedAmount -= expense.amount;
+      } else if (expense.moneyType == MoneyType.income) {
+        updatedAmount += expense.amount;
+        updatedInitialAmount += expense.amount;
+      }
+
+      double newCardProgress = 0.0;
+      if (updatedInitialAmount > 0) {
+        double spent = updatedInitialAmount - updatedAmount;
+        newCardProgress = (spent / updatedInitialAmount).clamp(0.0, 1.0);
+      }
+
+      final updatedNewCard = CardModel(
+        id: newCard.id,
+        cardName: newCard.cardName,
+        amount: updatedAmount,
+        initialAmount: updatedInitialAmount,
+        icon: newCard.icon,
+        moneyType: newCard.moneyType,
+        progress: newCardProgress,
+      );
+
+      await databaseConnection.updateCard(updatedNewCard);
+
+      // Update state with both cards
+      List<CardModel> updatedCards = cardNotifier.state.cards.map((card) {
+        if (card.id == revertedOldCard.id) {
+          return revertedOldCard;
+        } else if (card.id == updatedNewCard.id) {
+          return updatedNewCard;
+        }
+        return card;
+      }).toList();
+
+      cardNotifier.state = cardNotifier.state.copyWith(cards: updatedCards);
+
+    } else {
+      // CASE 2: Same account - calculate net change
+
+      final card = allCards.firstWhere(
+            (c) => c.id == expense.accountId,
+        orElse: () => throw Exception('Card not found'),
+      );
+
+      double updatedAmount = card.amount;
+      double updatedInitialAmount = card.initialAmount;
+
+      // Revert old transaction
+      if (oldExpense.moneyType == MoneyType.expense) {
+        updatedAmount += oldExpense.amount; // Add back
+      } else if (oldExpense.moneyType == MoneyType.income) {
+        updatedAmount -= oldExpense.amount; // Remove
+        updatedInitialAmount -= oldExpense.amount; // Remove from initial
+      }
+
+      // Apply new transaction
+      if (expense.moneyType == MoneyType.expense) {
+        updatedAmount -= expense.amount;
+      } else if (expense.moneyType == MoneyType.income) {
+        updatedAmount += expense.amount;
+        updatedInitialAmount += expense.amount;
+      }
+
+      double progress = 0.0;
+      if (updatedInitialAmount > 0) {
+        double spent = updatedInitialAmount - updatedAmount;
+        progress = (spent / updatedInitialAmount).clamp(0.0, 1.0);
+      }
+
+      final updatedCard = CardModel(
+        id: card.id,
+        cardName: card.cardName,
+        amount: updatedAmount,
+        initialAmount: updatedInitialAmount,
+        icon: card.icon,
+        moneyType: card.moneyType,
+        progress: progress,
+      );
+
+      await databaseConnection.updateCard(updatedCard);
+
+      // Update state
+      List<CardModel> updatedCards = cardNotifier.state.cards.map((c) {
+        return c.id == updatedCard.id ? updatedCard : c;
+      }).toList();
+
+      cardNotifier.state = cardNotifier.state.copyWith(cards: updatedCards);
+    }
+
+    // *** THIS IS THE CRITICAL FIX ***
+    // Update budget if category, amount, or moneyType changed
+    await _ref.read(budgetProvider.notifier).updateBudgetOnRecordEdit(
+      oldCategory: oldExpense.category,
+      newCategory: expense.category,
+      oldAmount: oldExpense.amount,
+      newAmount: expense.amount,
+      oldDate: oldExpense.date,
+      newDate: expense.date,
+      oldMoneyType: oldExpense.moneyType,
+      newMoneyType: expense.moneyType,
     );
 
+    // Update expense state
+    state = state.copyWith(
+        expenses: state.expenses.map((e) => e.id == expense.id ? expense : e).toList()
+    );
+
+    // Reapply filters
     switch(state.activeFilter) {
       case 'daily':
         filterRecordsByDay(state.selectedDate);
@@ -161,8 +318,11 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
         filterRecordsByMonth(state.selectedDate, state.selectedTime);
         break;
     }
+
     _ref.read(cardsProvider.notifier).calculateTotalExpenseAndIncomeInAccount();
   }
+
+
 
   Future<void> deleteExpense(int id) async {
     final selectedRecord = state.filteredRecord.firstWhere(
@@ -176,6 +336,7 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     );
 
     final budgetList = _ref.read(budgetProvider).budgets;
+
     BudgetModel? selectedBudget;
 
     if (budgetList.any((budget) => budget.categoryName == selectedRecord.category)) {
@@ -186,26 +347,31 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
     }
 
     double updatedAmount = selectedCard.amount;
-    double updatedProgress = selectedCard.progress;
+    double updatedInitialAmount = selectedCard.initialAmount;
 
+    // Revert the transaction from the card
     if (selectedRecord.moneyType == MoneyType.expense) {
-      updatedAmount += selectedRecord.amount;
+      updatedAmount += selectedRecord.amount; // Add back the expense
     } else if (selectedRecord.moneyType == MoneyType.income) {
-      updatedAmount -= selectedRecord.amount;
+      updatedAmount -= selectedRecord.amount; // Remove the income
+      updatedInitialAmount -= selectedRecord.amount; // Remove from initial amount
     }
 
-    if (selectedCard.amount > 0) {
-      double spentAmount = selectedCard.amount * selectedCard.progress;
-      updatedProgress = (spentAmount / (updatedAmount == 0 ? 1 : updatedAmount)).clamp(0.0, 1.0);
+    // Calculate the new progress correctly
+    double updatedProgress = 0.0;
+    if (updatedInitialAmount > 0) {
+      double spent = updatedInitialAmount - updatedAmount;
+      updatedProgress = (spent / updatedInitialAmount).clamp(0.0, 1.0);
     }
 
     final updatedCard = CardModel(
-        id: selectedCard.id,
-        cardName: selectedCard.cardName,
-        amount: updatedAmount,
-        icon: selectedCard.icon,
-        moneyType: selectedCard.moneyType,
-        progress: updatedProgress
+      id: selectedCard.id,
+      cardName: selectedCard.cardName,
+      amount: updatedAmount,
+      initialAmount: updatedInitialAmount,
+      icon: selectedCard.icon,
+      moneyType: selectedCard.moneyType,
+      progress: updatedProgress,
     );
 
     await databaseConnection.updateCard(updatedCard);
@@ -218,6 +384,7 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
         }).toList()
     );
 
+    // Update budget if exists
     if (selectedBudget != null) {
       double updatedSpent = selectedBudget.spent;
       double updatedRemaining = selectedBudget.remaining;
@@ -228,15 +395,16 @@ class ExpenseNotifier extends StateNotifier<ExpenseState>{
       }
 
       final updatedBudget = BudgetModel(
-          id: selectedBudget.id,
-          categoryName: selectedBudget.categoryName,
-          budget: selectedBudget.budget,
-          spent: updatedSpent,
-          remaining: updatedRemaining,
-          date: selectedBudget.date
+        id: selectedBudget.id,
+        categoryName: selectedBudget.categoryName,
+        budget: selectedBudget.budget,
+        spent: updatedSpent,
+        remaining: updatedRemaining,
+        date: selectedBudget.date,
       );
 
       await _ref.read(budgetProvider.notifier).updateBudgetFromExpense(updatedBudget);
+      _ref.read(budgetProvider.notifier).filterBudgetsByMonth(selectedBudget.date);
     }
 
     await databaseConnection.deleteExpenses(id);

@@ -92,7 +92,7 @@ class PreMadeCategoryState {
         CategoryModel(
           categoryName: "Phone",
           icon: Icons.phone_android,
-          color: Colors.black,
+          color: Colors.lime.shade600,
           categoryType: CategoryType.expense,
         ),
         CategoryModel(

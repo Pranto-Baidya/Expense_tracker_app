@@ -385,16 +385,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   Color(0xFF0F52BA),
                   Color(0xFF1476B8),
                   Color(0xFF1A8A98),
-                  Color(0xFF006666),
                   Color(0xFF138D75),
                   Color(0xFF558B2F),
+                  Color(0xFF006666),
                   Color(0xFFB89A2F),
                   Color(0xFFC05A14),
                   Color(0xFFB8143A),
-                  Color(0xFF9C116E),
                   Color(0xFF7E57C2),
                   Color(0xFF5B4EC4),
-                  Color(0xFF8D6E63),
                   Color(0xFF607D8B),
                 ];
 
@@ -402,16 +400,14 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                   'Deep Blue',
                   'Light Blue',
                   'Cyan',
-                  'Teal',
                   'Green',
                   'Deep Green',
+                  'Teal',
                   'Gold',
                   'Orange',
                   'Red',
-                  'Magenta',
                   'Purple',
                   'Indigo',
-                  'Brown',
                   'Slate Grey',
                 ];
 
@@ -513,28 +509,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ListTile(
               onTap: ()=>pickAccentColor(),
               tileColor: Colors.transparent,
-              leading: Icon(Icons.color_lens_outlined,color: theme.iconTheme.color,),
+              leading: CircleAvatar(
+                radius: 12,
+                backgroundColor: theme.colorScheme.primary,
+                child: Icon(Icons.color_lens_outlined,color: Colors.white,size: 16,),
+              ),
               title: Text('App theme'),
               trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
           ),
           ListTile(
               onTap: chooseTheme,
               tileColor: Colors.transparent,
-              leading: isDark?Icon(Icons.wb_sunny_outlined,color: theme.iconTheme.color,):Icon(Icons.dark_mode_outlined,color: theme.iconTheme.color,),
+              leading: isDark?CircleAvatar(
+                radius: 12,
+                backgroundColor: theme.colorScheme.primary,
+                child: Icon(Icons.wb_sunny,color: Colors.white,size: 16,),
+              ):CircleAvatar(
+                radius: 12,
+                backgroundColor: theme.colorScheme.primary,
+                child: Icon(Icons.dark_mode_outlined,color: Colors.white,size: 16,),
+              ),
               title: Text('Display mode'),
               trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
           ),
           ListTile(
               onTap: chooseCurrency,
               tileColor: Colors.transparent,
-              leading: Icon(Icons.paid_outlined,color: theme.iconTheme.color,),
+              leading: CircleAvatar(
+                radius: 12,
+                backgroundColor: theme.colorScheme.primary,
+                child: Icon(Icons.paid_outlined,color: Colors.white,size: 16,),
+              ),
               title: Text('Currency sign'),
               trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
           ),
           ListTile(
               onTap: chooseCurrency,
               tileColor: Colors.transparent,
-              leading: Icon(Icons.dashboard_outlined,color: theme.iconTheme.color,),
+              leading: CircleAvatar(
+                radius: 12,
+                backgroundColor: theme.colorScheme.primary,
+                child: Icon(Icons.dashboard_outlined,color: Colors.white,size: 16,),
+              ),
               title: Text('Enable collapse mode'),
               trailing: Switch(
                   value: ref.watch(collapseDashboardPrefProvider),
@@ -550,7 +566,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           ListTile(
               tileColor: Colors.transparent,
-              leading: Icon(Icons.lock_outline,color: theme.iconTheme.color,),
+              leading: CircleAvatar(
+                radius: 12,
+                backgroundColor: theme.colorScheme.primary,
+                child: Icon(Icons.lock_outline,color: Colors.white,size: 16,),
+              ),
               title: Text('Pin lock protection'),
               trailing:Switch(
                   value: ref.watch(authProvider).isPinSet,
@@ -571,7 +591,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           ),
           ListTile(
               tileColor: Colors.transparent,
-              leading: Icon(Icons.notifications_none,color: theme.iconTheme.color,),
+              leading: CircleAvatar(
+                radius: 12,
+                backgroundColor: theme.colorScheme.primary,
+                child: Icon(Icons.notifications_none,color: Colors.white,size: 16,),
+              ),
               title: Text('Remind everyday'),
               trailing: Switch(
                   value: ref.watch(prefsProvider),

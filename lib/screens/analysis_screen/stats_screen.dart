@@ -192,7 +192,7 @@ class _StatsScreenState extends ConsumerState<StatsScreen> {
           if (recordList.filteredRecord.isNotEmpty)
             SliverList(
               delegate: SliverChildListDelegate([
-                SizedBox(height: 12.h),
+                SizedBox(height: 10.h),
                 Container(
                   width: double.infinity.w,
                   decoration: BoxDecoration(

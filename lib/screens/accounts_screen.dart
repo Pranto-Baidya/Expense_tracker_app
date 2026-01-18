@@ -801,83 +801,106 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
             else
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: Container(
-                  width: double.infinity.w,
-                  decoration: BoxDecoration(
-                    color: theme.cardColor,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(20.r),
-                      topRight: Radius.circular(20.r),
-                    ),
-                  ),
-                  child: SingleChildScrollView(
-                    physics: const NeverScrollableScrollPhysics(),
-                    child: Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 8.h),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(height: 10.h),
-                          if (cardState.cards.isNotEmpty)
-                            Text(
-                              'All accounts',
-                              style: theme.textTheme.titleLarge,
-                            ),
-
-                          SizedBox(height: 10.h),
-
-                          // Accounts List
-                          Column(
+                child: Column(
+                  children: [
+                    SizedBox(height: 10.h),
+                    Container(
+                      width: double.infinity.w,
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: BorderRadius.only(
+                          topLeft: Radius.circular(20.r),
+                          topRight: Radius.circular(20.r),
+                        ),
+                      ),
+                      child: SingleChildScrollView(
+                        physics: const NeverScrollableScrollPhysics(),
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 8.h),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              ...cardState.cards.map((data) {
-                                final index = cardState.cards.indexOf(data);
-                                double amount = 0;
+                              SizedBox(height: 10.h),
+                              if (cardState.cards.isNotEmpty)
+                                Text(
+                                  'All accounts',
+                                  style: theme.textTheme.titleLarge,
+                                ),
 
-                                if (data.amount <= 0 && ref.read(moneyTypeProvider.notifier).state == MoneyType.expense) {
-                                  amount = 0;
-                                } else {
-                                  amount = data.amount;
-                                }
+                              SizedBox(height: 10.h),
 
-                                return GestureDetector(
-                                  onLongPress: () {
-                                    ref.read(isIdSelectedForBulkDeleteProvider.notifier).state = true;
-                                    final val = ref.read(selectedIdsProvider);
-                                    ref.read(selectedIdsProvider.notifier).state = Set<int>.from(val)..add(data.id!);
-                                    if (ref.read(selectedIdsProvider.notifier).state.length == 1) {
-                                      _bulkDeleteFABController.forward(from: 0);
+                              // Accounts List
+                              Column(
+                                children: [
+                                  ...cardState.cards.map((data) {
+                                    final index = cardState.cards.indexOf(data);
+                                    double amount = 0;
+
+                                    if (data.amount <= 0 && ref.read(moneyTypeProvider.notifier).state == MoneyType.expense) {
+                                      amount = 0;
+                                    } else {
+                                      amount = data.amount;
                                     }
-                                  },
-                                  onTap: () {
-                                    if (ref.read(isIdSelectedForBulkDeleteProvider)) {
-                                      final val = ref.read(selectedIdsProvider);
-                                      if (val.contains(data.id)) {
-                                        final newSet = Set<int>.from(val)..remove(data.id);
-                                        ref.read(selectedIdsProvider.notifier).state = newSet;
-                                        if (ref.read(selectedIdsProvider.notifier).state.isEmpty) {
-                                          ref.read(isIdSelectedForBulkDeleteProvider.notifier).state = false;
-                                          _bulkDeleteFABController.reverse();
-                                        }
-                                      } else {
+
+                                    return GestureDetector(
+                                      onLongPress: () {
+                                        ref.read(isIdSelectedForBulkDeleteProvider.notifier).state = true;
+                                        final val = ref.read(selectedIdsProvider);
                                         ref.read(selectedIdsProvider.notifier).state = Set<int>.from(val)..add(data.id!);
-                                      }
-                                    }
-                                  },
-                                  child: Column(
-                                    children: [
-                                      if (ref.watch(isIdSelectedForBulkDeleteProvider)) ...[
-                                        Row(
-                                          children: [
-                                            Icon(
-                                              ref.watch(selectedIdsProvider).contains(data.id!)
-                                                  ? Icons.check_box
-                                                  : Icons.check_box_outline_blank,
-                                              color: ref.watch(selectedIdsProvider).contains(data.id)
-                                                  ? theme.colorScheme.primary
-                                                  : Colors.grey,
-                                            ),
-                                            SizedBox(width: 15.w),
-                                            Expanded(
+                                        if (ref.read(selectedIdsProvider.notifier).state.length == 1) {
+                                          _bulkDeleteFABController.forward(from: 0);
+                                        }
+                                      },
+                                      onTap: () {
+                                        if (ref.read(isIdSelectedForBulkDeleteProvider)) {
+                                          final val = ref.read(selectedIdsProvider);
+                                          if (val.contains(data.id)) {
+                                            final newSet = Set<int>.from(val)..remove(data.id);
+                                            ref.read(selectedIdsProvider.notifier).state = newSet;
+                                            if (ref.read(selectedIdsProvider.notifier).state.isEmpty) {
+                                              ref.read(isIdSelectedForBulkDeleteProvider.notifier).state = false;
+                                              _bulkDeleteFABController.reverse();
+                                            }
+                                          } else {
+                                            ref.read(selectedIdsProvider.notifier).state = Set<int>.from(val)..add(data.id!);
+                                          }
+                                        }
+                                      },
+                                      child: Column(
+                                        children: [
+                                          if (ref.watch(isIdSelectedForBulkDeleteProvider)) ...[
+                                            Row(
+                                              children: [
+                                                Icon(
+                                                  ref.watch(selectedIdsProvider).contains(data.id!)
+                                                      ? Icons.check_box
+                                                      : Icons.check_box_outline_blank,
+                                                  color: ref.watch(selectedIdsProvider).contains(data.id)
+                                                      ? theme.colorScheme.primary
+                                                      : Colors.grey,
+                                                ),
+                                                SizedBox(width: 15.w),
+                                                Expanded(
+                                                  child: AccountsWidget(
+                                                    title: data.cardName,
+                                                    amount: amount,
+                                                    icon: data.icon,
+                                                    value: data.progress,
+                                                    onEdit: () {
+                                                      editCardDialogue(data);
+                                                    },
+                                                    onDelete: () {
+                                                      ref.read(cardsProvider.notifier).deleteCard(data.id!);
+                                                    },
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          ],
+                                          if (!ref.watch(isIdSelectedForBulkDeleteProvider)) ...[
+                                            ListAnimationWidget(
+                                              index: index,
+                                              offset: const Offset(0, 0.3),
                                               child: AccountsWidget(
                                                 title: data.cardName,
                                                 amount: amount,
@@ -886,40 +909,22 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
                                                 onEdit: () {
                                                   editCardDialogue(data);
                                                 },
-                                                onDelete: () {
-                                                  ref.read(cardsProvider.notifier).deleteCard(data.id!);
-                                                },
+                                                onDelete: () => deleteAlert(data),
                                               ),
                                             ),
-                                          ],
-                                        )
-                                      ],
-                                      if (!ref.watch(isIdSelectedForBulkDeleteProvider)) ...[
-                                        ListAnimationWidget(
-                                          index: index,
-                                          offset: const Offset(0, 0.3),
-                                          child: AccountsWidget(
-                                            title: data.cardName,
-                                            amount: amount,
-                                            icon: data.icon,
-                                            value: data.progress,
-                                            onEdit: () {
-                                              editCardDialogue(data);
-                                            },
-                                            onDelete: () => deleteAlert(data),
-                                          ),
-                                        ),
-                                      ]
-                                    ],
-                                  ),
-                                );
-                              }),
+                                          ]
+                                        ],
+                                      ),
+                                    );
+                                  }),
+                                ],
+                              )
                             ],
-                          )
-                        ],
+                          ),
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ),
               )
           ],

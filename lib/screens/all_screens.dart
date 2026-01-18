@@ -6,17 +6,15 @@ import 'dart:math';
 import 'package:expense_tracker_app/database/db_connection.dart';
 import 'package:expense_tracker_app/export_csv/export_service.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
-import 'package:expense_tracker_app/notification/notification_service.dart';
 import 'package:expense_tracker_app/riverpod/accent_riverpod/accent_riverpod.dart';
-import 'package:expense_tracker_app/riverpod/auth_riverpod/auth_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/budget_riverpod/budget_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/category_riverpod/category_riverpod.dart';
-import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/prefs_riverpod/prefs_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/save_record_filter/save_record_filter.dart';
 import 'package:expense_tracker_app/riverpod/theme_riverpod/theme_riverpod.dart';
+import 'package:expense_tracker_app/screens/about_app.dart';
 import 'package:expense_tracker_app/screens/accounts_screen.dart';
 import 'package:expense_tracker_app/screens/analysis_screen/stats_screen.dart';
 import 'package:expense_tracker_app/screens/budgets_screen.dart';
@@ -24,23 +22,24 @@ import 'package:expense_tracker_app/screens/category_screen.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:expense_tracker_app/screens/search_records_screen.dart';
 import 'package:expense_tracker_app/screens/settings_screen.dart';
+import 'package:expense_tracker_app/widgets/animated_nav_icon.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
 import 'package:expense_tracker_app/widgets/custom_appbar.dart';
+import 'package:expense_tracker_app/widgets/listAnimation_widget.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:open_file/open_file.dart';
 import 'package:permission_handler/permission_handler.dart';
-
-import '../widgets/search_callback_helper.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 
 
 final indexProvider = StateProvider<int>((ref)=>0);
 final obSecureProvider = StateProvider<bool>((ref)=>true);
-
 
 
 class AllScreens extends ConsumerStatefulWidget {
@@ -214,7 +213,7 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
 
   void exportRecordsSheet(){
     showModalBottomSheet(
-        backgroundColor: Theme.of(context).cardColor,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         showDragHandle: true,
         isScrollControlled: true,
         enableDrag: true,
@@ -222,67 +221,181 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
         builder: (BuildContext context){
           var theme = Theme.of(context);
           return Container(
-            height: 540.h,
+            height: 700.h,
             width: double.infinity.w,
             decoration: BoxDecoration(
-              color: theme.cardColor,
-              borderRadius: BorderRadius.circular(15.r)
+                color: theme.scaffoldBackgroundColor,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24.r))
             ),
-            child: SingleChildScrollView(
-              physics: BouncingScrollPhysics(),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text('Export records to CSV',style: theme.textTheme.titleLarge,),
-                    SizedBox(height: 20.h,),
-                    Row(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header Section
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        child: Icon(
+                          Icons.file_download_outlined,
+                          color: theme.colorScheme.primary,
+                          size: 28,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Export Records',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 2.h),
+                            Text(
+                              'Save your data as CSV',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.textTheme.bodySmall?.color,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 28.h),
+
+                  Container(
+                    padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          theme.colorScheme.primary.withOpacity(0.05),
+                          theme.colorScheme.primary.withOpacity(0.02),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(
+                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        CircleAvatar(
-                          radius: 40,
-                          backgroundImage: AssetImage('assets/transparent.png'),
-                          backgroundColor: ref.watch(accentColorProvider),
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: ref.watch(accentColorProvider).withOpacity(0.3),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: ref.watch(accentColorProvider).withOpacity(0.3),
+                              width: 2,
+                            ),
+                          ),
+                          child: Image.asset(
+                            'assets/transparent.png',
+                            width: 36,
+                            height: 36,
+                          ),
                         ),
-                        Icon(Icons.arrow_right_alt,size: 60,),
-                        Icon(Icons.upload_file,size: 95,color: theme.colorScheme.primary,),
+                        Column(
+                          children: [
+                            Icon(Icons.arrow_forward_rounded,
+                                size: 24,
+                                color: theme.colorScheme.primary.withOpacity(0.6)
+                            ),
+                            SizedBox(height: 4.h),
+                            Container(
+                              height: 2,
+                              width: 40.w,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    theme.colorScheme.primary.withOpacity(0.3),
+                                    theme.colorScheme.primary.withOpacity(0.1),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.description_outlined,
+                            size: 40,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
                       ],
                     ),
-                    SizedBox(height: 10.h,),
-                    Text('Guidelines',style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),),
-                    SizedBox(height: 10.h,),
-                    Container(
-                      padding: EdgeInsets.all(15),
-                      decoration: BoxDecoration(
-                          color: theme.cardColor,
-                          border: Border.all(color: theme.colorScheme.primary,width: 1.5),
-                          borderRadius: BorderRadius.circular(15.r)
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('1. All records can be exported as a worksheet (Currently in CSV format)',style: theme.textTheme.titleSmall,),
-                          SizedBox(height: 10.h,),
-                          Text("2. Note that, exported files (.csv) are not backup files and you can't restore data from these files",style: theme.textTheme.titleSmall,),
-                          SizedBox(height: 10.h,),
-                          Text("3. MoneyMate will create a folder and the (.csv) file will be saved to '/storage/emulated/0/Android/data/com.example.expense_tracker_app/files/MoneyMate'",style: theme.textTheme.titleSmall,),
-                          SizedBox(height: 10.h,),
-                          Text("4. Tap the 'Export now' button to get started ",style: theme.textTheme.titleSmall,)
-                        ],
-                      ),
+                  ),
+                  SizedBox(height: 24.h),
+
+                  // Guidelines Section
+                  Text(
+                    'Important Information',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
                     ),
-                    SizedBox(height: 20.h,),
-                    CustomAppButton(
-                        onPressed: (){
-                          showProgress();
-                        },
-                        title: 'Export now',
-                        width: 150.w,
-                    ),
-                    SizedBox(height: 20.h,),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: 12.h),
+
+                  _buildGuidelineItem(
+                    theme,
+                    icon: Icons.table_chart_outlined,
+                    text: 'All records will be exported as a CSV worksheet file',
+                  ),
+                  SizedBox(height: 12.h),
+
+                  _buildGuidelineItem(
+                    theme,
+                    icon: Icons.info_outline,
+                    text: "CSV files are for viewing only and cannot be used to restore data",
+                  ),
+                  SizedBox(height: 12.h),
+
+                  _buildGuidelineItem(
+                    theme,
+                    icon: Icons.folder_outlined,
+                    text: "Files are saved to: /Android/data/.../MoneyMate/",
+                    isPath: true,
+                  ),
+                  SizedBox(height: 12.h),
+
+                  _buildGuidelineItem(
+                    theme,
+                    icon: Icons.touch_app_outlined,
+                    text: "Tap 'Export Now' to begin the export process",
+                  ),
+
+                  SizedBox(height: 28.h),
+
+                  // Action Button
+                  CustomAppButton(
+                    onPressed: (){
+                      showProgress();
+                    },
+                    title: 'Export Now',
+                    width: double.infinity.w,
+                  ),
+                  SizedBox(height: 16.h),
+                ],
               ),
             ),
           );
@@ -299,74 +412,185 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
     }
   }
 
-
-
   void backupRestoreSheet(){
     showModalBottomSheet(
-        backgroundColor: Theme.of(context).cardColor,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         showDragHandle: true,
         isScrollControlled: true,
         enableDrag: true,
         context: context,
         builder: (BuildContext context){
           var theme = Theme.of(context);
-
           return Container(
-            height: 500.h,
+            height: 700.h,
             width: double.infinity.w,
             decoration: BoxDecoration(
-                color: theme.cardColor,
-                borderRadius: BorderRadius.circular(15.r)
+                color: theme.scaffoldBackgroundColor,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24.r))
             ),
-            child: SingleChildScrollView(
-              physics: BouncingScrollPhysics(),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Text('Backup & Restore records',style: theme.textTheme.titleLarge,),
-                    SizedBox(height: 20.h,),
-                    Row(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 8.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12.r),
+                        ),
+                        child: Icon(
+                          Icons.backup_outlined,
+                          color: theme.colorScheme.primary,
+                          size: 28,
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Backup & Restore',
+                              style: theme.textTheme.titleLarge?.copyWith(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(height: 2.h),
+                            Text(
+                              'Secure your data safely',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.textTheme.bodySmall?.color,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 28.h),
+
+                  Container(
+                    padding: EdgeInsets.symmetric(vertical: 24.h, horizontal: 16.w),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          theme.colorScheme.primary.withOpacity(0.05),
+                          theme.colorScheme.primary.withOpacity(0.02),
+                        ],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16.r),
+                      border: Border.all(
+                        color: theme.colorScheme.primary.withOpacity(0.1),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        CircleAvatar(
-                          radius: 40,
-                          backgroundImage: AssetImage('assets/transparent.png'),
-                          backgroundColor: ref.watch(accentColorProvider),
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: ref.watch(accentColorProvider).withOpacity(0.3),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: ref.watch(accentColorProvider).withOpacity(0.3),
+                              width: 2,
+                            ),
+                          ),
+                          child: Image.asset(
+                            'assets/transparent.png',
+                            width: 36,
+                            height: 36,
+                          ),
                         ),
-                        Icon(Icons.compare_arrows_outlined,size: 70,),
-                        Icon(Icons.save_outlined,size: 95,color: theme.colorScheme.primary,),
+                        Column(
+                          children: [
+                            Icon(Icons.sync_alt_rounded,
+                                size: 32,
+                                color: theme.colorScheme.primary.withOpacity(0.6)
+                            ),
+                            SizedBox(height: 4.h),
+                            Container(
+                              height: 2,
+                              width: 40.w,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    theme.colorScheme.primary.withOpacity(0.3),
+                                    theme.colorScheme.primary.withOpacity(0.1),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.cloud_done_outlined,
+                            size: 40,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
                       ],
                     ),
-                    SizedBox(height: 10.h,),
-                    Text('Guidelines',style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),),
-                    SizedBox(height: 10.h,),
-                    Container(
-                      padding: EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                          color: theme.cardColor,
-                          border: Border.all(color: theme.colorScheme.primary,width: 1.5),
-                          borderRadius: BorderRadius.circular(15.r)
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('1. All records can be exported as a worksheet (Currently in CSV format)',style: theme.textTheme.titleSmall,),
-                          SizedBox(height: 10.h,),
-                          Text("2. Note that, exported files (.csv) are not backup files and you can't restore data from these files",style: theme.textTheme.titleSmall,),
-                          SizedBox(height: 10.h,),
-                          Text("3. MoneyMate will create a folder and the (.csv) file will be saved to '/storage/emulated/0/Download/MoneyMate'",style: theme.textTheme.titleSmall,),
-                          SizedBox(height: 10.h,),
-                          Text("4. Tap the 'Export now' button to get started ",style: theme.textTheme.titleSmall,)
-                        ],
-                      ),
+                  ),
+                  SizedBox(height: 24.h),
+
+                  // Guidelines Section
+                  Text(
+                    'Important Information',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 17,
                     ),
-                    SizedBox(height: 20.h,),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        CustomAppButton(
+                  ),
+                  SizedBox(height: 12.h),
+
+                  _buildGuidelineItem(
+                    theme,
+                    icon: Icons.security_outlined,
+                    text: 'Create secure backup files to protect your financial data',
+                  ),
+                  SizedBox(height: 12.h),
+
+                  _buildGuidelineItem(
+                    theme,
+                    icon: Icons.restore_outlined,
+                    text: "Restore your complete data from backup files anytime",
+                  ),
+                  SizedBox(height: 12.h),
+
+                  _buildGuidelineItem(
+                    theme,
+                    icon: Icons.folder_outlined,
+                    text: "Backup files saved to: /Download/MoneyMate/",
+                    isPath: true,
+                  ),
+                  SizedBox(height: 12.h),
+
+                  _buildGuidelineItem(
+                    theme,
+                    icon: Icons.warning_amber_rounded,
+                    text: "Keep backup files safe - they contain all your financial records",
+                  ),
+
+                  SizedBox(height: 28.h),
+
+                  // Action Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomAppButton(
                           onPressed: ()async{
                             try {
                               await requestStoragePermission();
@@ -394,13 +618,15 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
                               );
                             }
                           },
-                          title: 'Backup now',
-                          width: 150.w,
+                          title: 'Backup Now',
                           height: 55,
                         ),
-                        CustomAppButton(
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: CustomAppButton(
                           onPressed: ()async{
-                            
+
                             FilePickerResult? result = await FilePicker.platform.pickFiles(
                                 type: FileType.custom,
                                 allowedExtensions: ['json'],
@@ -430,21 +656,21 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
                               );
                             }
                           },
-                          title: 'Restore now',
-                          width: 150.w,
+                          title: 'Restore Now',
                           height: 55,
                         ),
-                      ],
-                    ),
-                    SizedBox(height: 20.h,),
-                  ],
-                ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16.h),
+                ],
               ),
             ),
           );
         }
     );
   }
+
 
   void deleteEverything(){
     showDialog(
@@ -566,6 +792,83 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
           );
         }
     );
+  }
+  
+  void exitFromTheApp(){
+    showDialog(
+        context: context, 
+        builder: (context){
+          var theme = Theme.of(context);
+          return AlertDialog(
+            backgroundColor: theme.cardColor,
+            title: Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: theme.colorScheme.primary.withOpacity(0.1),
+                  child: Icon(Icons.exit_to_app,color: theme.colorScheme.primary,),
+                ),
+                SizedBox(width: 10.w,),
+                Text('Exit app',style: theme.textTheme.titleLarge,)
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Are you sure you want to exit from the app?',style: theme.textTheme.titleSmall,),
+                SizedBox(height: 10.h,),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                          onPressed: ()=>Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Text('Cancel',style: theme.textTheme.titleSmall,)
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                        child: ElevatedButton(
+                            onPressed: ()=>SystemNavigator.pop(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: theme.colorScheme.primary,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: Text('Yes',style: theme.textTheme.titleSmall?.copyWith(color: Colors.white),)
+                        )
+                    )
+
+                  ],
+                )
+              ],
+            ),
+          );
+        }
+    );
+  }
+  
+  void sendFeedBack()async{
+    final Uri emailUri = Uri(
+      scheme: 'mailto',
+      path: 'prantobaidya5@gmail.com',
+      queryParameters: {
+        'subject' : 'MoneyMate feedback',
+        'body' : 'Write your feedback...'
+      }
+
+    );
+    if(await canLaunchUrl(emailUri)){
+      await launchUrl(emailUri,mode: LaunchMode.externalApplication);
+    }
   }
 
   @override
@@ -691,28 +994,28 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
                       },
                       destinations: [
                         NavigationDestination(
-                            selectedIcon: Icon(Icons.feed, color: theme.colorScheme.primary, size: 25),
-                            icon: Icon(Icons.feed_outlined, color: theme.iconTheme.color, size: 25),
+                            selectedIcon: AnimatedNavIcon(icon: Icons.feed, isNavSelected: index==0, color: theme.colorScheme.primary),
+                            icon: AnimatedNavIcon(icon: Icons.feed_outlined, isNavSelected: index==0, color: theme.iconTheme.color!),
                             label: 'Records'
                         ),
                         NavigationDestination(
-                            selectedIcon: Icon(Icons.analytics, color: theme.colorScheme.primary, size: 25),
-                            icon: Icon(Icons.analytics_outlined, color: theme.iconTheme.color, size: 25),
+                            selectedIcon: AnimatedNavIcon(icon: Icons.analytics, isNavSelected: index==1, color: theme.colorScheme.primary),
+                            icon: AnimatedNavIcon(icon: Icons.analytics_outlined, isNavSelected: index==1, color: theme.iconTheme.color!),
                             label: 'Analysis'
                         ),
                         NavigationDestination(
-                            selectedIcon: Icon(Icons.paid, color: theme.colorScheme.primary, size: 25),
-                            icon: Icon(Icons.paid_outlined, color: theme.iconTheme.color, size: 25),
+                            selectedIcon: AnimatedNavIcon(icon: Icons.request_quote, isNavSelected: index==2, color: theme.colorScheme.primary),
+                            icon: AnimatedNavIcon(icon: Icons.request_quote_outlined, isNavSelected: index==2, color: theme.iconTheme.color!),
                             label: 'Budget'
                         ),
                         NavigationDestination(
-                            selectedIcon: Icon(Icons.account_balance_wallet, color: theme.colorScheme.primary, size: 25),
-                            icon: Icon(Icons.account_balance_wallet_outlined, color: theme.iconTheme.color, size: 25),
+                            selectedIcon: AnimatedNavIcon(icon: Icons.account_balance_wallet, isNavSelected: index==3, color: theme.colorScheme.primary),
+                            icon: AnimatedNavIcon(icon: Icons.account_balance_wallet_outlined, isNavSelected: index==3, color: theme.iconTheme.color!),
                             label: 'Accounts'
                         ),
                         NavigationDestination(
-                            selectedIcon: Icon(Icons.space_dashboard_rounded, color: theme.colorScheme.primary, size: 25),
-                            icon: Icon(Icons.space_dashboard_outlined, color: theme.iconTheme.color, size: 25),
+                            selectedIcon: AnimatedNavIcon(icon: Icons.category, isNavSelected: index==4, color: theme.colorScheme.primary),
+                            icon: AnimatedNavIcon(icon: Icons.category_outlined, isNavSelected: index==4, color: theme.iconTheme.color!),
                             label: 'Category'
                         ),
                       ]
@@ -745,28 +1048,28 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
             },
             destinations: [
               NavigationDestination(
-                  selectedIcon: Icon(Icons.feed, color: theme.colorScheme.primary, size: 25),
-                  icon: Icon(Icons.feed_outlined, color: theme.iconTheme.color, size: 25),
+                  selectedIcon: AnimatedNavIcon(icon: Icons.feed, isNavSelected: index==0, color: theme.colorScheme.primary),
+                  icon: AnimatedNavIcon(icon: Icons.feed_outlined, isNavSelected: index==0, color: theme.iconTheme.color!),
                   label: 'Records'
               ),
               NavigationDestination(
-                  selectedIcon: Icon(Icons.analytics, color: theme.colorScheme.primary, size: 25),
-                  icon: Icon(Icons.analytics_outlined, color: theme.iconTheme.color, size: 25),
+                  selectedIcon: AnimatedNavIcon(icon: Icons.analytics, isNavSelected: index==1, color: theme.colorScheme.primary),
+                  icon: AnimatedNavIcon(icon: Icons.analytics_outlined, isNavSelected: index==1, color: theme.iconTheme.color!),
                   label: 'Analysis'
               ),
               NavigationDestination(
-                  selectedIcon: Icon(Icons.paid, color: theme.colorScheme.primary, size: 25),
-                  icon: Icon(Icons.paid_outlined, color: theme.iconTheme.color, size: 25),
+                  selectedIcon: AnimatedNavIcon(icon: Icons.request_quote, isNavSelected: index==2, color: theme.colorScheme.primary),
+                  icon: AnimatedNavIcon(icon: Icons.request_quote_outlined, isNavSelected: index==2, color: theme.iconTheme.color!),
                   label: 'Budget'
               ),
               NavigationDestination(
-                  selectedIcon: Icon(Icons.account_balance_wallet, color: theme.colorScheme.primary, size: 25),
-                  icon: Icon(Icons.account_balance_wallet_outlined, color: theme.iconTheme.color, size: 25),
+                  selectedIcon: AnimatedNavIcon(icon: Icons.account_balance_wallet, isNavSelected: index==3, color: theme.colorScheme.primary),
+                  icon: AnimatedNavIcon(icon: Icons.account_balance_wallet_outlined, isNavSelected: index==3, color: theme.iconTheme.color!),
                   label: 'Accounts'
               ),
               NavigationDestination(
-                  selectedIcon: Icon(Icons.space_dashboard_rounded, color: theme.colorScheme.primary, size: 25),
-                  icon: Icon(Icons.space_dashboard_outlined, color: theme.iconTheme.color, size: 25),
+                  selectedIcon: AnimatedNavIcon(icon: Icons.category, isNavSelected: index==4, color: theme.colorScheme.primary),
+                  icon: AnimatedNavIcon(icon: Icons.category_outlined, isNavSelected: index==4, color: theme.iconTheme.color!),
                   label: 'Category'
               ),
             ]
@@ -792,7 +1095,7 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
                   SizedBox(height: 10.h,),
                   Text('MoneyMate',style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),),
                   SizedBox(height: 5.h,),
-                  Text('Version : 2.23 (Free)',style: theme.textTheme.titleSmall,)
+                  Text('Version : 1.0.0 (Free)',style: theme.textTheme.titleSmall,)
                 ],
               ),
             ),
@@ -800,67 +1103,168 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
               tileColor: Colors.transparent,
               title: Text('Preferences',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary,fontSize: 18),),
             ),
-            ListTile(
-                onTap: ()=>Navigator.push(context, MaterialPageRoute(builder: (context)=>SettingsScreen())),
-                tileColor: Colors.transparent,
-                leading: Icon(Icons.settings,color: theme.iconTheme.color,),
-                title: Text('Settings'),
-                trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+            ListAnimationWidget(
+              index: 1,
+              offset: Offset(-0.3, 0),
+              child: ListTile(
+                  onTap: ()=>Navigator.push(context, MaterialPageRoute(builder: (context)=>SettingsScreen())),
+                  tileColor: Colors.transparent,
+                  leading: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: theme.colorScheme.primary,
+                    child: Icon(Icons.settings,color: Colors.white,size: 16,),
+                  ),
+                  title: Text('Settings'),
+                  trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+              ),
             ),
             Divider(indent: 0,endIndent: 0,thickness: 0.8,color: theme.colorScheme.primary,),
             ListTile(
               tileColor: Colors.transparent,
               title: Text('Management',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary,fontSize: 18),),
             ),
-            ListTile(
-                onTap: ()=> exportRecordsSheet(),
-                tileColor: Colors.transparent,
-                leading: Icon(Icons.upload_file,color: theme.iconTheme.color,),
-                title: Text('Export records'),
-                trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+            ListAnimationWidget(
+              index: 2,
+              offset: Offset(-0.3, 0),
+              child: ListTile(
+                  onTap: ()=> exportRecordsSheet(),
+                  tileColor: Colors.transparent,
+                  leading: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: theme.colorScheme.primary,
+                    child: Icon(Icons.upload_file,color: Colors.white,size: 16,),
+                  ),
+                  title: Text('Export records'),
+                  trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+              ),
             ),
-            ListTile(
-                onTap: backupRestoreSheet,
-                tileColor: Colors.transparent,
-                leading: Icon(Icons.save_outlined,color: theme.iconTheme.color,),
-                title: Text('Backup & Restore'),
-                trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+            ListAnimationWidget(
+              index: 3,
+              offset: Offset(-0.3, 0),
+              child: ListTile(
+                  onTap: backupRestoreSheet,
+                  tileColor: Colors.transparent,
+                  leading: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: theme.colorScheme.primary,
+                    child: Icon(Icons.save_outlined,color: Colors.white,size: 16,),
+                  ),
+                  title: Text('Backup & Restore'),
+                  trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+              ),
             ),
-            ListTile(
-                onTap: deleteEverything,
-                tileColor: Colors.transparent,
-                leading: Icon(Icons.delete_outline,color: theme.iconTheme.color,),
-                title: Text('Delete & Reset'),
-                trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+            ListAnimationWidget(
+              index: 4,
+              offset: Offset(-0.3, 0),
+              child: ListTile(
+                  onTap: deleteEverything,
+                  tileColor: Colors.transparent,
+                  leading: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: theme.colorScheme.primary,
+                    child: Icon(Icons.delete_outline,color: Colors.white,size: 16,),
+                  ),
+                  title: Text('Erase all data'),
+                  trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+              ),
             ),
             Divider(indent: 0,endIndent: 0,thickness: 0.8,color: theme.colorScheme.primary,),
             ListTile(
               tileColor: Colors.transparent,
               title: Text('Application',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary,fontSize: 18),),
             ),
-            ListTile(
-                onTap: (){},
-                tileColor: Colors.transparent,
-                leading: Icon(Icons.info_outlined,color: theme.iconTheme.color,),
-                title: Text('About app'),
-                trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+            ListAnimationWidget(
+              index: 5,
+              offset: Offset(-0.3, 0),
+              child: ListTile(
+                  onTap: ()=>Navigator.push(context, MaterialPageRoute(builder: (context)=>AboutScreen())),
+                  tileColor: Colors.transparent,
+                  leading: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: theme.colorScheme.primary,
+                    child: Icon(Icons.info_outline,color: Colors.white,size: 16,),
+                  ),
+                  title: Text('About app'),
+                  trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+              ),
             ),
-            ListTile(
-                onTap: (){},
-                tileColor: Colors.transparent,
-                leading: Icon(Icons.share_outlined,color: theme.iconTheme.color,),
-                title: Text('Share app'),
-                trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+            ListAnimationWidget(
+              index: 6,
+              offset: Offset(-0.3, 0),
+              child: ListTile(
+                  onTap: ()=>sendFeedBack(),
+                  tileColor: Colors.transparent,
+                  leading: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: theme.colorScheme.primary,
+                    child: Icon(Icons.mail_outline,color: Colors.white,size: 16,),
+                  ),
+                  title: Text('Feedback'),
+                  trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+              ),
             ),
-            ListTile(
-                onTap: (){},
-                tileColor: Colors.transparent,
-                leading: Icon(Icons.power_settings_new_outlined,color: theme.iconTheme.color,),
-                title: Text('Exit from the app'),
-                trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+            ListAnimationWidget(
+              index: 7,
+              offset: Offset(-0.3, 0),
+              child: ListTile(
+                  onTap: exitFromTheApp,
+                  tileColor: Colors.transparent,
+                  leading: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: theme.colorScheme.primary,
+                    child: Icon(Icons.exit_to_app,color: Colors.white,size: 16,),
+                  ),
+                  title: Text('Exit from the app'),
+                  trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+              ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildGuidelineItem(ThemeData theme, {
+    required IconData icon,
+    required String text,
+    bool isPath = false,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: theme.dividerColor.withOpacity(0.3),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Icon(
+              icon,
+              size: 18,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Text(
+              text,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                height: 1.4,
+                fontSize: isPath ? 12.5 : 14,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

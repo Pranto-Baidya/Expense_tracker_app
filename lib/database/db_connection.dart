@@ -191,7 +191,6 @@ class DatabaseConnection {
     final db = await getDB();
     await db.delete('expenses', where: 'accountId = ?', whereArgs: [accountId]);
   }
-
   //CRUD for budgets table
 
   Future<int> insertBudget(BudgetModel budget) async {
