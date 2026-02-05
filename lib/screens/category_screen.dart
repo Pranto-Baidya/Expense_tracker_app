@@ -48,6 +48,9 @@ final isCategoryIdsSelectedForBulkDeleteProvider = StateProvider<bool>((ref)=>fa
 
 final categoryDashboardCollapseProvider = StateProvider<bool>((ref)=>false);
 
+final isSelectedAllForBulkDeleteProvider = StateProvider<bool>((ref)=>false);
+
+
 class CategoryScreen extends ConsumerStatefulWidget {
   const CategoryScreen({super.key});
 
@@ -783,7 +786,6 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
 
   void editCategory(CategoryModel category){
     ref.read(editCategoryProvider.notifier).state = true;
-    int? id = category.categoryId;
     _editNameController.text = category.categoryName;
     ref.read(iconCodeProvider.notifier).state = category.icon.codePoint;
 
@@ -946,6 +948,8 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
 
                     final isTyping = ref.watch(checkCategoryTypingProvider);
 
+                    final isCategoryEditing = ref.watch(editCategoryProvider);
+
                     return SingleChildScrollView(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1064,7 +1068,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
                             ),
                           ),
                           SizedBox(height: 20.h,),
-                          Row(
+                          isCategoryEditing?SizedBox.shrink():Row(
                             children: ['income', 'expense'].map((type) {
                               final isSelected = selected.contains(type);
                               return Expanded(
@@ -1110,7 +1114,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
                               );
                             }).toList(),
                           ),
-                          SizedBox(height: 20.h,),
+                          isCategoryEditing?SizedBox.shrink():SizedBox(height: 20.h,),
                           InkWell(
                             onTap: () {},
                             borderRadius: BorderRadius.circular(12),
@@ -1712,9 +1716,21 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
   }
 
   void deleteAlert(CategoryModel cat){
-    showDialog(
+    showGeneralDialog(
         context: context,
-        builder: (BuildContext context){
+        barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+        barrierColor: Colors.black45,
+        transitionDuration: const Duration(milliseconds: 600),
+        transitionBuilder: (context,anim,_,child){
+          return ScaleTransition(
+            scale: CurvedAnimation(
+                parent: anim,
+                curve: Curves.elasticOut
+            ),
+            child: child,
+          );
+        },
+        pageBuilder: (BuildContext context,_,_){
           return Dialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
@@ -1807,9 +1823,21 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
   }
 
   void bulkDeleteAlert(){
-    showDialog(
+    showGeneralDialog(
         context: context,
-        builder: (BuildContext context){
+        barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+        barrierColor: Colors.black45,
+        transitionDuration: const Duration(milliseconds: 600),
+        transitionBuilder: (context,anim,_,child){
+          return ScaleTransition(
+            scale: CurvedAnimation(
+                parent: anim,
+                curve: Curves.elasticOut
+            ),
+            child: child,
+          );
+        },
+        pageBuilder: (BuildContext context,_,_){
           final selectedIds = ref.read(selectedCategoryIdsProvider);
           return Dialog(
             shape: RoundedRectangleBorder(
@@ -1920,7 +1948,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
 
-    final allCategorieState = ref.watch(categoryProvider);
+    final allCategoriesState = ref.watch(categoryProvider);
 
     final incomeCategoryState = ref.watch(categoryProvider).allIncomeCategories;
 
@@ -1942,6 +1970,10 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
     final selectedIdsNotifier = ref.read(selectedCategoryIdsProvider.notifier);
 
     final isCollapseModeActivated = ref.watch(collapseDashboardPrefProvider);
+
+    final allSelectedNotifier = ref.read(isSelectedAllForBulkDeleteProvider.notifier);
+
+    final isAllSelected = ref.watch(isSelectedAllForBulkDeleteProvider);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
@@ -1978,7 +2010,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
               ),
             ),
 
-            if(allCategorieState.isLoading)
+            if(allCategoriesState.isLoading)
               SliverFillRemaining(
                 hasScrollBody: false,
                 child:
@@ -2044,6 +2076,47 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
                           children: [
                             SizedBox(height: 15.h),
 
+                            Visibility(
+                                visible: isSelectedForBulkDelete,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 20),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    children: [
+                                      IconButton(
+                                          onPressed: (){
+                                            final allCategoryIds = allCategoriesState.allCategories.map((cat) => cat.categoryId!).toSet();
+
+                                            final areAllSelected = allCategoryIds.length == selectedIdsState.length && allCategoryIds.every((id) => selectedIdsState.contains(id));
+
+                                            if(areAllSelected){
+                                              selectedIdsNotifier.state = {};
+                                              allSelectedNotifier.state = false;
+                                            }
+                                            else{
+                                              selectedIdsNotifier.state = allCategoryIds;
+                                              allSelectedNotifier.state = true;
+                                            }
+                                          },
+                                          icon: Icon(
+                                            (allCategoriesState.allCategories.length == selectedIdsState.length && allCategoriesState.allCategories
+                                                    .every((cat) => selectedIdsState.contains(cat.categoryId!)))
+                                                ? Icons.check_box
+                                                : Icons.check_box_outline_blank,
+                                            color: theme.colorScheme.primary,
+                                          )
+                                      ),
+                                      Text(
+                                        'Select all',
+                                        style: theme.textTheme.titleMedium?.copyWith(
+                                            color: theme.colorScheme.primary
+                                        ),
+                                      )
+                                    ],
+                                  ),
+                                )
+                            ),
+
                             if (incomeCategoryState.isNotEmpty)
                               Padding(
                                 padding: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
@@ -2069,8 +2142,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
                                 ),
                               ),
 
-                            SizedBox(height: 10.h),
-
+                            SizedBox(height: 10.h,),
                             ...incomeCategoryState.map(
                                   (data) => GestureDetector(
                                 onLongPress: () {
@@ -2083,12 +2155,16 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
                                 onTap: () {
                                   if (selectedIdsNotifier.state.contains(data.categoryId)) {
                                     selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..remove(data.categoryId!);
+                                    allSelectedNotifier.state = false;
                                     if (selectedIdsNotifier.state.isEmpty) {
                                       isSelectedForBulkDeleteNotifier.state = false;
                                       _bulkDeleteFABController.reverse();
                                     }
                                   } else {
                                     selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..add(data.categoryId!);
+                                    if(selectedIdsState.length==allCategoriesState.allCategories.length){
+                                      allSelectedNotifier.state = true;
+                                    }
                                   }
                                 },
                                 child: Column(
@@ -2377,12 +2453,17 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
                                 onTap: () {
                                   if (selectedIdsNotifier.state.contains(data.categoryId)) {
                                     selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..remove(data.categoryId!);
+                                    allSelectedNotifier.state = false;
                                     if (selectedIdsNotifier.state.isEmpty) {
                                       isSelectedForBulkDeleteNotifier.state = false;
                                       _bulkDeleteFABController.reverse();
                                     }
                                   } else {
                                     selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..add(data.categoryId!);
+
+                                    if(selectedIdsState.length==allCategoriesState.allCategories.length){
+                                      allSelectedNotifier.state = true;
+                                    }
                                   }
                                 },
                                 child: Column(
@@ -2658,7 +2739,7 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
                   topRight: Radius.circular(20.r),
                 ),
               ),
-              child: allCategorieState.isLoading?
+              child: allCategoriesState.isLoading?
               Center(child: CircularProgressIndicator(color: theme.colorScheme.primary,),)
                   :NotificationListener(
                 onNotification: _handleFabButton,
@@ -2681,6 +2762,46 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
                       ],
 
                       SizedBox(height: 15.h,),
+                      Visibility(
+                          visible: isSelectedForBulkDelete,
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 20),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                IconButton(
+                                    onPressed: (){
+                                      final allCategoryIds = allCategoriesState.allCategories.map((cat) => cat.categoryId!).toSet();
+
+                                      final areAllSelected = allCategoryIds.length == selectedIdsState.length && allCategoryIds.every((id) => selectedIdsState.contains(id));
+
+                                      if(areAllSelected){
+                                        selectedIdsNotifier.state = {};
+                                        allSelectedNotifier.state = false;
+                                      }
+                                      else{
+                                        selectedIdsNotifier.state = allCategoryIds;
+                                        allSelectedNotifier.state = true;
+                                      }
+                                    },
+                                    icon: Icon(
+                                      (allCategoriesState.allCategories.length == selectedIdsState.length && allCategoriesState.allCategories
+                                          .every((cat) => selectedIdsState.contains(cat.categoryId!)))
+                                          ? Icons.check_box
+                                          : Icons.check_box_outline_blank,
+                                      color: theme.colorScheme.primary,
+                                    )
+                                ),
+                                Text(
+                                  'Select all',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                      color: theme.colorScheme.primary
+                                  ),
+                                )
+                              ],
+                            ),
+                          )
+                      ),
                       Visibility(
                         visible: incomeCategoryState.isNotEmpty,
                         replacement: SizedBox.shrink(),
@@ -2719,16 +2840,20 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
                                 _bulkDeleteFABController.forward(from: 0);
                               }
                             },
-                            onTap: (){
-                              if(selectedIdsNotifier.state.contains(data.categoryId)){
+                            onTap: () {
+                              if (selectedIdsNotifier.state.contains(data.categoryId)) {
                                 selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..remove(data.categoryId!);
-                                if(selectedIdsNotifier.state.isEmpty){
+                                allSelectedNotifier.state = false;
+                                if (selectedIdsNotifier.state.isEmpty) {
                                   isSelectedForBulkDeleteNotifier.state = false;
                                   _bulkDeleteFABController.reverse();
                                 }
-                              }
-                              else{
+                              } else {
                                 selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..add(data.categoryId!);
+
+                                if(selectedIdsState.length==allCategoriesState.allCategories.length){
+                                  allSelectedNotifier.state = true;
+                                }
                               }
                             },
                             child: Column(
@@ -3008,16 +3133,20 @@ class _CategoryScreenState extends ConsumerState<CategoryScreen> with TickerProv
                             _bulkDeleteFABController.forward(from: 0);
                           }
                         },
-                        onTap: (){
-                          if(selectedIdsNotifier.state.contains(data.categoryId)){
+                        onTap: () {
+                          if (selectedIdsNotifier.state.contains(data.categoryId)) {
                             selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..remove(data.categoryId!);
-                            if(selectedIdsNotifier.state.isEmpty){
+                            allSelectedNotifier.state = false;
+                            if (selectedIdsNotifier.state.isEmpty) {
                               isSelectedForBulkDeleteNotifier.state = false;
                               _bulkDeleteFABController.reverse();
                             }
-                          }
-                          else{
+                          } else {
                             selectedIdsNotifier.state = Set<int>.from(selectedIdsState)..add(data.categoryId!);
+
+                            if(selectedIdsState.length==allCategoriesState.allCategories.length){
+                              allSelectedNotifier.state = true;
+                            }
                           }
                         },
                         child: Column(

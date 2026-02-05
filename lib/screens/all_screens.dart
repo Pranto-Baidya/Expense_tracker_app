@@ -19,6 +19,7 @@ import 'package:expense_tracker_app/screens/accounts_screen.dart';
 import 'package:expense_tracker_app/screens/analysis_screen/stats_screen.dart';
 import 'package:expense_tracker_app/screens/budgets_screen.dart';
 import 'package:expense_tracker_app/screens/category_screen.dart';
+import 'package:expense_tracker_app/screens/history_screen/transaction_history.dart';
 import 'package:expense_tracker_app/screens/records_screen.dart';
 import 'package:expense_tracker_app/screens/search_records_screen.dart';
 import 'package:expense_tracker_app/screens/settings_screen.dart';
@@ -672,125 +673,226 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
   }
 
 
-  void deleteEverything(){
+  void deleteEverything() {
     showDialog(
-        context: context,
-        builder: (BuildContext context){
-          var theme = Theme.of(context);
-          return Consumer(
-              builder: (context,ref,_){
-                return Dialog(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(22),
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        var theme = Theme.of(context);
+        return Consumer(
+          builder: (context, ref, _) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(28),
+              ),
+              backgroundColor: theme.cardColor,
+              elevation: 24,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(28),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      theme.cardColor,
+                      theme.cardColor.withOpacity(0.95),
+                    ],
                   ),
-                  backgroundColor: theme.cardColor,
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              height: 42,
-                              width: 42,
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.12),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.warning_amber_rounded,
-                                color: Colors.red,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Text(
-                                'Delete everything?',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 20.h),
-                        Text(
-                          'Are you sure you want to permanently erase all data?',
-                          style: theme.textTheme.titleMedium,
-                        ),
-                        SizedBox(height: 24.h),
-                        Container(
-                          padding: const EdgeInsets.all(14),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(28),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Icon Header
+                      Center(
+                        child: Container(
+                          height: 72,
+                          width: 72,
                           decoration: BoxDecoration(
-                            color: theme.dividerColor.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(14),
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                Colors.red.withOpacity(0.15),
+                                Colors.red.withOpacity(0.08),
+                              ],
+                            ),
+                            shape: BoxShape.circle,
                           ),
-                          child: Text(
-                            'Records, Statistics, Budgets, Accounts and Categories will be removed.',
-                            style: theme.textTheme.titleMedium,
+                          child: const Icon(
+                            Icons.delete_forever_rounded,
+                            color: Colors.red,
+                            size: 36,
                           ),
                         ),
-                        SizedBox(height: 24.h),
-                        Row(
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Title
+                      Center(
+                        child: Text(
+                          'Delete Everything?',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: -0.5,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+
+                      const SizedBox(height: 12),
+
+                      // Subtitle
+                      Center(
+                        child: Text(
+                          'This action cannot be undone',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6),
+                            fontSize: 14,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+
+                      const SizedBox(height: 28),
+
+                      // Warning Box
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.red.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(18),
+                          border: Border.all(
+                            color: Colors.red.withOpacity(0.1),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                onPressed: (){
-                                  Navigator.pop(context);
-                                },
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.info_outline_rounded,
+                                  size: 20,
+                                  color: Colors.red.withOpacity(0.8),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'What will be deleted:',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.red.withOpacity(0.9),
                                   ),
                                 ),
-                                child: Text(
-                                  'Cancel',
-                                  style: Theme.of(context).textTheme.titleMedium,
-                                ),
-                              ),
+                              ],
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ElevatedButton(
-                                onPressed: ()async{
-                                  await _databaseConnection.deleteAllTables();
-
-                                  ref.invalidate(expenseProvider);
-                                  ref.invalidate(categoryProvider);
-                                  ref.invalidate(cardsProvider);
-                                  ref.invalidate(budgetProvider);
-
-                                  Navigator.pop(context);
-                                },
-                                style: ElevatedButton.styleFrom(
-                                  elevation: 0,
-                                  backgroundColor: Colors.red,
-                                  padding: const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
-                                  ),
-                                ),
-                                child: Text(
-                                  'Delete',
-                                  style: theme.textTheme.titleMedium?.copyWith(
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                            ),
+                            const SizedBox(height: 12),
+                            _buildDeleteItem(theme, 'All Records'),
+                            _buildDeleteItem(theme, 'Statistics'),
+                            _buildDeleteItem(theme, 'Budgets'),
+                            _buildDeleteItem(theme, 'Accounts'),
+                            _buildDeleteItem(theme, 'Categories'),
                           ],
-                        )
-                      ],
-                    ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 32),
+
+                      // Action Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                              },
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                side: BorderSide(
+                                  color: theme.dividerColor.withOpacity(0.3),
+                                  width: 1.5,
+                                ),
+                              ),
+                              child: Text(
+                                'Cancel',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                await _databaseConnection.deleteAllTables();
+
+                                ref.invalidate(expenseProvider);
+                                ref.invalidate(categoryProvider);
+                                ref.invalidate(cardsProvider);
+                                ref.invalidate(budgetProvider);
+
+                                Navigator.pop(context);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                elevation: 0,
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                shadowColor: Colors.red.withOpacity(0.3),
+                              ),
+                              child: Text(
+                                'Delete All',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
-                );
-              }
-          );
-        }
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDeleteItem(ThemeData theme, String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(
+            Icons.close_rounded,
+            size: 16,
+            color: Colors.red.withOpacity(0.7),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.8),
+            ),
+          ),
+        ],
+      ),
     );
   }
   
@@ -1127,6 +1229,21 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
               index: 2,
               offset: Offset(-0.3, 0),
               child: ListTile(
+                  onTap: ()=>Navigator.push(context, MaterialPageRoute(builder: (context)=>TransactionHistory())),
+                  tileColor: Colors.transparent,
+                  leading: CircleAvatar(
+                    radius: 12,
+                    backgroundColor: theme.colorScheme.primary,
+                    child: Icon(Icons.history,color: Colors.white,size: 16,),
+                  ),
+                  title: Text('Transaction history'),
+                  trailing: Icon(Icons.arrow_forward_ios_rounded,size: 18,)
+              ),
+            ),
+            ListAnimationWidget(
+              index: 3,
+              offset: Offset(-0.3, 0),
+              child: ListTile(
                   onTap: ()=> exportRecordsSheet(),
                   tileColor: Colors.transparent,
                   leading: CircleAvatar(
@@ -1139,7 +1256,7 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
               ),
             ),
             ListAnimationWidget(
-              index: 3,
+              index: 4,
               offset: Offset(-0.3, 0),
               child: ListTile(
                   onTap: backupRestoreSheet,
@@ -1154,7 +1271,7 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
               ),
             ),
             ListAnimationWidget(
-              index: 4,
+              index: 5,
               offset: Offset(-0.3, 0),
               child: ListTile(
                   onTap: deleteEverything,
@@ -1174,7 +1291,7 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
               title: Text('Application',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary,fontSize: 18),),
             ),
             ListAnimationWidget(
-              index: 5,
+              index: 6,
               offset: Offset(-0.3, 0),
               child: ListTile(
                   onTap: ()=>Navigator.push(context, MaterialPageRoute(builder: (context)=>AboutScreen())),
@@ -1189,7 +1306,7 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
               ),
             ),
             ListAnimationWidget(
-              index: 6,
+              index: 7,
               offset: Offset(-0.3, 0),
               child: ListTile(
                   onTap: ()=>sendFeedBack(),
@@ -1204,7 +1321,7 @@ class _AllScreensState extends ConsumerState<AllScreens> with SingleTickerProvid
               ),
             ),
             ListAnimationWidget(
-              index: 7,
+              index: 8,
               offset: Offset(-0.3, 0),
               child: ListTile(
                   onTap: exitFromTheApp,

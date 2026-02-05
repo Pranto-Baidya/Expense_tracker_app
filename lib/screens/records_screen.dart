@@ -4,11 +4,14 @@ import 'dart:ui';
 import 'package:dropdown_button2/dropdown_button2.dart';
 import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
+import 'package:expense_tracker_app/models/history_model.dart';
 import 'package:expense_tracker_app/riverpod/card_riverpod/card_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/category_riverpod/category_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/currency_riverpod/currency_pref.dart';
 import 'package:expense_tracker_app/riverpod/expense_riverpod/expense_riverpod.dart';
+import 'package:expense_tracker_app/riverpod/history_riverpod/history_riverpod.dart';
 import 'package:expense_tracker_app/riverpod/prefs_riverpod/prefs_riverpod.dart';
+import 'package:expense_tracker_app/screens/accounts_screen.dart';
 import 'package:expense_tracker_app/screens/analysis_screen/stats_screen.dart';
 import 'package:expense_tracker_app/widgets/app_colors.dart';
 import 'package:expense_tracker_app/widgets/custom_app_button.dart';
@@ -23,8 +26,10 @@ import 'package:intl/intl.dart';
 import 'package:overlay_support/overlay_support.dart';
 
 import '../models/category_model.dart';
+import '../models/trash_model.dart';
 import '../riverpod/budget_riverpod/budget_riverpod.dart';
 import '../riverpod/save_record_filter/save_record_filter.dart';
+import '../riverpod/trash_provider/trash_provider.dart';
 import '../widgets/balance_dashboard.dart';
 
 enum MoneyType {expense, income}
@@ -41,7 +46,7 @@ final enteredAmountProvider = StateProvider<double>((ref)=>0);
 final recordAddedTriggerProvider = StateProvider<int>((ref) => 0);
 final recordsDashboardCollapseProvider = StateProvider<bool>((ref)=>false);
 final oldAmountTrackerProvider = StateProvider<double>((ref)=>0);
-
+final isAllSelectedForDeleteProvider = StateProvider<bool>((ref)=>false);
 
 class RecordsScreen extends ConsumerStatefulWidget {
   const RecordsScreen({super.key});
@@ -65,6 +70,8 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
   late Animation<double> _tipAnimationBounce;
 
   late Animation<Offset> _slideAnimTip;
+
+  late Animation<double> _tipScaleAnim;
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _amountController = TextEditingController();
@@ -102,8 +109,9 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
         duration: Duration(milliseconds: 800)
     );
 
-    _slideAnimTip = Tween<Offset>(begin:Offset(0,-0.9),end: Offset.zero ).animate(CurvedAnimation(parent: _tipController, curve: Curves.fastOutSlowIn));
+    _slideAnimTip = Tween<Offset>(begin:Offset(-0.99,0),end: Offset.zero ).animate(CurvedAnimation(parent: _tipController, curve: Curves.fastOutSlowIn));
     _tipAnimationBounce = Tween<double>(begin: 0.5, end: 1).animate(CurvedAnimation(parent: _tipController, curve: Curves.easeInOut));
+    _tipScaleAnim = Tween<double>(begin: 0, end: 1).animate(CurvedAnimation(parent: _tipController, curve: Curves.elasticOut));
 
     _disappearFABAnimation = Tween<Offset>(begin: Offset.zero, end: Offset(0, 2.5))
         .animate(CurvedAnimation(parent: _animationController, curve: Curves.fastOutSlowIn));
@@ -282,6 +290,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                 final selectedAccountNotifier = ref.read(selectedAccountProvider.notifier);
                 final incomeCategories = ref.watch(categoryProvider).allIncomeCategories;
                 final expenseCategories = ref.watch(categoryProvider).allExpenseCategories;
+                final historyNotifier = ref.read(historyProvider.notifier);
                 return SingleChildScrollView(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -730,6 +739,17 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                                   moneyType: ref.read(moneyTypeProvider.notifier).state,
                                   accountId: ref.read(selectedAccountProvider)!
                               ),
+                            );
+                            historyNotifier.addHistory(
+                              HistoryModel(
+                                  title: _titleController.text,
+                                  amount: double.parse(_amountController.text),
+                                  category: category,
+                                  accountId: ref.read(selectedAccountProvider)!,
+                                  date: expenseDate,
+                                  time: ref.read(selectedTimeProvider.notifier).state,
+                                  moneyType: ref.read(moneyTypeProvider.notifier).state
+                              )
                             );
                             ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
                             ref.read(budgetProvider.notifier).calculateAmount(expenseDate);
@@ -1280,10 +1300,30 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                 accountId: ref.read(selectedAccountProvider)!
                 );
 
-                ref.read(expenseProvider.notifier).updateExpense(
-                updatedExpense,
-                expense
+                ref.read(expenseProvider.notifier).updateExpense(updatedExpense, expense);
+
+                final existingHist = ref.read(historyProvider).histories.firstWhere(
+                    (h)=> h.date.year == expense.date.year &&
+                        h.date.month == expense.date.month &&
+                       h.date.day == expense.date.day &&
+                        h.title == expense.title &&
+                        h.amount == expense.amount &&
+                        h.category == expense.category,
+                  orElse: ()=> throw Exception('History not found')
                 );
+
+                final hist = HistoryModel(
+                    id: existingHist.id,
+                    title: updatedExpense.title,
+                    amount: updatedExpense.amount,
+                    category: category,
+                    accountId: updatedExpense.accountId,
+                    date: updatedExpense.date,
+                    time: updatedExpense.time,
+                    moneyType: updatedExpense.moneyType
+                );
+
+                ref.read(historyProvider.notifier).updateHistories(hist);
 
 
                 ref.read(cardsProvider.notifier).calculateTotalAmountInAccount();
@@ -1326,9 +1366,23 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
   }
 
   void deleteAlert(ExpenseModel expense){
-    showDialog(
+    showGeneralDialog(
         context: context,
-        builder: (BuildContext context){
+        barrierDismissible: true,
+        barrierColor: Colors.black45,
+        barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+        transitionDuration: const Duration(milliseconds: 600),
+        transitionBuilder: (context,animation,_,child){
+          return ScaleTransition(
+              scale: CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.elasticOut
+              ),
+              child: child,
+          );
+        },
+        pageBuilder: (BuildContext context,_,_){
+          final histToDelete = ref.read(historyProvider).histories.firstWhere((i)=>i.date==expense.date);
           return Dialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
@@ -1389,8 +1443,11 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                       const SizedBox(width: 12),
                       Expanded(
                         child: ElevatedButton(
-                          onPressed: (){
+                          onPressed: ()async{
                             ref.read(expenseProvider.notifier).deleteExpense(expense.id!);
+                            final trashItem = TrashModel.fromHistory(histToDelete);
+                            await ref.read(trashProvider.notifier).addToTrash(trashItem);
+                            ref.read(historyProvider.notifier).deleteHist(histToDelete.id!);
                             Navigator.pop(context);
                           },
                           style: ElevatedButton.styleFrom(
@@ -1420,115 +1477,129 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
     );
   }
 
-
-  void bulkDeleteAlert(){
-    showDialog(
-        context: context,
-        builder: (BuildContext context){
-          return Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            backgroundColor: Theme.of(context).cardColor,
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        height: 40,
-                        width: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.red.withOpacity(0.1),
-                          shape: BoxShape.circle,
+  void bulkDeleteAlert() {
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 600),
+      pageBuilder: (context, _,_) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          backgroundColor: Theme.of(context).cardColor,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      height: 40,
+                      width: 40,
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.red,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: selectedIds.length == 1
+                          ? Text(
+                        'Delete ${selectedIds.length} record?',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontSize: 17, fontWeight: FontWeight.bold),
+                      )
+                          : Text(
+                        'Delete ${selectedIds.length} records?',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontSize: 17, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'This action cannot be undone.',
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.delete_outline,
-                          color: Colors.red,
+                        child: Text(
+                          'Cancel',
+                          style: Theme.of(context).textTheme.titleMedium,
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: selectedIds.length==1?Text(
-                          'Delete ${selectedIds.length} record?',
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          ref.read(expenseProvider.notifier)
+                              .bulkDeleteSelectedRecords(selectedIds.toList());
+                          setState(() {
+                            isSelectedForBulkDelete = false;
+                            selectedIds.clear();
+                          });
+                          Navigator.pop(context);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          elevation: 0,
+                          backgroundColor: Colors.red,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Text(
+                          'Delete',
                           style: Theme.of(context)
                               .textTheme
                               .titleMedium
-                              ?.copyWith(fontSize: 17,fontWeight: FontWeight.bold),
-                        ):Text(
-                          'Delete ${selectedIds.length} records?',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleMedium
-                              ?.copyWith(fontSize: 17,fontWeight: FontWeight.bold),
+                              ?.copyWith(color: Colors.white),
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'This action cannot be undone.',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: OutlinedButton(
-                          onPressed: (){
-                            Navigator.pop(context);
-                          },
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            'Cancel',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton(
-                          onPressed: (){
-                            ref.read(expenseProvider.notifier)
-                                .bulkDeleteSelectedRecords(selectedIds.toList());
-                            setState(() {
-                              isSelectedForBulkDelete = false;
-                              selectedIds.clear();
-                            });
-                            Navigator.pop(context);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            elevation: 0,
-                            backgroundColor: Colors.red,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          child: Text(
-                            'Delete',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(color: Colors.white),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          );
-        }
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, _, child) {
+        return ScaleTransition(
+          scale: CurvedAnimation(
+            parent: animation,
+            curve: Curves.elasticOut,
+          ),
+          child: child,
+        );
+      },
     );
   }
 
@@ -1550,6 +1621,21 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
     final expenseList = expenseState.filteredRecord;
 
     final isCollapseModeActivated = ref.watch(collapseDashboardPrefProvider);
+
+    final tipNotifier = ref.watch(tipPrefProvider.notifier);
+    final showBanner = tipNotifier.isLoaded && ref.watch(tipPrefProvider);
+
+    if (showBanner && !_hasPlayedTipAnimation) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_hasPlayedTipAnimation) {
+          _tipController.forward().then((_) {
+            _hasPlayedTipAnimation = true;
+          });
+        }
+      });
+    }
+
+    final allFilteredRecords = ref.watch(expenseProvider).filteredRecord;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
@@ -1640,7 +1726,100 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                       ),
                       child: Column(
                         children: [
-                          SizedBox(height: 10.h),
+                          SizedBox(height: 15.h,),
+                          if(expenseList.isNotEmpty && showBanner)...[
+                            FadeTransition(
+                              opacity: _tipAnimationBounce,
+                              child: ScaleTransition(
+                                scale: _tipScaleAnim,
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  child: Container(
+                                    width: double.infinity.w,
+                                    padding: EdgeInsets.all(10),
+                                    decoration: BoxDecoration(
+                                        color: theme.colorScheme.primary.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(15.r)
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        SizedBox(height: 5.h,),
+                                        Padding(
+                                          padding: const EdgeInsets.only(right: 0),
+                                          child: Row(
+                                            children: [
+                                              Icon(Icons.lightbulb_outline,color: theme.colorScheme.primary,size: 30,),
+                                              Padding(
+                                                padding: const EdgeInsets.only(left: 6.0),
+                                                child: Text('Quick Tip ',style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),),
+                                              ),
+                                              Spacer(),
+                                              IconButton(
+                                                  onPressed: (){
+                                                    ref.read(tipPrefProvider.notifier).save(false);
+                                                  },
+                                                  icon: Icon(Icons.close,color: theme.colorScheme.primary,size: 30,)
+                                              )
+                                            ],
+                                          ),
+                                        ),
+                                        SizedBox(height: 10.h,),
+                                        Padding(
+                                          padding: const EdgeInsets.only(left: 8.0),
+                                          child: Wrap(
+                                            alignment: WrapAlignment.start,
+                                            children: [
+                                              Text('Long press on a record to perform bulk delete.',style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),)
+                                            ],
+                                          ),
+                                        ),
+                                        SizedBox(height: 10.h,),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                          showBanner? SizedBox(height: 10.h,) : SizedBox.shrink(),
+                          isSelectedForBulkDelete? SizedBox(height: 10.h,) : SizedBox.shrink(),
+                          Visibility(
+                            visible: isSelectedForBulkDelete,
+                            replacement: SizedBox.shrink(),
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 20),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  IconButton(
+                                      onPressed: (){
+                                        final totalRecords = allFilteredRecords.length;
+                                        final areAllSelected = selectedIds.length == totalRecords;
+
+                                        setState(() {
+                                          if (areAllSelected) {
+                                            selectedIds.clear();
+                                            ref.read(isAllSelectedForDeleteProvider.notifier).state = false;
+                                          } else {
+                                            selectedIds.clear();
+                                            for (var expense in allFilteredRecords) {
+                                              selectedIds.add(expense.id!);
+                                            }
+                                            ref.read(isAllSelectedForDeleteProvider.notifier).state = true;
+                                          }
+                                        });
+                                      },
+                                      icon: Icon(
+                                        selectedIds.length == allFilteredRecords.length ? Icons.check_box : Icons.check_box_outline_blank,
+                                        color: theme.colorScheme.primary,
+                                      )
+                                  ),
+                                  Text('Select all',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary),)
+                                ],
+                              ),
+                            ),
+                          ),
                           _buildRecordsList(
                             context,
                             ref,
@@ -1702,27 +1881,126 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                         if(expenseList.isEmpty)
                           _buildEmptyState(theme),
                         Expanded(
-                            child: NotificationListener(
-                                onNotification: _handleScrollNotification,
-                                child: Builder(
-                                    builder: (context) {
+                            child: Column(
+                              children: [
+                                if(expenseList.isNotEmpty && showBanner)...[
+                                  FadeTransition(
+                                    opacity: _tipAnimationBounce,
+                                    child: ScaleTransition(
+                                      scale: _tipScaleAnim,
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        child: Container(
+                                          width: double.infinity.w,
+                                          padding: EdgeInsets.all(10),
+                                          decoration: BoxDecoration(
+                                              color: theme.colorScheme.primary.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(15.r)
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              SizedBox(height: 5.h,),
+                                              Padding(
+                                                padding: const EdgeInsets.only(right: 0),
+                                                child: Row(
+                                                  children: [
+                                                    Icon(Icons.lightbulb_outline,color: theme.colorScheme.primary,size: 30,),
+                                                    Padding(
+                                                      padding: const EdgeInsets.only(left: 6.0),
+                                                      child: Text('Quick Tip ',style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),),
+                                                    ),
+                                                    Spacer(),
+                                                    IconButton(
+                                                        onPressed: (){
+                                                          ref.read(tipPrefProvider.notifier).save(false);
+                                                        },
+                                                        icon: Icon(Icons.close,color: theme.colorScheme.primary,size: 30,)
+                                                    )
+                                                  ],
+                                                ),
+                                              ),
+                                              SizedBox(height: 10.h,),
+                                              Padding(
+                                                padding: const EdgeInsets.only(left: 8.0),
+                                                child: Wrap(
+                                                  alignment: WrapAlignment.start,
+                                                  children: [
+                                                    Text('Long press on a record to perform bulk delete.',style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),)
+                                                  ],
+                                                ),
+                                              ),
+                                              SizedBox(height: 10.h,),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                                showBanner? SizedBox(height: 10.h,) : SizedBox.shrink(),
+                                isSelectedForBulkDelete? SizedBox(height: 10.h,) : SizedBox.shrink(),
+                                Visibility(
+                                  visible: isSelectedForBulkDelete,
+                                  replacement: SizedBox.shrink(),
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 20),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        IconButton(
+                                            onPressed: (){
+                                              final totalRecords = allFilteredRecords.length;
+                                              final areAllSelected = selectedIds.length == totalRecords;
 
-                                      final expenseList = ref.watch(expenseProvider).filteredRecord;
-                                      final groupedExpenses = _groupByDate(expenseList);
-                                      final sortedDates = groupedExpenses.keys.toList()..sort((a,b)=>b.compareTo(a));
+                                              setState(() {
+                                                if (areAllSelected) {
+                                                  selectedIds.clear();
+                                                  ref.read(isAllSelectedForDeleteProvider.notifier).state = false;
+                                                } else {
+                                                  selectedIds.clear();
+                                                  for (var expense in allFilteredRecords) {
+                                                    selectedIds.add(expense.id!);
+                                                  }
+                                                  ref.read(isAllSelectedForDeleteProvider.notifier).state = true;
+                                                }
+                                              });
+                                            },
+                                            icon: Icon(
+                                              selectedIds.length == allFilteredRecords.length ? Icons.check_box : Icons.check_box_outline_blank,
+                                              color: theme.colorScheme.primary,
+                                            )
+                                        ),
+                                        Text('Select all',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary),)
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: NotificationListener(
+                                      onNotification: _handleScrollNotification,
+                                      child: Builder(
+                                          builder: (context) {
 
-                                      return _buildRecordsList(
-                                          context,
-                                          ref,
-                                          theme,
-                                          sortedDates,
-                                          groupedExpenses,
-                                          selectedCurrency,
-                                          expenseNotifier,
-                                          expenseState
-                                      );
-                                    }
-                                )
+                                            final expenseList = ref.watch(expenseProvider).filteredRecord;
+                                            final groupedExpenses = _groupByDate(expenseList);
+                                            final sortedDates = groupedExpenses.keys.toList()..sort((a,b)=>b.compareTo(a));
+
+                                            return _buildRecordsList(
+                                                context,
+                                                ref,
+                                                theme,
+                                                sortedDates,
+                                                groupedExpenses,
+                                                selectedCurrency,
+                                                expenseNotifier,
+                                                expenseState
+                                            );
+                                          }
+                                      )
+                                  ),
+                                ),
+                              ],
                             )
                         )
                       ]
@@ -1863,76 +2141,10 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
         final date = sortedDates[index];
         final expensesForDate = groupedExpenses[date]!;
 
-        final tipNotifier = ref.watch(tipPrefProvider.notifier);
-        final showBanner = tipNotifier.isLoaded && ref.watch(tipPrefProvider);
-
-        if (showBanner && !_hasPlayedTipAnimation) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!_hasPlayedTipAnimation) {
-              _tipController.forward().then((_) {
-                _hasPlayedTipAnimation = true;
-              });
-            }
-          });
-        }
 
         return Column(
           children: [
-            if(expensesForDate.isNotEmpty && showBanner)...[
-              FadeTransition(
-                opacity: _tipAnimationBounce,
-                child: SlideTransition(
-                  position: _slideAnimTip,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    child: Container(
-                      width: double.infinity.w,
-                      padding: EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(15.r)
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          SizedBox(height: 5.h,),
-                          Padding(
-                            padding: const EdgeInsets.only(right: 0),
-                            child: Row(
-                              children: [
-                                Icon(Icons.lightbulb_outline,color: theme.colorScheme.primary,size: 30,),
-                                Spacer(),
-                                IconButton(
-                                    onPressed: (){
-                                      ref.read(tipPrefProvider.notifier).save(false);
-                                    },
-                                    icon: Icon(Icons.close,color: theme.colorScheme.primary,size: 30,)
-                                )
-                              ],
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 6.0),
-                            child: Text('Quick Tip: ',style: theme.textTheme.titleLarge?.copyWith(color: theme.colorScheme.primary),),
-                          ),
-                          SizedBox(height: 10.h,),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 8.0),
-                            child: Wrap(
-                              alignment: WrapAlignment.start,
-                              children: [
-                                Text('Long press on a record to perform bulk delete.',style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary),)
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-            showBanner? SizedBox(height: 10.h,) : SizedBox.shrink(),
+            
             Padding(
               padding: EdgeInsets.symmetric(vertical: 5.h, horizontal: 15.w),
               child: Column(
@@ -1988,6 +2200,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                         setState(() {
                           if(selectedIds.contains(expense.id)){
                             selectedIds.remove(expense.id);
+                            ref.read(isAllSelectedForDeleteProvider.notifier).state = false;
                             if(selectedIds.isEmpty){
                               isSelectedForBulkDelete = false;
                               _bulkDeleteAnimationController.reverse();
@@ -1995,6 +2208,11 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                           }
                           else{
                             selectedIds.add(expense.id!);
+
+                            final allFilteredRecords = ref.watch(expenseProvider).filteredRecord;
+                            if(selectedIds.length == allFilteredRecords.length) {
+                              ref.read(isAllSelectedForDeleteProvider.notifier).state = true;
+                            }
                           }
                         });
                       },
@@ -2020,6 +2238,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                                     cardModel: selectedCard,
                                     onEdit: () => editExpenseDialogue(expense),
                                     onDelete: () => deleteAlert(expense),
+                                    isBulkDeleteActivated: isSelectedForBulkDelete,
                                   ),
                                 )
                               ],
@@ -2039,6 +2258,7 @@ class RecordsScreenState extends ConsumerState<RecordsScreen> with TickerProvide
                                 cardModel: selectedCard,
                                 onEdit: () => editExpenseDialogue(expense),
                                 onDelete: () => deleteAlert(expense),
+                                isBulkDeleteActivated: isSelectedForBulkDelete,
                               ),
                             ),
                           ],

@@ -22,6 +22,7 @@ final accountEditingProvider = StateProvider<bool>((ref)=>false);
 final isIdSelectedForBulkDeleteProvider = StateProvider<bool>((ref)=>false);
 final selectedIdsProvider = StateProvider<Set<int>>((ref)=>{});
 final accountDashboardCollapseProvider = StateProvider<bool>((ref)=>false);
+final isAllAccSelectedForBulkDeleteProvider = StateProvider<bool>((ref)=>false);
 
 
 class AccountsScreen extends ConsumerStatefulWidget {
@@ -491,9 +492,21 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
   }
 
   void deleteAlert(CardModel card){
-    showDialog(
+    showGeneralDialog(
         context: context,
-        builder: (BuildContext context){
+        barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+        barrierColor: Colors.black45,
+        transitionDuration: const Duration(milliseconds: 600),
+        transitionBuilder: (context,anim,_,child){
+          return ScaleTransition(
+              scale: CurvedAnimation(
+                  parent: anim,
+                  curve: Curves.elasticOut
+              ),
+            child: child,
+          );
+        },
+        pageBuilder: (BuildContext context,_,_){
           return Dialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
@@ -586,9 +599,21 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
   }
 
   void bulkDeleteAlert(){
-    showDialog(
+    showGeneralDialog(
         context: context,
-        builder: (BuildContext context){
+        barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+        barrierColor: Colors.black45,
+        transitionDuration: const Duration(milliseconds: 600),
+        transitionBuilder: (context,anim,_,child){
+          return ScaleTransition(
+            scale: CurvedAnimation(
+                parent: anim,
+                curve: Curves.elasticOut
+            ),
+            child: child,
+          );
+        },
+        pageBuilder: (BuildContext context,_,_){
           final selectedIds = ref.read(selectedIdsProvider);
           return Dialog(
             shape: RoundedRectangleBorder(
@@ -694,11 +719,10 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
     );
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     var theme = Theme.of(context);
+
     final cardState = ref.watch(cardsProvider);
 
     final totalAccountBalance = cardState.cards.fold(0.0, (sum,value)=>sum+value.amount);
@@ -706,6 +730,14 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
     final avg = ref.watch(cardsProvider).cards.isEmpty ? 0.0 : ref.watch(cardsProvider).cards.fold(0.0, (sum, card) => sum + card.progress) / ref.watch(cardsProvider).cards.length;
 
     final isCollapseModeActivated = ref.watch(collapseDashboardPrefProvider);
+
+    final allSelectedNotifier = ref.read(isAllAccSelectedForBulkDeleteProvider.notifier);
+
+    final isSelectedForBulkDelete = ref.watch(isIdSelectedForBulkDeleteProvider);
+
+    final allCards = ref.watch(cardsProvider).cards;
+
+    final selectedCards = ref.watch(selectedIdsProvider);
 
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
@@ -829,7 +861,38 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
 
                               SizedBox(height: 10.h),
 
-                              // Accounts List
+                              Visibility(
+                                  visible: isSelectedForBulkDelete,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 10),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        IconButton(
+                                            onPressed: (){
+
+                                              final allCardIds = allCards.map((i)=>i.id!).toSet();
+
+                                              final allSelected = allCardIds.length==selectedCards.length && allCards.every((i)=>selectedCards.contains(i.id));
+
+                                              if(allSelected){
+                                                ref.read(selectedIdsProvider.notifier).state = {};
+                                                allSelectedNotifier.state = false;
+                                              }
+                                              else{
+                                                ref.read(selectedIdsProvider.notifier).state = allCardIds;
+                                                allSelectedNotifier.state = true;
+                                              }
+                                            },
+                                            icon: (allCards.length==selectedCards.length && allCards.every((i)=>selectedCards.contains(i.id!)))
+                                                ?Icon(Icons.check_box,color: theme.colorScheme.primary,)
+                                                :Icon(Icons.check_box_outline_blank,color: theme.colorScheme.primary,)
+                                        ),
+                                        Text('Select all',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary),)
+                                      ],
+                                    ),
+                                  )
+                              ),
                               Column(
                                 children: [
                                   ...cardState.cards.map((data) {
@@ -963,6 +1026,36 @@ class _StatsScreenState extends ConsumerState<AccountsScreen> with TickerProvide
                     SizedBox(height: 15.h),
                     cardState.cards.isEmpty ? SizedBox.shrink() : Text('All accounts', style: theme.textTheme.titleLarge),
                     SizedBox(height: 10.h),
+                    Visibility(
+                        visible: isSelectedForBulkDelete,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: [
+                              IconButton(
+                                  onPressed: (){
+                                    Set<int> allIds = allCards.map((i)=>i.id!).toSet();
+                                    bool allSelected = allCards.length==selectedCards.length && allCards.every((i)=>selectedCards.contains(i.id!));
+
+                                    if(allSelected){
+                                      ref.read(selectedIdsProvider.notifier).state = {};
+                                      allSelectedNotifier.state = false;
+                                    }
+                                    else {
+                                      ref.read(selectedIdsProvider.notifier).state = allIds;
+                                      allSelectedNotifier.state = true;
+                                     }
+                                    },
+                                  icon: (allCards.length==selectedCards.length && allCards.every((i)=>selectedCards.contains(i.id!)))?
+                                  Icon(Icons.check_box,color: theme.colorScheme.primary,)
+                                  :Icon(Icons.check_box_outline_blank,color: theme.colorScheme.primary,)
+                              ),
+                              Text('Select all',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary),)
+                            ],
+                          ),
+                        )
+                    ),
                     Expanded(
                       child: cardState.cards.isEmpty
                           ? Center(

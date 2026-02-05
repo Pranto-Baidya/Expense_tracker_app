@@ -26,6 +26,7 @@ final budgetTrackProvider = StateProvider<int>((ref)=>0);
 final selectedIdsForBulkDeleteProvider = StateProvider<Set<int>>((ref)=>{});
 final isSelectedBudgetForBulkDeleteProvider = StateProvider<bool>((ref)=>false);
 final budgetDashboardCollapsedProvider = StateProvider<bool>((ref)=>false);
+final isAllBudgetSelectedForBulkDeleteProvider = StateProvider<bool>((ref)=>false);
 
 
 class BudgetScreen extends ConsumerStatefulWidget {
@@ -390,9 +391,22 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with TickerProviderS
   }
 
   void deleteAlert(BudgetModel budget){
-    showDialog(
+    showGeneralDialog(
         context: context,
-        builder: (BuildContext context){
+        barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+        barrierColor: Colors.black45,
+        barrierDismissible: true,
+        transitionDuration: const Duration(milliseconds: 600),
+        transitionBuilder: (context,animation,_,child){
+          return ScaleTransition(
+            scale: CurvedAnimation(
+                parent: animation,
+                curve: Curves.elasticOut
+            ),
+            child: child,
+          );
+        },
+        pageBuilder: (BuildContext context,_,_){
           return Dialog(
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
@@ -485,9 +499,22 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with TickerProviderS
   }
 
   void bulkDeleteAlert(){
-    showDialog(
+    showGeneralDialog(
         context: context,
-        builder: (BuildContext context){
+        barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+        barrierColor: Colors.black45,
+        barrierDismissible: true,
+        transitionDuration: const Duration(milliseconds: 600),
+        transitionBuilder: (context,animation,_,child){
+          return ScaleTransition(
+              scale: CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.elasticOut
+              ),
+            child: child,
+          );
+        },
+        pageBuilder: (BuildContext context,_,_){
           final selectedIds = ref.read(selectedIdsForBulkDeleteProvider);
           return Dialog(
             shape: RoundedRectangleBorder(
@@ -1064,10 +1091,12 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with TickerProviderS
                           separatorBuilder: (_, __) => SizedBox(height: 12.h),
                           itemBuilder: (context, index) {
                             final data = matchedRecord[index];
+
                             final formattedAmount = NumberFormat.currency(
                               symbol: ref.read(newCurrencyProvider).currency,
                               decimalDigits: 2,
                             ).format(data.amount);
+
                             final acc = accounts.firstWhere((i) => i.id == data.accountId);
 
                             return FadeTransition(
@@ -1280,6 +1309,10 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with TickerProviderS
 
     final isCollapseModeActivated = ref.watch(collapseDashboardPrefProvider);
 
+    final allSelectedNotifier = ref.read(isAllBudgetSelectedForBulkDeleteProvider.notifier);
+
+    final allFilteredBudgets = ref.watch(budgetProvider).filteredBudgets;
+
     return Scaffold(
       backgroundColor: theme.colorScheme.primary,
 
@@ -1462,55 +1495,64 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with TickerProviderS
                                               ),
                                             ],
                                           ),
-                                          child: Row(
-                                            children: [
-                                              Container(
-                                                height: 45.w,
-                                                width: 45.w,
-                                                decoration: BoxDecoration(
-                                                  borderRadius: BorderRadius.circular(14.r),
-                                                  gradient: LinearGradient(
-                                                    colors: [
-                                                      data.color.withOpacity(0.9),
-                                                      data.color.withOpacity(0.6),
+                                            child: Row(
+                                              children: [
+                                                Container(
+                                                  height: 45.w,
+                                                  width: 45.w,
+                                                  decoration: BoxDecoration(
+                                                    borderRadius: BorderRadius.circular(14.r),
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        data.color.withOpacity(0.9),
+                                                        data.color.withOpacity(0.6),
+                                                      ],
+                                                      begin: Alignment.topLeft,
+                                                      end: Alignment.bottomRight,
+                                                    ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: data.color.withOpacity(0.3),
+                                                        blurRadius: 12,
+                                                        spreadRadius: 1,
+                                                        offset: const Offset(0, 4),
+                                                      )
                                                     ],
-                                                    begin: Alignment.topLeft,
-                                                    end: Alignment.bottomRight,
                                                   ),
-                                                  boxShadow: [
-                                                    BoxShadow(
-                                                      color: data.color.withOpacity(0.3),
-                                                      blurRadius: 12,
-                                                      spreadRadius: 1,
-                                                      offset: const Offset(0, 4),
-                                                    )
-                                                  ],
+                                                  child: Icon(data.icon, color: Colors.white, size: 22),
                                                 ),
-                                                child: Icon(data.icon, color: Colors.white, size: 22),
-                                              ),
-                                              SizedBox(width: 20.w),
-                                              Text(data.categoryName, style: theme.textTheme.titleMedium),
-                                              const Spacer(),
-                                              ElevatedButton(
-                                                onPressed: () => addBudgetDialogue(data),
-                                                style: ElevatedButton.styleFrom(
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(15.r),
-                                                    side: BorderSide(color: theme.colorScheme.primary),
-                                                  ),
-                                                  backgroundColor: theme.cardColor,
-                                                  minimumSize: const Size(100, 50),
-                                                  elevation: 0,
-                                                ),
-                                                child: Text(
-                                                  'Set budget',
-                                                  style: theme.textTheme.titleMedium?.copyWith(
-                                                    color: theme.colorScheme.primary,
+                                                SizedBox(width: 20.w),
+                                                Expanded(
+                                                  child: Text(
+                                                    data.categoryName,
+                                                    style: theme.textTheme.titleMedium,
+                                                    overflow: TextOverflow.ellipsis,
                                                   ),
                                                 ),
-                                              ),
-                                            ],
-                                          ),
+                                                SizedBox(width: 12.w),
+                                                ElevatedButton(
+                                                  onPressed: () => addBudgetDialogue(data),
+                                                  style: ElevatedButton.styleFrom(
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius: BorderRadius.circular(12.r),
+                                                      side: BorderSide(color: theme.colorScheme.primary),
+                                                    ),
+                                                    backgroundColor: theme.cardColor,
+                                                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+                                                    elevation: 0,
+                                                  ),
+                                                  child: FittedBox(
+                                                    child: Text(
+                                                      'Set budget',
+                                                      style: theme.textTheme.titleSmall?.copyWith(
+                                                        color: theme.colorScheme.primary,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            )
                                         ),
                                       ),
                                     );
@@ -1581,6 +1623,38 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with TickerProviderS
                                     style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
                                   ),
                                 ],
+                              ),
+                              isSelectedForBulkDelete? SizedBox(height: 5.h,):SizedBox.shrink(),
+                              Visibility(
+                                  visible: isSelectedForBulkDelete,
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 10),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.end,
+                                      children: [
+                                        IconButton(
+                                            onPressed: (){
+                                              final allIds = allFilteredBudgets.map((i)=>i.id!).toSet();
+
+                                              final areAllSelected = allFilteredBudgets.length==selectedIdsState.length && allFilteredBudgets.every((i)=>selectedIdsState.contains(i.id!));
+
+                                              if(areAllSelected){
+                                                selectedIdsNotifier.state = {};
+                                                allSelectedNotifier.state = false;
+                                              }
+                                              else{
+                                                selectedIdsNotifier.state = allIds;
+                                                allSelectedNotifier.state = true;
+                                              }
+                                            },
+                                            icon: (allFilteredBudgets.length==selectedIdsState.length && allFilteredBudgets.every((i)=>selectedIdsState.contains(i.id!)))?
+                                            Icon(Icons.check_box,color: theme.colorScheme.primary,)
+                                                :Icon(Icons.check_box_outline_blank,color: theme.colorScheme.primary,)
+                                        ),
+                                        Text('Select all',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary),)
+                                      ],
+                                    ),
+                                  )
                               ),
                               if (isPastMonth) SizedBox(height: 10.h),
                               ...budgetsForDates.map((budget) {
@@ -1696,49 +1770,49 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with TickerProviderS
                           SizedBox(height: 10.h),
                           ...unbudgetedCategories.map((data) {
                             final index = unbudgetedCategories.indexOf(data);
-                            return Padding(
-                              padding: EdgeInsets.symmetric(vertical: 8.0),
-                              child: Container(
-                                padding: EdgeInsets.all(15),
-                                decoration: BoxDecoration(
-                                  color: theme.cardColor.withOpacity(0.92),
-                                  borderRadius: BorderRadius.circular(18.r),
-                                  border: Border.all(
-                                    color: theme.dividerColor.withOpacity(0.15),
-                                    width: 1,
+                            return ListAnimationWidget(
+                              offset: const Offset(0, 0.3),
+                              index: index,
+                              child: Padding(
+                                padding: EdgeInsets.symmetric(vertical: 8.0),
+                                child: Container(
+                                  padding: EdgeInsets.all(15),
+                                  decoration: BoxDecoration(
+                                    color: theme.cardColor.withOpacity(0.92),
+                                    borderRadius: BorderRadius.circular(18.r),
+                                    border: Border.all(
+                                      color: theme.dividerColor.withOpacity(0.15),
+                                      width: 1,
+                                    ),
+                                    boxShadow: Theme.of(context).brightness == Brightness.dark
+                                        ? [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.4),
+                                        blurRadius: 12,
+                                        offset: const Offset(0, 4),
+                                      ),
+                                      BoxShadow(
+                                        color: Colors.white.withOpacity(0.05),
+                                        blurRadius: 4,
+                                        offset: const Offset(0, -1),
+                                      ),
+                                    ]
+                                        : [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.06),
+                                        blurRadius: 18,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                      BoxShadow(
+                                        color: Colors.white.withOpacity(0.4),
+                                        blurRadius: 10,
+                                        offset: const Offset(-2, -2),
+                                      ),
+                                    ],
                                   ),
-                                  boxShadow: Theme.of(context).brightness == Brightness.dark
-                                      ? [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.4),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                    BoxShadow(
-                                      color: Colors.white.withOpacity(0.05),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, -1),
-                                    ),
-                                  ]
-                                      : [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.06),
-                                      blurRadius: 18,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                    BoxShadow(
-                                      color: Colors.white.withOpacity(0.4),
-                                      blurRadius: 10,
-                                      offset: const Offset(-2, -2),
-                                    ),
-                                  ],
-                                ),
-                                child: Row(
-                                  children: [
-                                    ListAnimationWidget(
-                                      offset: const Offset(0, 0.3),
-                                      index: index,
-                                      child: Container(
+                                  child: Row(
+                                    children: [
+                                      Container(
                                         height: 45.w,
                                         width: 45.w,
                                         decoration: BoxDecoration(
@@ -1762,31 +1836,38 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with TickerProviderS
                                         ),
                                         child: Icon(data.icon, color: Colors.white, size: 22),
                                       ),
-                                    ),
-                                    SizedBox(width: 20.w),
-                                    Expanded(child: Text(data.categoryName, style: theme.textTheme.titleMedium)),
-                                    Expanded(
-                                      child: ElevatedButton(
+                                      SizedBox(width: 20.w),
+                                      Expanded(
+                                        child: Text(
+                                          data.categoryName,
+                                          style: theme.textTheme.titleMedium,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      SizedBox(width: 12.w),
+                                      ElevatedButton(
                                         onPressed: () => addBudgetDialogue(data),
                                         style: ElevatedButton.styleFrom(
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(15.r),
+                                            borderRadius: BorderRadius.circular(12.r),
                                             side: BorderSide(color: theme.colorScheme.primary),
                                           ),
                                           backgroundColor: theme.cardColor,
-                                          minimumSize: const Size(100, 50),
+                                          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
                                           elevation: 0,
-                                          padding: EdgeInsets.zero
                                         ),
-                                        child: Text(
-                                          'Set budget',
-                                          style: theme.textTheme.titleMedium?.copyWith(
-                                            color: theme.colorScheme.primary,
+                                        child: FittedBox(
+                                          child: Text(
+                                            'Set budget',
+                                            style: theme.textTheme.titleSmall?.copyWith(
+                                              color: theme.colorScheme.primary,
+                                              fontWeight: FontWeight.w600,
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  )
                                 ),
                               ),
                             );
@@ -1901,6 +1982,38 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with TickerProviderS
                                           ),
                                         ],
                                       ),
+                                      isSelectedForBulkDelete? SizedBox(height: 5.h,):SizedBox.shrink(),
+                                      Visibility(
+                                          visible: isSelectedForBulkDelete,
+                                          child: Padding(
+                                            padding: const EdgeInsets.only(right: 10),
+                                            child: Row(
+                                              mainAxisAlignment: MainAxisAlignment.end,
+                                              children: [
+                                                IconButton(
+                                                    onPressed: (){
+                                                      final allIds = allFilteredBudgets.map((i)=>i.id!).toSet();
+
+                                                      final areAllSelected = allFilteredBudgets.length==selectedIdsState.length && allFilteredBudgets.every((i)=>selectedIdsState.contains(i.id!));
+
+                                                      if(areAllSelected){
+                                                        selectedIdsNotifier.state = {};
+                                                        allSelectedNotifier.state = false;
+                                                      }
+                                                      else{
+                                                        selectedIdsNotifier.state = allIds;
+                                                        allSelectedNotifier.state = true;
+                                                      }
+                                                    },
+                                                    icon: (allFilteredBudgets.length==selectedIdsState.length && allFilteredBudgets.every((i)=>selectedIdsState.contains(i.id!)))?
+                                                    Icon(Icons.check_box,color: theme.colorScheme.primary,)
+                                                    :Icon(Icons.check_box_outline_blank,color: theme.colorScheme.primary,)
+                                                ),
+                                                Text('Select all',style: theme.textTheme.titleMedium?.copyWith(color: theme.colorScheme.primary),)
+                                              ],
+                                            ),
+                                          )
+                                      ),
                                       isPastMonth?SizedBox(height: 10.w):SizedBox.shrink(),
                                       ...budgetsForDates.map((budget) {
                                         final matchedCategory = expenseCategories.allExpenseCategories.firstWhere(
@@ -1982,139 +2095,140 @@ class _StatsScreenState extends ConsumerState<BudgetScreen> with TickerProviderS
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (!isPastMonth)
-                                  ...[
-                                    SizedBox(height: 20.h),
-                                    Visibility(
-                                      visible: unbudgetedCategories.isNotEmpty,
-                                      replacement: SizedBox.shrink(),
-                                      child: Row(
-                                        crossAxisAlignment: CrossAxisAlignment.center,
-                                        children: [
-                                          Container(
-                                            width: 14,
-                                            height: 14,
-                                            decoration: BoxDecoration(
-                                              color: theme.colorScheme.primary,
-                                              shape: BoxShape.circle,
-                                              boxShadow: [
-                                                BoxShadow(
-                                                  color: theme.colorScheme.primary.withOpacity(0.4),
-                                                  blurRadius: 4,
-                                                  offset: Offset(0, 2),
-                                                ),
-                                              ],
+                                if (!isPastMonth) ...[
+                                  SizedBox(height: 20.h),
+                                  if (unbudgetedCategories.isNotEmpty)
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 14,
+                                          height: 14,
+                                          decoration: BoxDecoration(
+                                            color: theme.colorScheme.primary,
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: theme.colorScheme.primary.withOpacity(0.4),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        SizedBox(width: 10.w),
+                                        Text(
+                                          'Not budgeted this month',
+                                          style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                  SizedBox(height: 10.h),
+                                  ...unbudgetedCategories.map((data) {
+                                    final index = unbudgetedCategories.indexOf(data);
+                                    return ListAnimationWidget(
+                                      offset: const Offset(0, 0.3),
+                                      index: index,
+                                      child: Padding(
+                                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                                        child: Container(
+                                          padding: EdgeInsets.all(15),
+                                          decoration: BoxDecoration(
+                                            color: theme.cardColor.withOpacity(0.92),
+                                            borderRadius: BorderRadius.circular(18.r),
+                                            border: Border.all(
+                                              color: theme.dividerColor.withOpacity(0.15),
+                                              width: 1,
                                             ),
+                                            boxShadow: Theme.of(context).brightness == Brightness.dark
+                                                ? [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.4),
+                                                blurRadius: 12,
+                                                offset: const Offset(0, 4),
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(0.05),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, -1),
+                                              ),
+                                            ]
+                                                : [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.06),
+                                                blurRadius: 18,
+                                                offset: const Offset(0, 6),
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(0.4),
+                                                blurRadius: 10,
+                                                offset: const Offset(-2, -2),
+                                              ),
+                                            ],
                                           ),
-                                          SizedBox(width: 10.w),
-                                          Text(
-                                            'Not budgeted this month',
-                                            style: theme.textTheme.titleMedium!.copyWith(fontWeight: FontWeight.bold),
+                                          child: Row(
+                                            children: [
+                                              Container(
+                                                height: 45.w,
+                                                width: 45.w,
+                                                decoration: BoxDecoration(
+                                                  borderRadius: BorderRadius.circular(14.r),
+                                                  gradient: LinearGradient(
+                                                    colors: [
+                                                      data.color.withOpacity(0.9),
+                                                      data.color.withOpacity(0.6),
+                                                    ],
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                  ),
+                                                  boxShadow: [
+                                                    BoxShadow(
+                                                      color: data.color.withOpacity(0.3),
+                                                      blurRadius: 12,
+                                                      spreadRadius: 1,
+                                                      offset: const Offset(0, 4),
+                                                    )
+                                                  ],
+                                                ),
+                                                child: Icon(data.icon, color: Colors.white, size: 22),
+                                              ),
+                                              SizedBox(width: 20.w),
+                                              Expanded(
+                                                child: Text(
+                                                  data.categoryName,
+                                                  style: theme.textTheme.titleMedium,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              SizedBox(width: 12.w),
+                                              ElevatedButton(
+                                                onPressed: () => addBudgetDialogue(data),
+                                                style: ElevatedButton.styleFrom(
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(12.r),
+                                                    side: BorderSide(color: theme.colorScheme.primary),
+                                                  ),
+                                                  backgroundColor: theme.cardColor,
+                                                  padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
+                                                  elevation: 0,
+                                                ),
+                                                child: FittedBox(
+                                                  child: Text(
+                                                    'Set budget',
+                                                    style: theme.textTheme.titleSmall?.copyWith(
+                                                      color: theme.colorScheme.primary,
+                                                      fontWeight: FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ],
+                                        ),
                                       ),
-                                    ),
-                                    SizedBox(height: 10.h),
-                                    ListView.builder(
-                                      shrinkWrap: true,
-                                      physics: NeverScrollableScrollPhysics(),
-                                      itemCount: unbudgetedCategories.length,
-                                      itemBuilder: (context, index) {
-                                        final data = unbudgetedCategories[index];
-                                        return ListAnimationWidget(
-                                          index: index,
-                                          offset: Offset(0, 0.3),
-                                          child: Padding(
-                                            padding: EdgeInsets.symmetric(vertical: 8.0),
-                                            child: Container(
-                                              padding: EdgeInsets.all(15),
-                                              decoration: BoxDecoration(
-                                                color: theme.cardColor.withOpacity(0.92),
-                                                borderRadius: BorderRadius.circular(18.r),
-                                                border: Border.all(
-                                                  color: theme.dividerColor.withOpacity(0.15),
-                                                  width: 1,
-                                                ),
-                                                boxShadow: Theme.of(context).brightness == Brightness.dark
-                                                    ? [
-                                                  BoxShadow(
-                                                    color: Colors.black.withOpacity(0.4),
-                                                    blurRadius: 12,
-                                                    offset: const Offset(0, 4),
-                                                  ),
-                                                  BoxShadow(
-                                                    color: Colors.white.withOpacity(0.05),
-                                                    blurRadius: 4,
-                                                    offset: const Offset(0, -1),
-                                                  ),
-                                                ] : [
-                                                  BoxShadow(
-                                                    color: Colors.black.withOpacity(0.06),
-                                                    blurRadius: 18,
-                                                    offset: const Offset(0, 6),
-                                                  ),
-                                                  BoxShadow(
-                                                    color: Colors.white.withOpacity(0.4),
-                                                    blurRadius: 10,
-                                                    offset: const Offset(-2, -2),
-                                                  ),
-                                                ],
-                                              ),
-                                              child: Row(
-                                                children: [
-                                                  Container(
-                                                    height: 45.w,
-                                                    width: 45.w,
-                                                    decoration: BoxDecoration(
-                                                      borderRadius: BorderRadius.circular(14.r),
-                                                      gradient: LinearGradient(
-                                                        colors: [
-                                                          data.color.withOpacity(0.9),
-                                                          data.color.withOpacity(0.6),
-                                                        ],
-                                                        begin: Alignment.topLeft,
-                                                        end: Alignment.bottomRight,
-                                                      ),
-                                                      boxShadow: [
-                                                        BoxShadow(
-                                                          color: data.color.withOpacity(0.3),
-                                                          blurRadius: 12,
-                                                          spreadRadius: 1,
-                                                          offset: const Offset(0, 4),
-                                                        )
-                                                      ],
-                                                    ),
-                                                    child: Icon(data.icon, color: Colors.white, size: 22),
-                                                  ),
-                                                  SizedBox(width: 20.w),
-                                                  Text(data.categoryName, style: theme.textTheme.titleMedium),
-                                                  Spacer(),
-                                                  ElevatedButton(
-                                                    onPressed: ()=> addBudgetDialogue(data),
-                                                    style: ElevatedButton.styleFrom(
-                                                      shape: RoundedRectangleBorder(
-                                                        borderRadius: BorderRadius.circular(15.r),
-                                                        side: BorderSide(color: theme.colorScheme.primary),
-                                                      ),
-                                                      backgroundColor: theme.cardColor,
-                                                      minimumSize: Size(100, 50),
-                                                      elevation: 0,
-                                                    ),
-                                                    child: Text(
-                                                      'Set budget',
-                                                      style: theme.textTheme.titleMedium?.copyWith(
-                                                        color: theme.colorScheme.primary,
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ]
+                                    );
+                                  }),
+                                ],
                               ],
                             ),
                           ],

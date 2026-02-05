@@ -4,6 +4,8 @@ import 'package:expense_tracker_app/models/budget_model.dart';
 import 'package:expense_tracker_app/models/card_model.dart';
 import 'package:expense_tracker_app/models/category_model.dart';
 import 'package:expense_tracker_app/models/expense_model.dart';
+import 'package:expense_tracker_app/models/history_model.dart';
+import 'package:expense_tracker_app/models/trash_model.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
@@ -115,6 +117,40 @@ class DatabaseConnection {
       colorCode INTEGER
       )
       ''');
+
+    await db.execute(
+        '''
+        CREATE TABLE history(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        title TEXT,
+        amount REAL,
+        category TEXT,
+        accountId INTEGER,
+        date TEXT,
+        time TEXT,
+        moneyType TEXT
+        )
+        
+        '''
+    );
+
+    await db.execute(
+      '''
+      CREATE TABLE trash(
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       title TEXT NOT NULL,
+       amount REAL NOT NULL,
+       category TEXT NOT NULL,
+       accountId INTEGER NOT NULL,
+       date TEXT NOT NULL,
+       timeHour INTEGER NOT NULL,
+       timeMinute INTEGER NOT NULL,
+       moneyType TEXT NOT NULL,
+       deletedAt TEXT NOT NULL
+       
+      )
+      '''
+    );
   }
 
   Future<int> insertExpense(ExpenseModel expense) async {
@@ -263,6 +299,63 @@ class DatabaseConnection {
       where: 'categoryId = ?',
       whereArgs: [id],
     );
+  }
+
+  //history
+
+  Future<int> addToHistory(HistoryModel hist)async{
+    final db = await getDB();
+    return db.insert('history', hist.toMap(),conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<HistoryModel>> getAllHistory()async{
+    final db = await getDB();
+    List<Map<String,dynamic>> data = await db.query('history',orderBy: 'id DESC');
+    return data.map((i)=>HistoryModel.fromMap(i)).toList();
+  }
+
+  Future<int> updateHistory(HistoryModel hist)async{
+    final db = await getDB();
+    return db.update('history', hist.toMap(), where: 'id = ?', whereArgs: [hist.id]);
+  }
+
+  Future<int> deleteHistory(int id)async{
+    final db = await getDB();
+    return db.delete('history', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> emptyHistory()async{
+    final db = await getDB();
+    return db.delete('history');
+  }
+
+  //trash table
+
+  Future<int> insertTrash(TrashModel trash)async{
+    final db = await getDB();
+    return db.insert('trash', trash.toMap(),conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<TrashModel>> getAllTrashes()async{
+    final db = await getDB();
+    List<Map<String,dynamic>> data = await db.query('trash',orderBy: 'deletedAt DESC');
+    return data.map((i)=>TrashModel.fromMap(i)).toList();
+  }
+
+  Future<int> deleteTrash(int id)async{
+    final db = await getDB();
+    return db.delete('trash', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<int> deleteOldTrash({int daysOld = 30})async{
+    final db = await getDB();
+    final cutOffDate = DateTime.now().subtract(Duration(days: daysOld));
+    return db.delete('trash',where: 'deletedAt < ?', whereArgs: [cutOffDate.toIso8601String()]);
+  }
+
+  Future<int> clearAllTrash()async{
+    final db = await getDB();
+    return db.delete('trash');
   }
 
   //Backup+Restore methods

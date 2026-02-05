@@ -16,6 +16,7 @@ class ExpenseTile extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onDelete;
   final CardModel cardModel;
+  final bool isBulkDeleteActivated;
 
   const ExpenseTile({
     super.key,
@@ -26,6 +27,7 @@ class ExpenseTile extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.cardModel,
+    this.isBulkDeleteActivated = false
   });
 
   @override
@@ -39,7 +41,196 @@ class ExpenseTile extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.symmetric(vertical: 8.h),
-      child: Slidable(
+      child: isBulkDeleteActivated?
+      Container(
+        decoration: BoxDecoration(
+          color: theme.cardColor.withOpacity(0.92),
+          borderRadius: BorderRadius.circular(18.r),
+          border: Border.all(
+            color: theme.dividerColor.withOpacity(0.15),
+            width: 1,
+          ),
+          boxShadow: Theme.of(context).brightness == Brightness.dark
+              ? [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.4),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, -1),
+            ),
+          ] : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.06),
+              blurRadius: 18,
+              offset: const Offset(0, 6),
+            ),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.4),
+              blurRadius: 10,
+              offset: const Offset(-2, -2),
+            ),
+          ],
+
+        ),
+        padding: EdgeInsets.all(16.w),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Container(
+                  height: 45.w,
+                  width: 45.w,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14.r),
+                    gradient: LinearGradient(
+                      colors: [
+                        bgColor.withOpacity(0.9),
+                        bgColor.withOpacity(0.6),
+                      ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: bgColor.withOpacity(0.3),
+                        blurRadius: 12,
+                        spreadRadius: 1,
+                        offset: const Offset(0, 4),
+                      )
+                    ],
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 22),
+                ),
+                SizedBox(width: 14.w),
+                Expanded(
+                  child: Text(
+                    expenseModel.title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.2,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                Text(
+                  '${expenseModel.moneyType.name == 'income' ? '+' : '-'} $formattedAmount',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: getColor(expenseModel.moneyType),
+                    fontSize: 17.sp,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+
+            //SizedBox(height: 12.h),
+
+            /*Padding(
+                padding: const EdgeInsets.only(left: 55),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 100.w,
+                      padding: EdgeInsets.only(left: 5,right: 5,top: 3,bottom: 3),
+                      decoration: BoxDecoration(
+                        color: bgColor.withOpacity(0.07),
+                        border: Border.all(color: bgColor),
+                        borderRadius: BorderRadius.circular(20.r)
+                      ),
+                      child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                          Icon(icon,size: 18,color: bgColor,),
+                          Text(expenseModel.category,style: theme.textTheme.titleSmall?.copyWith(color: bgColor),),
+                        ],
+                      )),
+                    ),
+                    SizedBox(width: 10.w,),
+                    Container(
+                      width: 100.w,
+                      padding: EdgeInsets.only(left: 5,right: 5,top: 3,bottom: 3),
+                      decoration: BoxDecoration(
+                          color: theme.colorScheme.primary.withOpacity(0.07),
+                          border: Border.all(color: theme.colorScheme.primary,),
+                          borderRadius: BorderRadius.circular(20.r)
+                      ),
+                      child: Center(
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              Icon(cardModel.icon,size: 18,color: theme.colorScheme.primary,),
+                              Text(cardModel.cardName,style: theme.textTheme.titleSmall?.copyWith(color: theme.colorScheme.primary,),),
+                            ],
+                          )),
+                    )
+                  ],
+                ),
+              ),*/
+
+            SizedBox(height: 18.h),
+
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
+              decoration: BoxDecoration(
+                color: theme.cardColor.withOpacity(0.6),
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Text("Category:",
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          )),
+                      SizedBox(width: 6.w),
+                      Text(
+                        expenseModel.category,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 10.h),
+                  Row(
+                    children: [
+                      Text("Account:",
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                          )),
+                      SizedBox(width: 6.w),
+                      Icon(
+                        cardModel.icon,
+                        size: 20,
+                        color: theme.colorScheme.primary,
+                      ),
+                      SizedBox(width: 6.w),
+                      Text(
+                        cardModel.cardName,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      )
+      :Slidable(
         key: ValueKey(expenseModel.id),
         startActionPane: ActionPane(
           motion: const StretchMotion(),
